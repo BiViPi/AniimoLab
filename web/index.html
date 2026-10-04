@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AniimoLab - Homeland Production Simulator & Optimizer</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=aniimolab_v3">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
+
 <body>
     <header class="app-navbar">
         <div class="navbar-brand-wrapper">
@@ -25,13 +29,16 @@
             </div>
         </div>
         <div class="navbar-actions">
-            <button class="nav-btn" onclick="showFacilities()" id="facilitiesToggle"><span class="btn-sym">🏭</span> Facilities</button>
+            <button class="nav-btn" onclick="showFacilities()" id="facilitiesToggle"><span class="btn-sym">🏭</span>
+                Facilities</button>
             <button class="nav-btn" onclick="showMath()" id="mathToggle"><span class="btn-sym">📐</span> Math</button>
             <button class="nav-btn" onclick="showHelp()" id="helpToggle"><span class="btn-sym">📖</span> Guide</button>
-            <button class="nav-btn theme-toggle-btn" onclick="toggleTheme()" id="themeToggle"><span class="btn-sym">🌓</span> Theme</button>
+            <button class="nav-btn theme-toggle-btn" onclick="toggleTheme()" id="themeToggle"><span
+                    class="btn-sym">🌓</span> Theme</button>
         </div>
     </header>
-    <p class="disclaimer"><span class="disclaimer-icon" aria-hidden="true">⚠</span>A few recipes, facility levels and counts haven't been confirmed in game yet; they're marked where they're used.</p>
+    <p class="disclaimer"><span class="disclaimer-icon" aria-hidden="true">⚠</span>A few recipes, facility levels and
+        counts haven't been confirmed in game yet; they're marked where they're used.</p>
 
     <div class="container">
 
@@ -39,12 +46,8 @@
             <section class="card config-section">
                 <div class="card-head">
                     <h2>Your Homeland</h2>
-                    <button type="button" id="clear-saved-btn" class="toggle-button small" title="Your inputs are saved in this browser automatically.">Clear saved values</button>
-                </div>
-
-                <div class="tabs" role="radiogroup" aria-label="Input mode">
-                    <label><input type="radio" name="config-mode" id="mode-simple" value="simple" checked> Simple</label>
-                    <label><input type="radio" name="config-mode" id="mode-advanced" value="advanced"> Advanced</label>
+                    <button type="button" id="clear-saved-btn" class="toggle-button small"
+                        title="Your inputs are saved in this browser automatically.">Clear saved values</button>
                 </div>
 
                 <div id="simple-config">
@@ -90,7 +93,8 @@
                                 <div class="power-gauge-fill" id="simple-power-gauge-fill" style="width: 100%;"></div>
                             </div>
                         </div>
-                        <p class="hint small" id="emode-simple-hint">Auto-balances power within generator limit. Frees Aniimo workers on electric units; remaining units run manually with Aniimo.</p>
+                        <p class="hint small" id="emode-simple-hint">Auto-balances power within generator limit. Frees
+                            Aniimo workers on electric units; remaining units run manually with Aniimo.</p>
                     </div>
                     <p class="hint">Assumes you've built and upgraded everything your RV level allows.</p>
                     <details class="explain simple-details">
@@ -99,111 +103,25 @@
                     </details>
                 </div>
 
-                <div id="advanced-config">
-                    <h3>Facilities</h3>
-                    <p class="hint">Set the count and level for each facility you have.</p>
-                    <div class="fill-row">
-                        <label for="fill-level">Fill from RV level</label>
-                        <select id="fill-level"></select>
-                        <button type="button" id="fill-btn" class="skip-add-btn">Fill</button>
-                        <span class="hint small">Replaces every count and level below with what that RV level allows.</span>
-                    </div>
-
-                    <!-- Facility cards are generated dynamically by app.js from the FACILITIES config,
-                         grouped into category sections (Materials / Environment / Materials
-                         Processing), so new facilities can be added without editing this file. -->
-                    <div class="facilities-container" id="facilities-grid"></div>
-
-                    <h3>Item Upgrade Modules</h3>
-                    <p class="hint">Set the level for each upgrade module you have unlocked (0 = not unlocked).</p>
-
-                    <div class="modules-grid">
-                        <div class="module-card">
-                            <h4>Ecological Module <span class="info-icon" data-tooltip="Lv.1: Quick Wheat&#10;Lv.2: Quick Bamboo&#10;Lv.3: Quick Potato&#10;Lv.4: Quick Lemon&#10;Lv.5: Quick Rice&#10;Lv.6: Quick Maple Syrup&#10;Lv.7: Quick Strawberry&#10;Lv.8: Quick Coconut">?</span></h4>
-                            <div class="input-field">
-                                <label for="ecological-module-level">Level</label>
-                                <input type="number" id="ecological-module-level" value="0" min="0" max="10">
-                            </div>
-                        </div>
-
-                        <div class="module-card">
-                            <h4>Kitchen Module <span class="info-icon" data-tooltip="Lv.2: Premium Bread&#10;Lv.3: Premium Potato Soup&#10;Lv.4: Premium Sweet Rice Wine&#10;Lv.5: Premium Salted Lemon&#10;Lv.6: Premium Jello&#10;Lv.7: Premium Berry Chocolate Coconut Pudding">?</span></h4>
-                            <div class="input-field">
-                                <label for="kitchen-module-level">Level</label>
-                                <input type="number" id="kitchen-module-level" value="0" min="0" max="10">
-                            </div>
-                        </div>
-
-                        <div class="module-card">
-                            <h4>Resource Detector <span class="info-icon" data-tooltip="Lv.1: Quick Well Water&#10;Lv.2: Quick Sea Salt&#10;Lv.3: Quick Aromathyst&#10;Lv.4: Quick Fresh Water&#10;Lv.5: Quick Wool&#10;Lv.6: Quick Deep Rock Spring Water&#10;Lv.7: Quick Natural Mineral Spring Water&#10;Lv.8: Quick Scales">?</span></h4>
-                            <div class="input-field">
-                                <label for="resource-detector-level">Level</label>
-                                <input type="number" id="resource-detector-level" value="0" min="0" max="10">
-                            </div>
-                        </div>
-
-                        <div class="module-card">
-                            <h4>Crafting Module <span class="info-icon" data-tooltip="Lv.1: Premium River-Washed Stones&#10;Lv.2: Premium Rose Freshener&#10;Lv.3: Advanced Lemon Incense&#10;Lv.4: Advanced Wind Chime&#10;Lv.5: Premium Soap&#10;Lv.6: Advanced Gemstone Dust&#10;Lv.7: Premium Mixed Perfume">?</span></h4>
-                            <div class="input-field">
-                                <label for="crafting-module-level">Level</label>
-                                <input type="number" id="crafting-module-level" value="0" min="0" max="10">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="emode-section">
-                        <h3>Electric Mode (E-mode) <span class="info-icon" data-tooltip="Unlocked at RV 12. Electrified facilities operate automatically using power and do not require Aniimo workers. Crackle Generator can be upgraded from 600W (Lv.1) up to 1500W (Lv.5). Actual production time = Base E-mode Time / (Power Supply Rate %).">?</span></h3>
-                        <p class="hint">Electrify processing facilities. Electrified units run automatically without needing Aniimo workers.</p>
-                        <div class="power-gauge-container" id="advanced-power-gauge-container">
-                            <div class="power-gauge-header">
-                                <span class="power-gauge-title" id="advanced-power-gauge-title">⚡ Generator Power:</span>
-                                <span class="power-gauge-value" id="advanced-power-gauge-value">600W / 600W (100%)</span>
-                            </div>
-                            <div class="power-gauge-track">
-                                <div class="power-gauge-fill" id="advanced-power-gauge-fill" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                        <div class="emode-controls-row">
-                            <div class="input-field emode-generator-field">
-                                <label for="generator-capacity">Generator</label>
-                                <select id="generator-capacity">
-                                    <option value="600">600W (Lv.1: RV 12–13)</option>
-                                    <option value="800">800W (Lv.2: RV 14–15)</option>
-                                    <option value="1000">1000W (Lv.3: RV 16–17)</option>
-                                    <option value="1200">1200W (Lv.4: RV 18–19)</option>
-                                    <option value="1500">1500W (Lv.5: RV 20)</option>
-                                </select>
-                            </div>
-                            <div class="input-field emode-rate-field">
-                                <label for="power-grid-rate">Supply Rate</label>
-                                <select id="power-grid-rate">
-                                    <option value="100">100% (Standard)</option>
-                                    <option value="120">120% (Optimal Buff)</option>
-                                </select>
-                            </div>
-                            <div class="emode-buttons">
-                                <button type="button" id="emode-auto-btn" class="skip-add-btn highlight-btn">Auto-balance</button>
-                                <button type="button" id="emode-all-btn" class="skip-add-btn">Enable all</button>
-                                <button type="button" id="emode-none-btn" class="skip-add-btn">Disable all</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="strategy">
                     <h3>Strategy</h3>
                     <div class="tabs" role="radiogroup" aria-label="Strategy">
-                        <label><input type="radio" name="strategy" id="strategy-level-up" value="level-up" checked> Level up</label>
-                        <label><input type="radio" name="strategy" id="strategy-priorities" value="priorities"> Priorities</label>
+                        <label><input type="radio" name="strategy" id="strategy-level-up" value="level-up" checked>
+                            Level up</label>
+                        <label><input type="radio" name="strategy" id="strategy-priorities" value="priorities">
+                            Priorities</label>
                     </div>
 
                     <div id="priorities-config" style="display: none;">
-                        <p class="hint">Switch on what you want and drag to rank it. The plan makes as much of the first as it can, then as much of the next as that allows, and so on. Whatever's left always goes to Home Coins.</p>
+                        <p class="hint">Switch on what you want and drag to rank it. The plan makes as much of the first
+                            as it can, then as much of the next as that allows, and so on. Whatever's left always goes
+                            to Home Coins.</p>
                         <ol class="priority-list" id="priority-list"></ol>
                     </div>
 
                     <div id="level-up-config">
-                        <p class="hint">Gets everything your next RV level costs as soon as possible, then earns as many Home Coins as that leaves room for.</p>
+                        <p class="hint">Gets everything your next RV level costs as soon as possible, then earns as many
+                            Home Coins as that leaves room for.</p>
                         <div class="input-row" id="level-up-target-row">
                             <div class="input-field">
                                 <label for="level-up-target">Level up to RV</label>
@@ -213,7 +131,8 @@
                         <div id="level-up-cost"></div>
                         <details class="explain" id="level-up-stock">
                             <summary>What you already have</summary>
-                            <p class="hint small">Counts toward the level-up. Wood Blocks, Mineral Sand and lower tiers get processed up.</p>
+                            <p class="hint small">Counts toward the level-up. Wood Blocks, Mineral Sand and lower tiers
+                                get processed up.</p>
                             <div class="stock-grid" id="level-up-stock-grid"></div>
                         </details>
                     </div>
@@ -226,7 +145,9 @@
                         <span class="season-title">Harvest Moon Festival</span>
                     </label>
                     <div id="season-config" hidden>
-                        <p class="hint">A seasonal event with its own currency, Moonray Wheat, which buys the season's seeds. Keeping enough wheat on hand is up to you; plans show how much their seeds use. Season items also earn Harvest Moon Points, which you can rank under Priorities.</p>
+                        <p class="hint">A seasonal event with its own currency, Moonray Wheat, which buys the season's
+                            seeds. Keeping enough wheat on hand is up to you; plans show how much their seeds use.
+                            Season items also earn Harvest Moon Points, which you can rank under Priorities.</p>
                         <p class="assume-title">Recipe Notes</p>
                         <div class="special-grid" id="season-notes"></div>
                     </div>
@@ -238,9 +159,11 @@
                     <p class="hint small">These take a rare currency to unlock. Plans only use the ones you tick.</p>
                     <div class="special-grid" id="special-grid"></div>
                     <p class="assume-title">Recipes to skip</p>
-                    <p class="hint small">Plans won't use these, e.g. recipes behind unlocks you don't have yet. You can also skip one straight from a plan with its ✕.</p>
+                    <p class="hint small">Plans won't use these, e.g. recipes behind unlocks you don't have yet. You can
+                        also skip one straight from a plan with its ✕.</p>
                     <div class="skip-add">
-                        <input type="text" id="skip-input" list="skip-options" placeholder="Search recipes" autocomplete="off" aria-label="Recipe to skip">
+                        <input type="text" id="skip-input" list="skip-options" placeholder="Search recipes"
+                            autocomplete="off" aria-label="Recipe to skip">
                         <button type="button" id="skip-add-btn" class="skip-add-btn">Skip</button>
                     </div>
                     <datalist id="skip-options"></datalist>
@@ -270,17 +193,17 @@
                             <div id="level-up-lines"></div>
                         </div>
                         <div id="rate-block">
-                        <span class="summary-label" id="rate-label">Your Rate</span>
-                        <div class="rate-line" id="rate-line">
-                            <span class="summary-value" id="plan-rate">-</span>
-                            <select id="rate-unit" class="rate-unit-select" aria-label="Rate unit">
-                                <option value="second">per second</option>
-                                <option value="minute">per minute</option>
-                                <option value="hour">per hour</option>
-                                <option value="day">per day</option>
-                            </select>
-                        </div>
-                        <div id="priority-rates"></div>
+                            <span class="summary-label" id="rate-label">Your Rate</span>
+                            <div class="rate-line" id="rate-line">
+                                <span class="summary-value" id="plan-rate">-</span>
+                                <select id="rate-unit" class="rate-unit-select" aria-label="Rate unit">
+                                    <option value="second">per second</option>
+                                    <option value="minute">per minute</option>
+                                    <option value="hour">per hour</option>
+                                    <option value="day">per day</option>
+                                </select>
+                            </div>
+                            <div id="priority-rates"></div>
                         </div>
                         <p class="plan-proof" id="plan-explored-hint"></p>
                         <p class="plan-unverified" id="plan-unverified" style="display: none;"></p>
@@ -290,181 +213,240 @@
                     <div class="results-dashboard-grid">
                         <div class="results-main-col">
                             <div class="card production-steps" id="layout-card" style="display: none;">
-                        <h2>Homeland 2D Layout Simulator</h2>
-                        <p class="hint" id="layout-summary"></p>
-                        <details class="explain">
-                            <summary>How it's laid out</summary>
-                            <p>Every finished batch is carried to the Storage Unit (SU), so each facility is placed by its trips per hour times its straight-line distance to it: the busiest sit closest, idle ones go to the edge. Each environment building's plots can go anywhere its coverage still reaches them, so they sit on its Storage Unit side. No covered plot reaches another building's coverage, and a crop that needs an environment but is grown without one stays out of all of it, so every crop keeps the temperature the plan gave it. Crops that need no environment can go anywhere. Everything stays within the plots your RV level has open (each 20 by 15 tiles; in Advanced mode, the lowest RV level that allows what you entered), and the Storage Unit goes wherever the walking comes out least. Hover or tap a facility for its trips and distance. The diagram plays the homeland out in sped-up game time from when everything is set up: each finished batch goes to the Storage Unit (carrying takes no time here), and a recipe starts only once what it takes is there. A ring on each facility shows its batch, amber while it waits for materials. This is a close-packed arrangement worked out step by step, not a proven shortest one.</p>
-                        </details>
-                        <div class="layout-controls">
-                            <span class="layout-toggles">
-                                <label class="layout-whole"><input type="checkbox" id="layout-whole"> Show whole homeland</label>
-                                <label class="layout-whole"><input type="checkbox" id="layout-sim-on" checked> Simulate</label>
-                                <label class="layout-whole" style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    Storage Units:
-                                    <select id="layout-su-count" class="toggle-button small su-count-select">
-                                        <option value="3" selected>3 SU (Farm, Workshop, Central)</option>
-                                        <option value="4">4 SU (+ Forestry)</option>
-                                        <option value="5">5 SU (+ Expansion)</option>
-                                    </select>
-                                </label>
-                            </span>
-                            <span class="layout-sim" id="layout-sim" hidden><span id="layout-clock">0h 00m</span><button type="button" class="toggle-button small" id="layout-replay">Replay</button></span>
-                        </div>
-                        <div class="layout-diagram" id="layout-diagram"></div>
-                    </div>
+                                <h2>Homeland 2D Layout Simulator</h2>
+                                <p class="hint" id="layout-summary"></p>
+                                <details class="explain">
+                                    <summary>How it's laid out</summary>
+                                    <p>Every finished batch is carried to the Storage Unit (SU), so each facility is
+                                        placed by its trips per hour times its straight-line distance to it: the busiest
+                                        sit closest, idle ones go to the edge. Each environment building's plots can go
+                                        anywhere its coverage still reaches them, so they sit on its Storage Unit side.
+                                        No covered plot reaches another building's coverage, and a crop that needs an
+                                        environment but is grown without one stays out of all of it, so every crop keeps
+                                        the temperature the plan gave it. Crops that need no environment can go
+                                        anywhere. Everything stays within the plots your RV level has open (each 20 by
+                                        15 tiles; in Advanced mode, the lowest RV level that allows what you entered),
+                                        and the Storage Unit goes wherever the walking comes out least. Hover or tap a
+                                        facility for its trips and distance. The diagram plays the homeland out in
+                                        sped-up game time from when everything is set up: each finished batch goes to
+                                        the Storage Unit (carrying takes no time here), and a recipe starts only once
+                                        what it takes is there. A ring on each facility shows its batch, amber while it
+                                        waits for materials. This is a close-packed arrangement worked out step by step,
+                                        not a proven shortest one.</p>
+                                </details>
+                                <div class="layout-controls">
+                                    <span class="layout-toggles">
+                                        <label class="layout-whole"><input type="checkbox" id="layout-whole"> Show whole
+                                            homeland</label>
+                                        <label class="layout-whole"><input type="checkbox" id="layout-sim-on" checked>
+                                            Simulate</label>
+                                        <label class="layout-whole"
+                                            style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                            Storage Units:
+                                            <select id="layout-su-count" class="toggle-button small su-count-select">
+                                                <option value="3" selected>3 SU (Farm, Workshop, Central)</option>
+                                                <option value="4">4 SU (+ Forestry)</option>
+                                                <option value="5">5 SU (+ Expansion)</option>
+                                            </select>
+                                        </label>
+                                    </span>
+                                    <span class="layout-sim" id="layout-sim" hidden><span id="layout-clock">0h
+                                            00m</span><button type="button" class="toggle-button small"
+                                            id="layout-replay">Replay</button></span>
+                                </div>
+                                <div class="layout-diagram" id="layout-diagram"></div>
+                            </div>
                             <div class="card production-steps">
-                        <h2>What Each Facility Should Do</h2>
-                        <details class="explain">
-                            <summary>How to read this</summary>
-                            <p>Each row is one product; a facility split between several products gets a row for each. Crops that need a growing environment are grouped by the Heat Furnace, Cooling Unit or Sunlamp setting that covers them, with its layout. Everything else is grouped like the facility list.</p>
-                            <p>In the Aniimo column, each circle is an ability in its game color with the Aniimo level inside; a ring means the plan counts on the facility's personality bonus. Hover a circle for details.</p>
-                        </details>
-                        <!-- Populated by app.js's renderFacilityPlan(): one section per
+                                <h2>What Each Facility Should Do</h2>
+                                <details class="explain">
+                                    <summary>How to read this</summary>
+                                    <p>Each row is one product; a facility split between several products gets a row for
+                                        each. Crops that need a growing environment are grouped by the Heat Furnace,
+                                        Cooling Unit or Sunlamp setting that covers them, with its layout. Everything
+                                        else is grouped like the facility list.</p>
+                                    <p>In the Aniimo column, each circle is an ability in its game color with the Aniimo
+                                        level inside; a ring means the plan counts on the facility's personality bonus.
+                                        Hover a circle for details.</p>
+                                </details>
+                                <!-- Populated by app.js's renderFacilityPlan(): one section per
                              environment mode in use (Cool/Warm/Freeze/Scorching/Adequate) first,
                              then one table per facility category (Materials / Environment /
                              Materials Processing) for everything else. -->
-                        <div id="facility-plan-container" class="facilities-container"></div>
-                    </div>
+                                <div id="facility-plan-container" class="facilities-container"></div>
+                            </div>
                             <div class="card production-steps" id="seed-card" style="display: none;">
-                        <h2>Seeds to Plant</h2>
-                        <p class="hint" id="seed-card-unit"></p>
-                        <div class="seed-table" id="seed-table"></div>
-                    </div>
+                                <h2>Seeds to Plant</h2>
+                                <p class="hint" id="seed-card-unit"></p>
+                                <div class="seed-table" id="seed-table"></div>
+                            </div>
                             <div class="card production-steps" id="profit-card" style="display: none;">
-                        <h2>Profit by Product</h2>
-                        <p class="hint">Net of seed costs.</p>
-                        <div id="profit-breakdown"></div>
-                    </div>
+                                <h2>Profit by Product</h2>
+                                <p class="hint">Net of seed costs.</p>
+                                <div id="profit-breakdown"></div>
+                            </div>
                         </div>
                         <div class="results-sidebar-col">
-                                                <div class="card insights-card" id="insights-card">
-                        <div class="card-head">
-                            <h2>Why this Plan? & Insights</h2>
-                            <span class="badge-pill optimal-pill">Optimal Solved</span>
-                        </div>
-                        <div id="insights-content" class="insights-body">
-                            <!-- Populated dynamically by app.js -->
-                        </div>
-                    </div>
+                            <div class="card insights-card" id="insights-card">
+                                <div class="card-head">
+                                    <h2>Why this Plan? & Insights</h2>
+                                    <span class="badge-pill optimal-pill">Optimal Solved</span>
+                                </div>
+                                <div id="insights-content" class="insights-body">
+                                    <!-- Populated dynamically by app.js -->
+                                </div>
+                            </div>
                             <div class="card production-steps" id="improve-card" style="display: none;">
-                        <h2>Opportunities</h2>
-                        <div id="improve-list"></div>
-                    </div>
+                                <h2>Opportunities</h2>
+                                <div id="improve-list"></div>
+                            </div>
                             <div class="card aniimo-card" id="aniimo-card">
-                        <div class="card-head">
-                            <button type="button" class="collapse-toggle" id="aniimo-toggle" aria-expanded="false" aria-controls="aniimo-body">
-                                <span class="chevron" aria-hidden="true"></span>
-                                <h2>Aniimo Team</h2>
-                            </button>
-                            <div class="tabs compact" role="radiogroup" aria-label="Aniimo setup">
-                                <label title="The best Aniimo you have, with each facility's personality"><input type="radio" name="aniimo-setup" id="aniimo-best" value="best" checked> Best</label>
-                                <label title="The lowest ability level each recipe accepts: the least you can get by with"><input type="radio" name="aniimo-setup" id="aniimo-minimum" value="minimum"> Minimum</label>
-                                <label title="Plan with the Aniimo you actually have"><input type="radio" name="aniimo-setup" id="aniimo-custom" value="custom"> My Aniimo</label>
+                                <div class="card-head">
+                                    <button type="button" class="collapse-toggle" id="aniimo-toggle"
+                                        aria-expanded="false" aria-controls="aniimo-body">
+                                        <span class="chevron" aria-hidden="true"></span>
+                                        <h2>Aniimo Team</h2>
+                                    </button>
+                                    <div class="tabs compact" role="radiogroup" aria-label="Aniimo setup">
+                                        <label title="The best Aniimo you have, with each facility's personality"><input
+                                                type="radio" name="aniimo-setup" id="aniimo-best" value="best" checked>
+                                            Best</label>
+                                        <label
+                                            title="The lowest ability level each recipe accepts: the least you can get by with"><input
+                                                type="radio" name="aniimo-setup" id="aniimo-minimum" value="minimum">
+                                            Minimum</label>
+                                        <label title="Plan with the Aniimo you actually have"><input type="radio"
+                                                name="aniimo-setup" id="aniimo-custom" value="custom"> My Aniimo</label>
+                                    </div>
+                                </div>
+                                <div class="aniimo-setup-panel" id="aniimo-setup-panel">
+                                    <p class="hint small" id="aniimo-setup-hint"></p>
+                                    <div class="ability-levels" id="ability-levels"></div>
+                                    <div class="roster-editor" id="roster-editor" hidden></div>
+                                </div>
+                                <p class="aniimo-count" id="aniimo-count" hidden><span
+                                        id="aniimo-count-have">0</span><span class="aniimo-count-of"
+                                        id="aniimo-count-of"></span></p>
+                                <p class="collapsed-summary" id="aniimo-collapsed-summary"></p>
+                                <div class="ability-strip" id="aniimo-abilities" aria-label="Aniimo needed per ability">
+                                </div>
+                                <p class="hint small" id="aniimo-pending" style="display: none;">Still working this
+                                    setup out...</p>
+                                <div id="aniimo-body" hidden>
+                                    <details class="explain">
+                                        <summary>How the team is worked out</summary>
+                                        <p><strong>Best</strong>: the best Aniimo you have of each ability (pick its
+                                            level above), with each facility's personality. <strong>My Aniimo</strong>:
+                                            the Aniimo you list; each works what its abilities allow, for the hours it
+                                            has. <strong>Minimum</strong>: the lowest ability level each recipe accepts,
+                                            with no personality bonus. The plan below follows whichever is picked.</p>
+                                        <p>An Aniimo can take any job needing its ability at or below its level while it
+                                            has hours to spare, as long as no two of its facilities want opposite
+                                            personalities. It has four personalities, one from each pair, shown as
+                                            letters over its portrait: Instinctive or Energetic (I/E), Nimble or
+                                            Practical (N/S), Faithful or Tenacious (F/T), Playful or Judicious (P/J).
+                                            Facilities with a resident Aniimo (Sandcastle, Dewy House and the like) need
+                                            one each, and so does each Heat Furnace (Fire), Cooling Unit (Ice) and
+                                            Sunlamp (Light) in use. With My Aniimo, Farmland and Woodland jobs only need
+                                            someone able to do each; they're quick, so they aren't counted against
+                                            anyone's hours. Not yet checked in game: each recipe's minimum ability
+                                            level, the Farmland and Woodland jobs, and whether an environment building's
+                                            Aniimo level or personality matters.</p>
+                                    </details>
+                                    <div id="aniimo-summary"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="aniimo-setup-panel" id="aniimo-setup-panel">
-                            <p class="hint small" id="aniimo-setup-hint"></p>
-                            <div class="ability-levels" id="ability-levels"></div>
-                            <div class="roster-editor" id="roster-editor" hidden></div>
-                        </div>
-                        <p class="aniimo-count" id="aniimo-count" hidden><span id="aniimo-count-have">0</span><span class="aniimo-count-of" id="aniimo-count-of"></span></p>
-                        <p class="collapsed-summary" id="aniimo-collapsed-summary"></p>
-                        <div class="ability-strip" id="aniimo-abilities" aria-label="Aniimo needed per ability"></div>
-                        <p class="hint small" id="aniimo-pending" style="display: none;">Still working this setup out...</p>
-                        <div id="aniimo-body" hidden>
-                            <details class="explain">
-                                <summary>How the team is worked out</summary>
-                                <p><strong>Best</strong>: the best Aniimo you have of each ability (pick its level above), with each facility's personality. <strong>My Aniimo</strong>: the Aniimo you list; each works what its abilities allow, for the hours it has. <strong>Minimum</strong>: the lowest ability level each recipe accepts, with no personality bonus. The plan below follows whichever is picked.</p>
-                                <p>An Aniimo can take any job needing its ability at or below its level while it has hours to spare, as long as no two of its facilities want opposite personalities. It has four personalities, one from each pair, shown as letters over its portrait: Instinctive or Energetic (I/E), Nimble or Practical (N/S), Faithful or Tenacious (F/T), Playful or Judicious (P/J). Facilities with a resident Aniimo (Sandcastle, Dewy House and the like) need one each, and so does each Heat Furnace (Fire), Cooling Unit (Ice) and Sunlamp (Light) in use. With My Aniimo, Farmland and Woodland jobs only need someone able to do each; they're quick, so they aren't counted against anyone's hours. Not yet checked in game: each recipe's minimum ability level, the Farmland and Woodland jobs, and whether an environment building's Aniimo level or personality matters.</p>
-                            </details>
-                            <div id="aniimo-summary"></div>
-                        </div>
-                    </div>
                             <div class="card production-steps" id="goal-section">
-                        <h2>Set a Goal</h2>
-                        <p class="hint">Updates instantly from the plan above.</p>
-                        <div class="config-group">
-                            <div class="input-row">
-                                <div class="input-field">
-                                    <label for="goal-target">Goal</label>
-                                    <select id="goal-target"></select>
+                                <h2>Set a Goal</h2>
+                                <p class="hint">Updates instantly from the plan above.</p>
+                                <div class="config-group">
+                                    <div class="input-row">
+                                        <div class="input-field">
+                                            <label for="goal-target">Goal</label>
+                                            <select id="goal-target"></select>
+                                        </div>
+                                        <div class="input-field">
+                                            <label for="target-amount" id="target-amount-label">Target Home
+                                                Coins</label>
+                                            <input type="number" id="target-amount" value="1000" min="0">
+                                        </div>
+                                        <div class="input-field">
+                                            <label for="current-amount" id="current-amount-label">Current Home
+                                                Coins</label>
+                                            <input type="number" id="current-amount" value="0" min="0">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="input-field">
-                                    <label for="target-amount" id="target-amount-label">Target Home Coins</label>
-                                    <input type="number" id="target-amount" value="1000" min="0">
-                                </div>
-                                <div class="input-field">
-                                    <label for="current-amount" id="current-amount-label">Current Home Coins</label>
-                                    <input type="number" id="current-amount" value="0" min="0">
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="result-summary">
-                            <div class="summary-grid">
-                                <div class="summary-item">
-                                    <span class="summary-label">Total Time</span>
-                                    <span class="summary-value" id="total-time">-</span>
+                                <div class="result-summary">
+                                    <div class="summary-grid">
+                                        <div class="summary-item">
+                                            <span class="summary-label">Total Time</span>
+                                            <span class="summary-value" id="total-time">-</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="summary-label" id="amount-produced-label">Home Coins
+                                                Produced</span>
+                                            <span class="summary-value" id="amount-produced">-</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="summary-item">
-                                    <span class="summary-label" id="amount-produced-label">Home Coins Produced</span>
-                                    <span class="summary-value" id="amount-produced">-</span>
+                                <p class="level-up-coins" id="goal-also" style="display: none;"></p>
+
+                                <div class="production-steps" id="product-breakdown-section" style="display: none;">
+                                    <h3>Product Breakdown</h3>
+                                    <div class="table-wrapper">
+                                        <table id="product-breakdown-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Item</th>
+                                                    <th>Facility</th>
+                                                    <th>Amount</th>
+                                                    <th id="product-breakdown-rate-header">Profit</th>
+                                                    <th>Worth <span class="th-unit">Home Coins</span></th>
+                                                    <th id="product-breakdown-points-header" hidden>Harvest Moon Points
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="product-breakdown-tbody"></tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <p class="level-up-coins" id="goal-also" style="display: none;"></p>
 
-                        <div class="production-steps" id="product-breakdown-section" style="display: none;">
-                            <h3>Product Breakdown</h3>
-                            <div class="table-wrapper">
-                                <table id="product-breakdown-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Item</th>
-                                            <th>Facility</th>
-                                            <th>Amount</th>
-                                            <th id="product-breakdown-rate-header">Profit</th>
-                                            <th>Worth <span class="th-unit">Home Coins</span></th>
-                                            <th id="product-breakdown-points-header" hidden>Harvest Moon Points</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="product-breakdown-tbody"></tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div class="production-steps" id="seeds-needed-section" style="display: none;">
-                            <h3>Seeds Needed</h3>
-                            <div class="table-wrapper">
-                                <table id="seeds-needed-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Crop</th>
-                                            <th>Facility</th>
-                                            <th>Plots</th>
-                                            <th>Plantings/Plot</th>
-                                            <th>Total Seeds</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="seeds-needed-tbody"></tbody>
-                                </table>
+                                <div class="production-steps" id="seeds-needed-section" style="display: none;">
+                                    <h3>Seeds Needed</h3>
+                                    <div class="table-wrapper">
+                                        <table id="seeds-needed-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Crop</th>
+                                                    <th>Facility</th>
+                                                    <th>Plots</th>
+                                                    <th>Plantings/Plot</th>
+                                                    <th>Total Seeds</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="seeds-needed-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                        </div>
-                    </div>
-                </div></div>
-            </section>
-        </main>
+                </div>
+    </div>
+    </section>
+    </main>
 
-        <footer class="app-footer">
-            <div class="footer-brand">
-                <span class="footer-logo">⚡</span> <strong>AniimoLab</strong> <span class="footer-ver">v1.0 Pro</span> &bull; Homeland Production Simulator
-            </div>
-            <p class="footer-note">Original LP/MIP optimization solver by aebii (MIT License). Enhanced Multi-SU Architecture, Electric Mode & Cyber UI by AniimoLab.</p>
-            <p class="footer-note">All simulation data is computed strictly in your browser with zero external telemetry.</p>
-        </footer>
+    <footer class="app-footer">
+        <div class="footer-brand">
+            <span class="footer-logo">⚡</span> <strong>AniimoLab</strong> <span class="footer-ver">v1.0 Pro</span>
+            &bull; Homeland Production Simulator
+        </div>
+        <p class="footer-note">Original LP/MIP optimization solver by aebii (MIT License). Enhanced Multi-SU
+            Architecture, Electric Mode & Cyber UI by AniimoLab.</p>
+        <p class="footer-note">All simulation data is computed strictly in your browser with zero external telemetry.
+        </p>
+    </footer>
     </div>
 
     <!-- Facilities Modal -->
@@ -475,7 +457,8 @@
                 <button class="close-button" onclick="closeFacilities()">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="hint">Every recipe in the game data, grouped by facility. This is a reference table, not tied to your owned facility counts or levels.</p>
+                <p class="hint">Every recipe in the game data, grouped by facility. This is a reference table, not tied
+                    to your owned facility counts or levels.</p>
                 <p class="hint small" id="facilities-loading-hint">Loading recipe data...</p>
                 <div id="facilities-modal-container" class="facilities-container"></div>
             </div>
@@ -491,45 +474,108 @@
             </div>
             <div class="modal-body">
                 <h3>The Model</h3>
-                <p>Every plan is one mixed-integer program covering every recipe and facility at once, solved with <a href="https://highs.dev" target="_blank" rel="noopener">HiGHS</a>. Each recipe your facility levels and modules unlock, \(r\), gets a rate \(b_r\) (batches per second) and a whole number of units \(u_r\) set to it: plots for a crop, machines for a processed item.</p>
+                <p>Every plan is one mixed-integer program covering every recipe and facility at once, solved with <a
+                        href="https://highs.dev" target="_blank" rel="noopener">HiGHS</a>. Each recipe your facility
+                    levels and modules unlock, \(r\), gets a rate \(b_r\) (batches per second) and a whole number of
+                    units \(u_r\) set to it: plots for a crop, machines for a processed item.</p>
                 <div class="math-block">\[ \max \ \sum_i p_i \, s_i \;-\; \sum_r c_r \, b_r \]</div>
-                <p>where \(s_i\) is how much of item \(i\) is sold per second at price \(p_i\), and \(c_r\) is a crop's seed cost. During the Harvest Moon Festival, season crops' seeds cost Moonray Wheat instead, which plans take as unlimited. Subject to:</p>
+                <p>where \(s_i\) is how much of item \(i\) is sold per second at price \(p_i\), and \(c_r\) is a crop's
+                    seed cost. During the Harvest Moon Festival, season crops' seeds cost Moonray Wheat instead, which
+                    plans take as unlimited. Subject to:</p>
                 <ul>
-                    <li><strong>Whole units.</strong> \(b_r \, t_r \le u_r\), with \(u_r\) a whole number and \(t_r\) the time per batch. A unit runs one recipe and is left running.</li>
-                    <li><strong>Item balance.</strong> Everything made covers what other recipes use plus what's sold. A quick variant makes the same item as the regular one.</li>
-                    <li><strong>What you own.</strong> For every facility and level \(L\), the units on recipes needing level \(L\) or higher add up to at most what you own at that level. A higher-level plot can run a lower-level recipe.</li>
-                    <li><strong>Growing environments.</strong> A crop wanting Cool, Warm, Freeze or Scorching grows at full speed on a plot covered by a Heat Furnace or Cooling Unit set to that mode, and more slowly on an uncovered one (see below). An Adequate crop needs a Sunlamp and grows nowhere else.</li>
+                    <li><strong>Whole units.</strong> \(b_r \, t_r \le u_r\), with \(u_r\) a whole number and \(t_r\)
+                        the time per batch. A unit runs one recipe and is left running.</li>
+                    <li><strong>Item balance.</strong> Everything made covers what other recipes use plus what's sold. A
+                        quick variant makes the same item as the regular one.</li>
+                    <li><strong>What you own.</strong> For every facility and level \(L\), the units on recipes needing
+                        level \(L\) or higher add up to at most what you own at that level. A higher-level plot can run
+                        a lower-level recipe.</li>
+                    <li><strong>Growing environments.</strong> A crop wanting Cool, Warm, Freeze or Scorching grows at
+                        full speed on a plot covered by a Heat Furnace or Cooling Unit set to that mode, and more slowly
+                        on an uncovered one (see below). An Adequate crop needs a Sunlamp and grows nowhere else.</li>
                 </ul>
-                <p>HiGHS proves the plan is the best possible. On the rare setup where that takes longer than 30 seconds, it stops with the best plan so far and the results say how far from the best it could be. Every plan is then re-checked on its own before it's shown.</p>
+                <p>HiGHS proves the plan is the best possible. On the rare setup where that takes longer than 30
+                    seconds, it stops with the best plan so far and the results say how far from the best it could be.
+                    Every plan is then re-checked on its own before it's shown.</p>
 
                 <h3>Time per Batch</h3>
-                <p>Crops and trees take their grow time, less the Aniimo's watering: a plot asks for water twice as it grows, at two thirds and at one third of its time left, and each watering takes an eighth of the crop's own time off. A 40-minute crop comes in at 30 and a 4-minute one at 3. A crop short of its environment grows slower but still loses the same minutes, so a Warm crop with no building takes 50 minutes and is watered down to 40; that part isn't checked in game yet.</p>
-                <p>Everything else has a workload, and how long it takes depends on the Aniimo's Efficiency \(e\), which the facility screen shows, and a base rate \(r\):</p>
-                <div class="math-block">\[ t = \frac{\text{workload}}{r \times e \times 1.2^{\,\text{personality}}} \]</div>
-                <p>At a processor, \(r\) is one workload a second. At a gathering facility (Well, Mine, Sandcastle, Dewy House and the like) and at the Dance Pad Polisher and Aniipod Maker, it's higher on recipes needing a higher ability level: 1 a second at level 1, 1.25 at level 2 and 1.5 at level 3. A Growth Fruit, 5,400 workload, takes an hour at 100%.</p>
-                <p>Efficiency \(e\) depends on the Aniimo's ability level compared with the level the recipe needs. At exactly the needed level it's 100%. At a processor, one level above the recipe's need is 300%, and each level after that adds 100% (400%, 500%). At a gathering facility, each level above adds half a workload a second, whatever the recipe needs, so against the recipe's own base rate that reads as +50% a level on a level-1 recipe, +40% on a level-2 one and +33% on a level-3 one. The Dance Pad Polisher and Aniipod Maker add 40% a level. The personality term counts only when the Aniimo has the facility's personality (+20%); the Polisher and Aniipod Maker have none. Ability levels stop at 4.</p>
+                <p>Crops and trees take their grow time, less the Aniimo's watering: a plot asks for water twice as it
+                    grows, at two thirds and at one third of its time left, and each watering takes an eighth of the
+                    crop's own time off. A 40-minute crop comes in at 30 and a 4-minute one at 3. A crop short of its
+                    environment grows slower but still loses the same minutes, so a Warm crop with no building takes 50
+                    minutes and is watered down to 40; that part isn't checked in game yet.</p>
+                <p>Everything else has a workload, and how long it takes depends on the Aniimo's Efficiency \(e\), which
+                    the facility screen shows, and a base rate \(r\):</p>
+                <div class="math-block">\[ t = \frac{\text{workload}}{r \times e \times 1.2^{\,\text{personality}}} \]
+                </div>
+                <p>At a processor, \(r\) is one workload a second. At a gathering facility (Well, Mine, Sandcastle, Dewy
+                    House and the like) and at the Dance Pad Polisher and Aniipod Maker, it's higher on recipes needing
+                    a higher ability level: 1 a second at level 1, 1.25 at level 2 and 1.5 at level 3. A Growth Fruit,
+                    5,400 workload, takes an hour at 100%.</p>
+                <p>Efficiency \(e\) depends on the Aniimo's ability level compared with the level the recipe needs. At
+                    exactly the needed level it's 100%. At a processor, one level above the recipe's need is 300%, and
+                    each level after that adds 100% (400%, 500%). At a gathering facility, each level above adds half a
+                    workload a second, whatever the recipe needs, so against the recipe's own base rate that reads as
+                    +50% a level on a level-1 recipe, +40% on a level-2 one and +33% on a level-3 one. The Dance Pad
+                    Polisher and Aniipod Maker add 40% a level. The personality term counts only when the Aniimo has the
+                    facility's personality (+20%); the Polisher and Aniipod Maker have none. Ability levels stop at 4.
+                </p>
 
                 <h3>Environment Coverage</h3>
-                <p>Environments are steps of temperature: Freeze -2, Cool -1, no building 0, Warm +1, Scorching +2. A crop grows at 100% at its own, 80% one step away, 50% two steps and 20% beyond that. An uncovered plot is neutral, so a Cool or Warm crop still manages 80% and a Freeze or Scorching one 50%, which is why plans sometimes grow them with no building at all. Adequate is separate: those crops need a Sunlamp. Efficiency stretches the grow time, so a Rose at 80% takes 50m instead of 40m for the same 8 roses, before watering.</p>
-                <p>Temperatures add where two buildings both reach a plot, capped at -2 and +2, and the game shows the result on the plot itself: Scorching and Cool together read Warm, Warm and Cool read Room temp. Plans use that, so a Heat Furnace on Scorching with four tiles of space to a Cooling Unit on Cool covers three zones at once, Scorching, Warm between them and Cool. Where the second building sits decides the split: every placement whose coverage still overlaps the first is worked out, in a row or on the diagonal, from touching (6 plots, 24 in the middle and 6, for Farmland) out to a corner's worth of overlap (22, 10 and 22). Two buildings this close cover fewer plots in total than two standing apart, so a plan only does it when the third zone is worth more. Place the pair exactly as the plan's diagram shows, and keep any other building's area clear of them.</p>
-                <p>A Cooling Unit is 2×2 tiles, and a Heat Furnace and Sunlamp one tile each; each covers a 9×9 area centered on it. A plot counts as covered if any part of it is inside, and everything snaps to quarter tiles. Every useful way one building can cover a mix of Farmland, Woodland and the rest is worked out once by exact packing; the plan then picks a mode and one of those mixes for each building.</p>
+                <p>Environments are steps of temperature: Freeze -2, Cool -1, no building 0, Warm +1, Scorching +2. A
+                    crop grows at 100% at its own, 80% one step away, 50% two steps and 20% beyond that. An uncovered
+                    plot is neutral, so a Cool or Warm crop still manages 80% and a Freeze or Scorching one 50%, which
+                    is why plans sometimes grow them with no building at all. Adequate is separate: those crops need a
+                    Sunlamp. Efficiency stretches the grow time, so a Rose at 80% takes 50m instead of 40m for the same
+                    8 roses, before watering.</p>
+                <p>Temperatures add where two buildings both reach a plot, capped at -2 and +2, and the game shows the
+                    result on the plot itself: Scorching and Cool together read Warm, Warm and Cool read Room temp.
+                    Plans use that, so a Heat Furnace on Scorching with four tiles of space to a Cooling Unit on Cool
+                    covers three zones at once, Scorching, Warm between them and Cool. Where the second building sits
+                    decides the split: every placement whose coverage still overlaps the first is worked out, in a row
+                    or on the diagonal, from touching (6 plots, 24 in the middle and 6, for Farmland) out to a corner's
+                    worth of overlap (22, 10 and 22). Two buildings this close cover fewer plots in total than two
+                    standing apart, so a plan only does it when the third zone is worth more. Place the pair exactly as
+                    the plan's diagram shows, and keep any other building's area clear of them.</p>
+                <p>A Cooling Unit is 2×2 tiles, and a Heat Furnace and Sunlamp one tile each; each covers a 9×9 area
+                    centered on it. A plot counts as covered if any part of it is inside, and everything snaps to
+                    quarter tiles. Every useful way one building can cover a mix of Farmland, Woodland and the rest is
+                    worked out once by exact packing; the plan then picks a mode and one of those mixes for each
+                    building.</p>
 
                 <h3>Level Up</h3>
-                <p>A level-up costs Home Coins \(C_0\) plus the materials it asks for, \(C_1\) and \(C_2\) (raw Wood Blocks and Mineral Sand up to RV 6, a Woodworking Bench item and a Chimney Kiln item from RV 7), and you may already have some of each, \(S_j\). The plan finds the most level-ups per day, \(\lambda\), it could keep up, where for Home Coins and each item:</p>
+                <p>A level-up costs Home Coins \(C_0\) plus the materials it asks for, \(C_1\) and \(C_2\) (raw Wood
+                    Blocks and Mineral Sand up to RV 6, a Woodworking Bench item and a Chimney Kiln item from RV 7), and
+                    you may already have some of each, \(S_j\). The plan finds the most level-ups per day, \(\lambda\),
+                    it could keep up, where for Home Coins and each item:</p>
                 <div class="math-block">\[ \text{made}_j \ \ge\ \frac{\lambda \, (C_j - S_j)}{86400} \]</div>
-                <p>(\(\text{made}_j\) per second), so the level-up takes \(1/\lambda\) days. Stock of anything lower in a chain (Wood Blocks, Mineral Sand, a lower tier) counts toward what's made, since the Bench and Kiln process it up. Two more solves follow, each keeping what the last one found: the most Home Coins at that pace, then as much extra of the level-up items as spare Bench and Kiln time allows. That's why ore often finishes before wood and shows up as surplus.</p>
-                <p>Each tier takes 8 of the tier below (4 for the last), so the Bench and Kiln switch between tiers rather than running one recipe like other processors.</p>
+                <p>(\(\text{made}_j\) per second), so the level-up takes \(1/\lambda\) days. Stock of anything lower in
+                    a chain (Wood Blocks, Mineral Sand, a lower tier) counts toward what's made, since the Bench and
+                    Kiln process it up. Two more solves follow, each keeping what the last one found: the most Home
+                    Coins at that pace, then as much extra of the level-up items as spare Bench and Kiln time allows.
+                    That's why ore often finishes before wood and shows up as surplus.</p>
+                <p>Each tier takes 8 of the tier below (4 for the last), so the Bench and Kiln switch between tiers
+                    rather than running one recipe like other processors.</p>
 
                 <h3>Priorities</h3>
-                <p>The plan solves once per ticked priority, in your order. Each solve makes as much of its priority as it can while keeping at least what the earlier ones reached; a last solve then earns as many Home Coins as all of those leave room for. Aniimo EXP, Aniipods and, during the Harvest Moon Festival, Harvest Moon Points count as their own currencies, so the same model handles them like Home Coins.</p>
+                <p>The plan solves once per ticked priority, in your order. Each solve makes as much of its priority as
+                    it can while keeping at least what the earlier ones reached; a last solve then earns as many Home
+                    Coins as all of those leave room for. Aniimo EXP, Aniipods and, during the Harvest Moon Festival,
+                    Harvest Moon Points count as their own currencies, so the same model handles them like Home Coins.
+                </p>
 
                 <h3>Time to Reach a Goal</h3>
-                <p>Each product starts adding up once its first batch clears its ingredient chain (its lead time), then keeps its steady rate:</p>
-                <div class="math-block">\[ \text{amount}(t) = \sum_i \text{rate}_i \cdot \max(0,\ t - \text{lead}_i) \]</div>
+                <p>Each product starts adding up once its first batch clears its ingredient chain (its lead time), then
+                    keeps its steady rate:</p>
+                <div class="math-block">\[ \text{amount}(t) = \sum_i \text{rate}_i \cdot \max(0,\ t - \text{lead}_i) \]
+                </div>
                 <p>This only ever grows with \(t\), so the time to reach a target is found by binary search.</p>
 
                 <h3>The Backup Planner</h3>
-                <p>If the exact planner can't run (rare; reloading the page usually fixes it), an older planner steps in. It solves the same problem as a continuous linear program, rounds to whole plots and one recipe per machine, then re-solves. Its plans are usually close to the best but not guaranteed, and the results say when it was used.</p>
+                <p>If the exact planner can't run (rare; reloading the page usually fixes it), an older planner steps
+                    in. It solves the same problem as a continuous linear program, rounds to whole plots and one recipe
+                    per machine, then re-solves. Its plans are usually close to the best but not guaranteed, and the
+                    results say when it was used.</p>
             </div>
         </div>
     </div>
@@ -543,38 +589,66 @@
             </div>
             <div class="modal-body">
                 <h3>1. Tell It What You've Built</h3>
-                <p><strong>Simple</strong>: pick your RV level, and the calculator assumes you've built and upgraded everything that level allows. <strong>Advanced</strong>: set the count and level of every facility and upgrade module yourself. In Advanced, "Fill from RV level" sets everything to what an RV level allows, as a starting point.</p>
-                <p>Under <strong>Recipes</strong>, special recipes (Rose Shortbread, Potato Kvass and a few others) take a rare currency to unlock, so plans leave them out until you tick the ones you have.</p>
-                <p>Also under <strong>Recipes</strong>, add anything you can't make yet, such as recipes behind unlocks you don't have. Plans won't use them. The ✕ next to a product in a plan skips it and plans again.</p>
+                <p><strong>Simple</strong>: pick your RV level, and the calculator assumes you've built and upgraded
+                    everything that level allows. <strong>Advanced</strong>: set the count and level of every facility
+                    and upgrade module yourself. In Advanced, "Fill from RV level" sets everything to what an RV level
+                    allows, as a starting point.</p>
+                <p>Under <strong>Recipes</strong>, special recipes (Rose Shortbread, Potato Kvass and a few others) take
+                    a rare currency to unlock, so plans leave them out until you tick the ones you have.</p>
+                <p>Also under <strong>Recipes</strong>, add anything you can't make yet, such as recipes behind unlocks
+                    you don't have. Plans won't use them. The ✕ next to a product in a plan skips it and plans again.
+                </p>
 
                 <h3>2. Pick a Strategy</h3>
-                <p><strong>Level up</strong> gets everything your next RV level costs as soon as possible: its Home Coins plus Wood Blocks and Mineral Sand, or from RV 7 a Woodworking Bench item and a Chimney Kiln item. Under "What you already have", enter what you've got; Wood Blocks, Mineral Sand and lower tiers count too, since the Bench and Kiln process them up. The plan still earns as many Home Coins as it can on the way. In Advanced you can pick which RV level to plan for.</p>
-                <p><strong>Priorities</strong> ranks what you want: Home Coins, Aniimo EXP (Growth items from the Dance Pad Polisher), Aniipods (the best tier your Aniipod Maker can reach, since a better one catches better), Wood Blocks and Mineral Sand. Switch on the ones you want and drag them into order; the plan makes as much of the first as it can, then as much of the next as that allows, and whatever's left goes to Home Coins. The rate card shows each one.</p>
+                <p><strong>Level up</strong> gets everything your next RV level costs as soon as possible: its Home
+                    Coins plus Wood Blocks and Mineral Sand, or from RV 7 a Woodworking Bench item and a Chimney Kiln
+                    item. Under "What you already have", enter what you've got; Wood Blocks, Mineral Sand and lower
+                    tiers count too, since the Bench and Kiln process them up. The plan still earns as many Home Coins
+                    as it can on the way. In Advanced you can pick which RV level to plan for.</p>
+                <p><strong>Priorities</strong> ranks what you want: Home Coins, Aniimo EXP (Growth items from the Dance
+                    Pad Polisher), Aniipods (the best tier your Aniipod Maker can reach, since a better one catches
+                    better), Wood Blocks and Mineral Sand. Switch on the ones you want and drag them into order; the
+                    plan makes as much of the first as it can, then as much of the next as that allows, and whatever's
+                    left goes to Home Coins. The rate card shows each one.</p>
 
                 <h3>3. Find the Best Plan</h3>
-                <p>Click "Find the best plan" to see how long the level-up takes (or your best rate) and what each facility should make. Set it up once and leave it running. Everything you enter is saved in your browser; "Clear saved values" resets it.</p>
+                <p>Click "Find the best plan" to see how long the level-up takes (or your best rate) and what each
+                    facility should make. Set it up once and leave it running. Everything you enter is saved in your
+                    browser; "Clear saved values" resets it.</p>
 
                 <h3>4. Set a Goal (Optional)</h3>
-                <p>Pick what you're aiming for, enter the target amount and what you have now, and the card says how long it takes and what else you'll have by then. It updates instantly as you type.</p>
+                <p>Pick what you're aiming for, enter the target amount and what you have now, and the card says how
+                    long it takes and what else you'll have by then. It updates instantly as you type.</p>
 
                 <h3>Understanding the Results</h3>
                 <ul>
-                    <li><strong>Aniimo Team</strong>: which Aniimo to keep on your homeland, for the fastest setup (Best) or the least you can get by with (Minimum). <strong>My Aniimo</strong> plans with the Aniimo you list instead and shows what each one does. Open it for the full list.</li>
-                    <li><strong>Level-Up</strong>: how soon you'll have everything the level-up costs, and how fast each cost comes in (pick the unit at the top of that column). The slowest one is in bold. Surplus is what's left over when it's ready, such as extra Home Coins or ore.</li>
-                    <li><strong>Your Rates</strong>: with Priorities, what the plan makes of each priority in your order, then Home Coins from what's left, per second, minute, hour or day.</li>
-                    <li><strong>Seeds to Plant</strong>: the seeds your Farmland and Woodland go through and what they cost, in total until the level-up with Level up, or at the chosen rate with Priorities.</li>
-                    <li><strong>Profit by Product</strong>: with Level up, what each product earns per hour and in total until the level-up is ready.</li>
-                    <li><strong>What Each Facility Should Do</strong>: what to set each facility to, all running at once. Recipes tagged "unverified" haven't been checked in game yet.</li>
-                    <li><strong>Opportunities</strong>: changes within your reach (a recipe to unlock, an Aniimo level, and in Advanced mode a module or facility) ranked by how much they'd improve the plan.</li>
-                    <li><strong>Homeland Layout</strong>: where to put each facility so the busiest are nearest the Storage Unit.</li>
-                    <li><strong>Set a Goal</strong>: with Priorities, how long it takes to reach a target amount of Home Coins or any priority that's on, and what else you'll have by then.</li>
+                    <li><strong>Aniimo Team</strong>: which Aniimo to keep on your homeland, for the fastest setup
+                        (Best) or the least you can get by with (Minimum). <strong>My Aniimo</strong> plans with the
+                        Aniimo you list instead and shows what each one does. Open it for the full list.</li>
+                    <li><strong>Level-Up</strong>: how soon you'll have everything the level-up costs, and how fast each
+                        cost comes in (pick the unit at the top of that column). The slowest one is in bold. Surplus is
+                        what's left over when it's ready, such as extra Home Coins or ore.</li>
+                    <li><strong>Your Rates</strong>: with Priorities, what the plan makes of each priority in your
+                        order, then Home Coins from what's left, per second, minute, hour or day.</li>
+                    <li><strong>Seeds to Plant</strong>: the seeds your Farmland and Woodland go through and what they
+                        cost, in total until the level-up with Level up, or at the chosen rate with Priorities.</li>
+                    <li><strong>Profit by Product</strong>: with Level up, what each product earns per hour and in total
+                        until the level-up is ready.</li>
+                    <li><strong>What Each Facility Should Do</strong>: what to set each facility to, all running at
+                        once. Recipes tagged "unverified" haven't been checked in game yet.</li>
+                    <li><strong>Opportunities</strong>: changes within your reach (a recipe to unlock, an Aniimo level,
+                        and in Advanced mode a module or facility) ranked by how much they'd improve the plan.</li>
+                    <li><strong>Homeland Layout</strong>: where to put each facility so the busiest are nearest the
+                        Storage Unit.</li>
+                    <li><strong>Set a Goal</strong>: with Priorities, how long it takes to reach a target amount of Home
+                        Coins or any priority that's on, and what else you'll have by then.</li>
                 </ul>
             </div>
         </div>
     </div>
 
     <script>
-        window.toggleTheme = function() {
+        window.toggleTheme = function () {
             const body = document.body;
             const button = document.getElementById('themeToggle');
             body.classList.toggle('light');
@@ -584,39 +658,39 @@
                 button.textContent = 'light';
             }
         }
-        
-        window.showHelp = function() {
+
+        window.showHelp = function () {
             document.getElementById('helpModal').classList.add('show');
         }
-        
-        window.closeHelp = function() {
+
+        window.closeHelp = function () {
             document.getElementById('helpModal').classList.remove('show');
         }
-        
-        window.closeHelpOnBackdrop = function(event) {
+
+        window.closeHelpOnBackdrop = function (event) {
             if (event.target.id === 'helpModal') {
                 closeHelp();
             }
         }
-        
-        window.showMath = function() {
+
+        window.showMath = function () {
             document.getElementById('mathModal').classList.add('show');
             // Trigger MathJax to render
             if (window.MathJax) {
                 MathJax.typesetPromise();
             }
         }
-        
-        window.closeMath = function() {
+
+        window.closeMath = function () {
             document.getElementById('mathModal').classList.remove('show');
         }
-        
-        window.closeMathOnBackdrop = function(event) {
+
+        window.closeMathOnBackdrop = function (event) {
             if (event.target.id === 'mathModal') {
                 closeMath();
             }
         }
-        
+
         // Close modal on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -628,4 +702,5 @@
     </script>
     <script type="module" src="app.js?v=aniimolab_v3"></script>
 </body>
+
 </html>

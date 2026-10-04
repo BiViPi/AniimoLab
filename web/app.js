@@ -246,16 +246,11 @@ export const EMODE_PRIORITY = [
 ];
 
 export function getGeneratorCapacity() {
-    if (isSimpleMode()) {
-        const homeLevel = selectedHomeLevel();
-        const el = document.getElementById('simple-generator-capacity');
-        const val = el ? parseInt(el.value, 10) : 0;
-        if (!isNaN(val) && val > 0) return val;
-        return GENERATOR_WATTS_BY_HOME_LEVEL[homeLevel] || DEFAULT_GENERATOR_WATTS;
-    }
-    const el = document.getElementById('generator-capacity');
+    const homeLevel = selectedHomeLevel();
+    const el = document.getElementById('simple-generator-capacity');
     const val = el ? parseInt(el.value, 10) : 0;
-    return !isNaN(val) && val > 0 ? val : DEFAULT_GENERATOR_WATTS;
+    if (!isNaN(val) && val > 0) return val;
+    return GENERATOR_WATTS_BY_HOME_LEVEL[homeLevel] || DEFAULT_GENERATOR_WATTS;
 }
 
 export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), powerRate = getPowerGridRate()) {
@@ -267,6 +262,53 @@ export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), 
     return generatorCapacity;
 }
 
+export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
+    if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
+    
+    // 1. Gather active producing facilities from basePlan (exclude Woodworking Bench and Chimney Kiln)
+    const activeCounts = {};
+    for (const step of basePlan.coin_items || []) {
+        if (step.status === 'producing' && step.facility) {
+            const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
+            const def = FACILITIES.find(f => f.name === fac);
+            if (def && def.supportsEmode && fac !== 'Woodworking Bench' && fac !== 'Chimney Kiln') {
+                activeCounts[fac] = (activeCounts[fac] || 0) + (step.facility_count || 1);
+            }
+        }
+    }
+
+    // 2. Rank by facility revenue from income streams
+    const facRevenue = {};
+    for (const s of basePlan.income_streams || []) {
+        if (s.facility) {
+            const fac = s.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
+            facRevenue[fac] = (facRevenue[fac] || 0) + (s.rate_per_second || 0) * 3600;
+        }
+    }
+
+    // 3. Sort facilities by revenue descending
+    const sortedFacs = Object.keys(activeCounts).sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
+
+    // 4. Greedily allocate up to maxWatts
+    const emodeCounts = {};
+    let usedWatts = 0;
+    for (const fac of sortedFacs) {
+        const w = FACILITY_POWER_WATTS[fac] || 0;
+        if (w <= 0) continue;
+        const units = activeCounts[fac];
+        for (let u = 0; u < units; u++) {
+            if (usedWatts + w <= maxWatts) {
+                emodeCounts[fac] = (emodeCounts[fac] || 0) + 1;
+                usedWatts += w;
+            } else {
+                break;
+            }
+        }
+    }
+
+    return emodeCounts;
+}
+
 export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), activeProducingCounts = null) {
     if (homeLevel < 12) return {};
     const { facilities } = simpleSetup(homeLevel);
@@ -274,6 +316,7 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
     const allocated = {};
 
     for (const name of EMODE_PRIORITY) {
+        if (name === 'Woodworking Bench' || name === 'Chimney Kiln') continue;
         const fac = FACILITIES.find(f => f.name === name);
         if (!fac || !fac.supportsEmode) continue;
         const wattsPerUnit = FACILITY_POWER_WATTS[name] || 0;
@@ -301,25 +344,15 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
     return allocated;
 }
 
+let lastEmodeCounts = {};
+
 function activeEmodeFacilityCounts(activeProducingCounts = null) {
+    if (Object.keys(lastEmodeCounts).length > 0) return lastEmodeCounts;
     const targetWatts = getTargetEmodeWatts();
-    if (isSimpleMode()) {
-        const homeLevel = selectedHomeLevel();
-        const emodeOn = document.getElementById('emode-simple-on')?.checked ?? true;
-        if (!emodeOn || homeLevel < 12) return {};
-        return autoAllocateEmode(homeLevel, targetWatts, activeProducingCounts);
-    }
-    const counts = {};
-    emodeFacilities.forEach(name => {
-        let total = (facilityTiers[name] || []).reduce((sum, t) => sum + t.count, 0);
-        if (activeProducingCounts && typeof activeProducingCounts[name] === 'number') {
-            total = Math.min(total, activeProducingCounts[name]);
-        }
-        if (total > 0) {
-            counts[name] = total;
-        }
-    });
-    return counts;
+    const homeLevel = selectedHomeLevel();
+    const emodeOn = document.getElementById('emode-simple-on')?.checked ?? true;
+    if (!emodeOn || homeLevel < 12) return {};
+    return autoAllocateEmode(homeLevel, targetWatts, activeProducingCounts);
 }
 
 function activeEmodeFacilities(activeProducingCounts = null) {
@@ -328,7 +361,7 @@ function activeEmodeFacilities(activeProducingCounts = null) {
 
 function calculatePowerWatts(counts) {
     let total = 0;
-    for (const [name, count] of Object.entries(counts)) {
+    for (const [name, count] of Object.entries(counts || {})) {
         const w = FACILITY_POWER_WATTS[name] || 0;
         total += w * count;
     }
@@ -339,7 +372,7 @@ function updatePowerGauge(customCounts = null) {
     const maxWatts = getGeneratorCapacity();
     const rate = getPowerGridRate();
     const targetWatts = getTargetEmodeWatts(maxWatts, rate);
-    const counts = customCounts || activeEmodeFacilityCounts();
+    const counts = customCounts !== null ? customCounts : lastEmodeCounts;
     const totalWatts = calculatePowerWatts(counts);
     const pct = Math.min(100, Math.round((totalWatts / maxWatts) * 100));
 
@@ -352,31 +385,10 @@ function updatePowerGauge(customCounts = null) {
         simpleFill.style.width = `${Math.min(100, (totalWatts / maxWatts) * 100)}%`;
         simpleFill.classList.toggle('overload', totalWatts > targetWatts);
     }
-
-    // Advanced gauge
-    let advCounts = {};
-    emodeFacilities.forEach(name => {
-        const total = (facilityTiers[name] || []).reduce((sum, t) => sum + t.count, 0);
-        if (total > 0) advCounts[name] = total;
-    });
-    if (customCounts && !isSimpleMode()) advCounts = customCounts;
-    const advWatts = calculatePowerWatts(advCounts);
-    const advPct = Math.min(100, Math.round((advWatts / maxWatts) * 100));
-    const advVal = document.getElementById('advanced-power-gauge-value');
-    const advFill = document.getElementById('advanced-power-gauge-fill');
-    const advTitle = document.getElementById('advanced-power-gauge-title');
-    if (advTitle) advTitle.textContent = `⚡ Generator Power (${maxWatts}W Cap):`;
-    if (advVal && advFill) {
-        const advTargetLabel = rate >= 1.15 ? ` (120% cap: ${targetWatts}W)` : '';
-        advVal.textContent = `${advWatts}W / ${maxWatts}W (${advPct}%)${advTargetLabel}`;
-        advFill.style.width = `${Math.min(100, (advWatts / maxWatts) * 100)}%`;
-        advFill.classList.toggle('overload', advWatts > targetWatts);
-    }
 }
 
-function getPowerGridRate() {
-    const id = isSimpleMode() ? 'simple-power-grid-rate' : 'power-grid-rate';
-    const el = document.getElementById(id) || document.getElementById('power-grid-rate');
+export function getPowerGridRate() {
+    const el = document.getElementById('simple-power-grid-rate');
     const val = el ? parseFloat(el.value) : 100;
     return val >= 115 ? 1.2 : 1.0;
 }
@@ -422,6 +434,7 @@ function renderTierRows(name) {
 // dynamically after this initial render.
 function renderFacilityCards() {
     const grid = document.getElementById('facilities-grid');
+    if (!grid) return;
     grid.innerHTML = FACILITY_CATEGORIES.map(category => {
         const cards = FACILITIES.filter(f => f.category === category).map(f => `
             <div class="facility-card">
@@ -587,6 +600,7 @@ function updateSimpleEmodeState() {
 // removes a tier. Attach once, on the grid container, rather than per-row.
 function attachFacilityTierHandlers() {
     const grid = document.getElementById('facilities-grid');
+    if (!grid) return;
 
     grid.addEventListener('input', (e) => {
         const row = e.target.closest('.tier-row');
@@ -824,11 +838,11 @@ async function initWasm() {
 // simple setup into them on purpose.
 
 function isSimpleMode() {
-    return document.getElementById('mode-simple').checked;
+    return true;
 }
 
 function selectedHomeLevel() {
-    return numberOrDefault(document.getElementById('home-level').value, MAX_HOME_LEVEL);
+    return numberOrDefault(document.getElementById('home-level')?.value, MAX_HOME_LEVEL);
 }
 
 function populateHomeLevels() {
@@ -836,8 +850,8 @@ function populateHomeLevels() {
     for (let level = 1; level <= MAX_HOME_LEVEL; level++) {
         options.push(`<option value="${level}">${level}${level === MAX_HOME_LEVEL ? ' (everything unlocked)' : ''}</option>`);
     }
-    for (const id of ['home-level', 'fill-level']) {
-        const select = document.getElementById(id);
+    const select = document.getElementById('home-level');
+    if (select) {
         select.innerHTML = options.join('');
         select.value = String(MAX_HOME_LEVEL);
     }
@@ -861,8 +875,10 @@ function renderSimpleSummary() {
         ['Crafting Module', modules.crafting_module],
     ].map(([name, level]) => chip('', name, level > 0 ? `Lv.${level}` : 'not yet')).join('');
     const kinds = FACILITIES.filter(f => facilities[f.name][0].count > 0).length;
-    document.getElementById('simple-summary-title').textContent = `${kinds} facilities and 4 modules at RV ${homeLevel}`;
-    document.getElementById('simple-summary').innerHTML = `
+    const titleEl = document.getElementById('simple-summary-title');
+    if (titleEl) titleEl.textContent = `${kinds} facilities and 4 modules at RV ${homeLevel}`;
+    const sumEl = document.getElementById('simple-summary');
+    if (sumEl) sumEl.innerHTML = `
         <p class="assume-title">Facilities</p>
         <div class="chip-grid">${built}</div>
         <p class="assume-title">Modules</p>
@@ -875,46 +891,25 @@ let levelUpTargetChosen = false;
 
 function followLevelUpTarget(homeLevel) {
     const select = document.getElementById('level-up-target');
-    if ([...select.options].some(o => o.value === String(homeLevel + 1))) select.value = String(homeLevel + 1);
+    if (select && [...select.options].some(o => o.value === String(homeLevel + 1))) select.value = String(homeLevel + 1);
 }
 
 function applyConfigMode() {
-    const simple = isSimpleMode();
-    if (!simple && !levelUpTargetChosen) followLevelUpTarget(selectedHomeLevel());
-    document.getElementById('simple-config').style.display = simple ? 'block' : 'none';
-    document.getElementById('advanced-config').style.display = simple ? 'none' : 'block';
-    if (simple) renderSimpleSummary();
+    renderSimpleSummary();
     renderStrategy();
     updatePowerGauge();
 }
 
-// Fills the advanced inputs with everything `homeLevel` allows.
-function fillAdvancedFrom(homeLevel) {
-    const { facilities, modules } = simpleSetup(homeLevel);
-    FACILITIES.forEach(f => {
-        facilityTiers[f.name] = facilities[f.name].map(t => ({ ...t }));
-        renderTierRows(f.name);
-    });
-    document.getElementById('ecological-module-level').value = modules.ecological_module;
-    document.getElementById('kitchen-module-level').value = modules.kitchen_module;
-    document.getElementById('resource-detector-level').value = modules.resource_detector;
-    document.getElementById('crafting-module-level').value = modules.crafting_module;
-    followLevelUpTarget(homeLevel);
-    renderStrategy();
-    saveInputsToStorage();
-}
-
 function attachModeHandlers() {
-    document.getElementById('mode-simple').addEventListener('change', applyConfigMode);
-    document.getElementById('mode-advanced').addEventListener('change', applyConfigMode);
-    document.getElementById('home-level').addEventListener('change', () => {
-        renderSimpleSummary();
-        renderStrategy();
-    });
-    document.getElementById('fill-btn').addEventListener('click', () => {
-        fillAdvancedFrom(numberOrDefault(document.getElementById('fill-level').value, MAX_HOME_LEVEL));
-        renderStrategy();
-    });
+    const homeSelect = document.getElementById('home-level');
+    if (homeSelect) {
+        homeSelect.addEventListener('change', () => {
+            renderSimpleSummary();
+            renderStrategy();
+            updateSimpleEmodeState();
+            updatePowerGauge();
+        });
+    }
 }
 
 // --- Special recipes -------------------------------------------------------------------
@@ -3016,42 +3011,8 @@ function renderProfitBreakdown(plan) {
 // Get plan-level input values from the form (facilities/modules/prioritize-byproducts, nothing
 // goal-related, since find_plan doesn't need a target). Currency is always coins: the full
 // release removed Bud Tickets, the only other sellable currency.
-function getPlanInputValues(activeProducingCounts = null) {
-    // `facilityTiers` is the live source of truth for owned counts (kept in sync with the DOM by
-    // `attachFacilityTierHandlers`), sent straight through as a list of tiers per facility; see
-    // `JsPlanInput::facilities` in wasm.rs for the shape (`[{count, level}, ...]` per facility).
-    if (isSimpleMode()) {
-        const { facilities, modules } = simpleSetup(selectedHomeLevel());
-        return {
-            currency: 'coins',
-            priorities: activePriorities(),
-            prioritize_byproducts: false,
-            level_up: levelUpInput(),
-            exclude: excludedRecipes(),
-            season: seasonActive(),
-            emode_facilities: activeEmodeFacilities(activeProducingCounts),
-            emode_facility_counts: activeEmodeFacilityCounts(activeProducingCounts),
-            power_grid_rate: getPowerGridRate(),
-            facilities,
-            modules
-        };
-    }
-
-    const facilities = {};
-    FACILITIES.forEach(f => {
-        facilities[f.name] = facilityTiers[f.name].map(t => ({
-            count: t.count,
-            level: f.hasLevels === false ? 1 : t.level
-        }));
-    });
-
-    const modules = {
-        ecological_module: numberOrDefault(document.getElementById('ecological-module-level').value, 0),
-        kitchen_module: numberOrDefault(document.getElementById('kitchen-module-level').value, 0),
-        resource_detector: numberOrDefault(document.getElementById('resource-detector-level').value, 0),
-        crafting_module: numberOrDefault(document.getElementById('crafting-module-level').value, 0)
-    };
-
+function getPlanInputValues() {
+    const { facilities, modules } = simpleSetup(selectedHomeLevel());
     return {
         currency: 'coins',
         priorities: activePriorities(),
@@ -3059,8 +3020,8 @@ function getPlanInputValues(activeProducingCounts = null) {
         level_up: levelUpInput(),
         exclude: excludedRecipes(),
         season: seasonActive(),
-        emode_facilities: activeEmodeFacilities(),
-        emode_facility_counts: activeEmodeFacilityCounts(),
+        emode_facilities: [],
+        emode_facility_counts: {},
         power_grid_rate: getPowerGridRate(),
         facilities,
         modules
@@ -4266,59 +4227,91 @@ async function runFindPlan() {
         // Whichever Best the player has asked for; the other one waits until they switch to it.
         const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
         Object.assign(input, aniimoInput(bestSetup));
-        let bestJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }), (count) => {
-            // The exact planner reports each solve; the backup planner counts its trials.
-            if (typeof count === 'object') {
-                setStep(count.step, count.state, undefined, count.proven);
-                return;
-            }
-            setStep('backup', 'start', `trial ${count}`);
-            progressBar.style.display = 'block';
-            progressFill.style.width = `${trialCountToPercent(count)}%`;
-        });
-        progressFill.style.width = '100%';
-        if (runId !== planRunId) return;
 
-        let bestPlan = JSON.parse(bestJson);
+        const emodeSimpleOn = document.getElementById('emode-simple-on')?.checked ?? true;
+        const currentRv = selectedHomeLevel();
+        const useEmode = emodeSimpleOn && currentRv >= 12;
 
-        // Smart E-mode reallocation: if some electrified units are idle while other units are producing manually,
-        // reclaim the idle watts and re-solve to electrify active units and free more Aniimo!
-        if (isSimpleMode() && (document.getElementById('emode-simple-on')?.checked ?? true) && selectedHomeLevel() >= 12 && bestPlan.success) {
-            const producingCounts = {};
-            for (const step of bestPlan.coin_items || []) {
-                if (step.status === 'producing' && step.facility) {
-                    const baseFacility = step.facility.replace(/ \(Manual\)$/, '');
-                    producingCounts[baseFacility] = (producingCounts[baseFacility] || 0) + (step.facility_count || 1);
+        let bestPlan = null;
+        let finalEmodeCounts = {};
+
+        if (useEmode) {
+            // STEP 1: Base solve with all manual (emode_facility_counts: {}, power_grid_rate: 1.0)
+            // to find highest-yielding products and actively producing facilities.
+            input.emode_facilities = [];
+            input.emode_facility_counts = {};
+            input.power_grid_rate = 1.0;
+
+            const baseJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }), (count) => {
+                if (typeof count === 'object') {
+                    setStep(count.step, count.state, undefined, count.proven);
+                    return;
                 }
-            }
+                setStep('backup', 'start', `trial ${count}`);
+                progressBar.style.display = 'block';
+                progressFill.style.width = `${trialCountToPercent(count)}%`;
+            });
+            progressFill.style.width = '100%';
+            if (runId !== planRunId) return;
 
-            const currentAlloc = input.emode_facility_counts || {};
-            let hasWastedPower = false;
-            for (const [fac, count] of Object.entries(currentAlloc)) {
-                const prod = producingCounts[fac] || 0;
-                if (count > prod) {
-                    hasWastedPower = true;
-                    break;
-                }
-            }
+            const basePlan = JSON.parse(baseJson);
 
-            if (hasWastedPower) {
-                const refinedCounts = activeEmodeFacilityCounts(producingCounts);
-                const refinedFacilities = Object.keys(refinedCounts);
-                if (JSON.stringify(refinedCounts) !== JSON.stringify(currentAlloc)) {
-                    input.emode_facility_counts = refinedCounts;
-                    input.emode_facilities = refinedFacilities;
-                    bestJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }));
-                    if (runId !== planRunId) return;
-                    bestPlan = JSON.parse(bestJson);
+            // STEP 2: Dynamically allocate E-mode to top active producing facilities within power budget
+            const generatorCapacity = getGeneratorCapacity();
+            const chosenRate = getPowerGridRate();
+            const targetWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
+            const allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts);
+
+            if (Object.keys(allocatedCounts).length > 0) {
+                // STEP 3: Re-solve with optimal E-mode allocation and user's supply rate
+                input.emode_facilities = Object.keys(allocatedCounts);
+                input.emode_facility_counts = allocatedCounts;
+                input.power_grid_rate = chosenRate;
+
+                const emodeJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }));
+                if (runId !== planRunId) return;
+
+                const emodePlan = JSON.parse(emodeJson);
+                if (emodePlan && emodePlan.success) {
+                    bestPlan = emodePlan;
+                    finalEmodeCounts = allocatedCounts;
+                } else {
+                    bestPlan = basePlan;
+                    finalEmodeCounts = {};
+                    input.emode_facilities = [];
+                    input.emode_facility_counts = {};
                 }
+            } else {
+                bestPlan = basePlan;
+                finalEmodeCounts = {};
             }
+        } else {
+            // E-mode off or RV < 12: single manual solve
+            input.emode_facilities = [];
+            input.emode_facility_counts = {};
+            input.power_grid_rate = 1.0;
+
+            const bestJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }), (count) => {
+                if (typeof count === 'object') {
+                    setStep(count.step, count.state, undefined, count.proven);
+                    return;
+                }
+                setStep('backup', 'start', `trial ${count}`);
+                progressBar.style.display = 'block';
+                progressFill.style.width = `${trialCountToPercent(count)}%`;
+            });
+            progressFill.style.width = '100%';
+            if (runId !== planRunId) return;
+            bestPlan = JSON.parse(bestJson);
+            finalEmodeCounts = {};
         }
 
+        lastEmodeCounts = finalEmodeCounts;
+        lastPlanInput = input;
         finishSolveSteps();
         plansBySetup[bestSetup] = bestPlan;
         showSelectedPlan();
-        updatePowerGauge(input.emode_facility_counts);
+        updatePowerGauge(finalEmodeCounts);
         // With no plan there's nothing to lay out or improve on.
         if (!plansBySetup[bestSetup].success && progress) {
             progress.steps.forEach(s => { if ((s.key === 'layout' || s.key === 'improve') && s.state === 'pending') s.state = 'skipped'; });
