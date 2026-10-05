@@ -77,19 +77,19 @@ export const FACILITIES = [
     {
         name: 'Heat Furnace', slug: 'heat-furnace', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 7 },
-        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 1],
         tooltip: "Provides Warm or Scorching growing conditions for crops that need one&#10;The calculator picks whichever mode is more profitable.&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
         name: 'Cooling Unit', slug: 'cooling-unit', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 7 },
-        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 1],
         tooltip: "Provides Cool or Freeze growing conditions for crops that need one&#10;The calculator picks whichever mode is more profitable.&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
         name: 'Sunlamp', slug: 'sunlamp', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 9 },
-        counts: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 0, 0, 1],
         tooltip: "Provides Adequate growing conditions for crops that need one&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
@@ -366,7 +366,7 @@ export const MAX_HOME_LEVEL = 20;
 
 // Highest level of each upgrade module at each RV level (index = RV level - 1).
 export const MODULE_MAX_LEVELS = {
-    ecological_module: [0, 0, 1, 1, 1, 1, 2, 3, 3, 3, 4, 5, 5, 6, 6, 6, 7, 8, 8, 8],
+    ecological_module: [0, 0, 1, 1, 1, 1, 2, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 8, 8, 8],
     kitchen_module: [0, 1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7],
     resource_detector: [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8],
     crafting_module: [0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 4, 4, 5, 6, 7, 7],

@@ -5,7 +5,7 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js';
+} from './facility-config.js?v=aniimolab_v6';
 
 let wasmReady = false;
 
@@ -578,18 +578,23 @@ function updateSimpleEmodeState() {
     if (simpleGen) simpleGen.value = String(defaultWatts);
     if (genSelect) genSelect.value = String(defaultWatts);
 
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (homeLevel < 12) {
         if (toggle) toggle.disabled = true;
         if (rateField) rateField.style.opacity = '0.5';
         if (genField) genField.style.opacity = '0.5';
         if (gauge) gauge.style.opacity = '0.5';
-        if (hint) hint.innerHTML = '<span style="color: var(--text-muted);">⚡ Electric Mode unlocks at <strong>RV 12</strong>.</span>';
+        if (hint) hint.innerHTML = isVi
+            ? '<span style="color: var(--text-muted);">⚡ Chế độ điện mở khóa tại <strong>RV 12</strong>.</span>'
+            : '<span style="color: var(--text-muted);">⚡ Electric Mode unlocks at <strong>RV 12</strong>.</span>';
     } else {
         if (toggle) toggle.disabled = false;
         if (rateField) rateField.style.opacity = '1';
         if (genField) genField.style.opacity = '1';
         if (gauge) gauge.style.opacity = '1';
-        if (hint) hint.innerHTML = `Auto-balances power within generator limit. Frees Aniimo workers on electric units; remaining units run manually with Aniimo.`;
+        if (hint) hint.innerHTML = isVi
+            ? 'Tự động cân bằng điện trong giới hạn máy phát. Giải phóng công nhân Aniimo ở các cơ sở dùng điện; các cơ sở còn lại chạy thủ công với Aniimo.'
+            : 'Auto-balances power within generator limit. Frees Aniimo workers on electric units; remaining units run manually with Aniimo.';
     }
     updatePowerGauge();
 }
@@ -806,6 +811,8 @@ function attachAutoSave() {
 }
 
 function clearSavedInputs() {
+    const confirmMsg = window.i18n ? window.i18n.t('clear_saved_confirm') : 'Are you sure you want to reset all saved inputs to default?';
+    if (!confirm(confirmMsg)) return;
     try {
         localStorage.removeItem(STORAGE_KEY);
     } catch (e) {
@@ -861,27 +868,30 @@ function populateHomeLevels() {
 function renderSimpleSummary() {
     const homeLevel = selectedHomeLevel();
     const { facilities, modules } = simpleSetup(homeLevel);
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const chip = (count, name, level) => `
         <div class="chip"><span><span class="chip-count">${count}</span> ${name}</span>${level ? `<span class="chip-level">${level}</span>` : ''}</div>`;
     const built = FACILITIES
         .map(f => ({ name: f.name, tier: facilities[f.name][0], hasLevels: f.hasLevels !== false }))
         .filter(({ tier }) => tier.count > 0)
-        .map(({ name, tier, hasLevels }) => chip(`${tier.count}×`, name, hasLevels ? `Lv.${tier.level}` : ''))
+        .map(({ name, tier, hasLevels }) => chip(`${tier.count}×`, getFacilityDisplayName(name), hasLevels ? `Lv.${tier.level}` : ''))
         .join('');
     const moduleChips = [
         ['Ecological Module', modules.ecological_module],
         ['Kitchen Module', modules.kitchen_module],
         ['Resource Detector', modules.resource_detector],
         ['Crafting Module', modules.crafting_module],
-    ].map(([name, level]) => chip('', name, level > 0 ? `Lv.${level}` : 'not yet')).join('');
+    ].map(([name, level]) => chip('', getModuleDisplayName(name), level > 0 ? `Lv.${level}` : (isVi ? 'chưa mở' : 'not yet'))).join('');
     const kinds = FACILITIES.filter(f => facilities[f.name][0].count > 0).length;
     const titleEl = document.getElementById('simple-summary-title');
-    if (titleEl) titleEl.textContent = `${kinds} facilities and 4 modules at RV ${homeLevel}`;
+    if (titleEl) titleEl.textContent = isVi 
+        ? `${kinds} cơ sở và 4 mô-đun tại RV ${homeLevel}`
+        : `${kinds} facilities and 4 modules at RV ${homeLevel}`;
     const sumEl = document.getElementById('simple-summary');
     if (sumEl) sumEl.innerHTML = `
-        <p class="assume-title">Facilities</p>
+        <p class="assume-title">${isVi ? 'Cơ sở' : 'Facilities'}</p>
         <div class="chip-grid">${built}</div>
-        <p class="assume-title">Modules</p>
+        <p class="assume-title">${isVi ? 'Mô-đun' : 'Modules'}</p>
         <div class="chip-grid">${moduleChips}</div>`;
 }
 
@@ -1117,6 +1127,7 @@ function improvementCandidates(base, setup) {
 // Starts ranking what could improve the plan on screen, unless it's already been worked out.
 function rankImprovementsFor(setup) {
     stopRanking();
+    if (!document.getElementById('improve-card')) return;
     if (!lastPlanInput) return;
     if (rankingsBySetup[setup]) {
         ranking = rankingsBySetup[setup];
@@ -1239,6 +1250,7 @@ function formatPercent(share) {
 
 function renderImprovements() {
     const card = document.getElementById('improve-card');
+    if (!card) return;
     if (!ranking || !lastPlan?.success) {
         card.style.display = 'none';
         return;
@@ -1634,13 +1646,16 @@ function renderHomelandLayout(plan) {
             const piece = pieces[i];
             return piece.cluster ? `${piece.buildings[0].facility} and its plots` : piece.members[0].facility;
         }))];
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
         const notes = [
-            noRoom.length ? `No room found in RV ${homeLevel}'s plots for: ${noRoom.join(', ')}.` : '',
-            unplaced.length ? `Not placed, size unknown: ${unplaced.join(', ')}.` : '',
+            noRoom.length ? (isVi ? `Không đủ diện tích trên các lô đất RV ${homeLevel} cho: ${noRoom.join(', ')}.` : `No room found in RV ${homeLevel}'s plots for: ${noRoom.join(', ')}.`) : '',
+            unplaced.length ? (isVi ? `Chưa đặt được, không rõ kích thước: ${unplaced.join(', ')}.` : `Not placed, size unknown: ${unplaced.join(', ')}.`) : '',
         ].filter(Boolean).join(' ');
         document.getElementById('layout-summary').textContent = `${trips > 0
-            ? `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`
-            : 'Nothing in this plan is carried to the Storage Unit.'}${notes ? ` ${notes}` : ''}`;
+            ? (isVi 
+                ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Kho lưu trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
+                : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
+            : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Kho lưu trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
         lastLayout = { layout, homeLevel };
         drawLayout(lastLayout);
         setStep('layout', 'done');
@@ -1649,7 +1664,10 @@ function renderHomelandLayout(plan) {
         console.error('Homeland layout failed:', event.message || event);
         if (runId !== layoutRunId) return;
         stopLayout();
-        document.getElementById('layout-summary').textContent = 'The layout couldn\'t be worked out.';
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        document.getElementById('layout-summary').textContent = isVi 
+            ? 'Không thể tính toán được sơ đồ bố trí.'
+            : 'The layout couldn\'t be worked out.';
         setStep('layout', 'fail');
     };
     const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
@@ -2055,17 +2073,17 @@ function showSimClock(seconds) {
 let progress = null;
 
 function startProgress(input, runId) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const levelUp = !!input.level_up && planContext.levelUp && !planContext.ready && !planContext.unavailable;
     const priorities = input.priorities || [];
     // A level-up's solves (the soonest level-up, the most Home Coins at that pace, spare Bench
     // and Kiln time) are one step, and every plan's last is its final solve and the re-check
     // of it against every limit: the worker's steps map onto these (see `setStep`).
     const steps = [
-        ...priorities.map(target => ({ key: `priority:${target}`, label: `Most ${priorityLabel(target, planContext.aniipod)}` })),
-        { key: 'plan', label: levelUp ? 'Fastest Level-Up' : priorities.length ? "Home Coins with What's Left" : 'Most Home Coins' },
-        { key: 'layout', label: 'Homeland Layout' },
-        { key: 'improve', label: 'Opportunities' },
-        { key: 'minimum', label: 'Minimum Team Plan' },
+        ...priorities.map(target => ({ key: `priority:${target}`, label: isVi ? `Nhiều ${priorityLabel(target, planContext.aniipod)} nhất` : `Most ${priorityLabel(target, planContext.aniipod)}` })),
+        { key: 'plan', label: levelUp ? (isVi ? 'Lên cấp nhanh nhất' : 'Fastest Level-Up') : priorities.length ? (isVi ? 'Home Coin từ phần còn lại' : "Home Coins with What's Left") : (isVi ? 'Nhiều Home Coin nhất' : 'Most Home Coins') },
+        { key: 'layout', label: isVi ? 'Bố cục Homeland' : 'Homeland Layout' },
+        { key: 'minimum', label: isVi ? 'Tổ đội Aniimo tối thiểu' : 'Minimum Team Plan' },
     ];
     progress = { runId, steps: steps.map(step => ({ ...step, state: 'pending' })) };
     renderProgress();
@@ -2089,7 +2107,8 @@ function setStep(key, state, detail, proven) {
     }
     let step = progress.steps.find(s => s.key === key);
     if (!step && key === 'backup') {
-        step = { key, label: 'Backup Planner', state: 'pending' };
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        step = { key, label: isVi ? 'Bộ giải dự phòng' : 'Backup Planner', state: 'pending' };
         progress.steps.splice(progress.steps.findIndex(s => s.key === 'layout'), 0, step);
     }
     if (!step) return;
@@ -2110,13 +2129,15 @@ function setStep(key, state, detail, proven) {
 
 // What "proven best" means, shown on hovering it.
 const PROVEN_MEANS = 'No plan the model allows does better. Some of its options, such as how plots can be arranged around an environment building, come from a shortlist rather than every possibility.';
+const PROVEN_MEANS_VI = 'Không phương án nào trong mô hình toán đạt hiệu suất cao hơn. Các phương án bố trí ô đất quanh cơ sở môi trường đã được tối ưu hóa.';
 
 // Whether a solve proved its plan the best the model allows, or ran out of time first.
 function searchNote(proven) {
     if (proven === undefined) return '';
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     return proven
-        ? `<span title="${PROVEN_MEANS}">proven best</span>`
-        : '<span title="The solver ran out of time before it could prove nothing does better.">best found in time</span>';
+        ? `<span title="${isVi ? PROVEN_MEANS_VI : PROVEN_MEANS}">${isVi ? 'tối ưu chuẩn xác' : 'proven best'}</span>`
+        : `<span title="${isVi ? 'Bộ giải đạt thời gian giới hạn.' : 'The solver ran out of time before it could prove nothing does better.'}">${isVi ? 'tốt nhất theo thời gian' : 'best found in time'}</span>`;
 }
 
 // Once the plan is back, any solve that never ran (a level-up out of reach skips the last one;
@@ -2343,7 +2364,7 @@ function renderRosterSummary(plan) {
         return `<tr><td data-label="Aniimo">${rosterLabel(aniimo, i)}<div class="hint small">${abilities} · ${letters}</div></td><td data-label="How many">${aniimo.count}</td><td data-label="Busy on average">${busy[i].toFixed(1)}</td><td data-label="Where">${places || '<span class="hint small">idle</span>'}</td></tr>`;
     }).join('');
     document.getElementById('aniimo-summary').innerHTML = roster.length
-        ? `<table class="aniimo-table"><thead><tr><th>Aniimo</th><th>How many</th><th>Busy on average</th><th>Where</th></tr></thead><tbody>${rows}</tbody></table>
+        ? `<table class="aniimo-table"><thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead><tbody>${rows}</tbody></table>
            <p class="hint small">${working} of your ${have} Aniimo have work in this plan.</p>`
         : '<p class="hint">Add the Aniimo you have under My Aniimo to plan with them.</p>';
     document.getElementById('aniimo-collapsed-summary').textContent = '';
@@ -2569,13 +2590,14 @@ function renderAbilityLevels() {
 
 // Shows the settings for whichever setup is picked, and works that plan out.
 function showAniimoSetup() {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const tab = selectedSetupTab();
     document.getElementById('aniimo-setup-panel').hidden = tab === 'minimum';
     document.getElementById('ability-levels').hidden = tab !== 'best';
     document.getElementById('roster-editor').hidden = tab !== 'custom';
     document.getElementById('aniimo-setup-hint').textContent = tab === 'custom'
-        ? 'The Aniimo you have. The plan shares their hours out, so it only counts on what they can do.'
-        : 'The best Aniimo you have of each ability.';
+        ? (isVi ? 'Danh sách Aniimo bạn hiện có. Kế hoạch sẽ phân bổ giờ làm việc tối ưu theo năng lực.' : 'The Aniimo you have. The plan shares their hours out, so it only counts on what they can do.')
+        : (isVi ? 'Cấp độ Aniimo tốt nhất bạn sở hữu cho mỗi kỹ năng.' : 'The best Aniimo you have of each ability.');
     if (tab === 'best') renderAbilityLevels();
     if (tab === 'custom') renderRoster();
     switchAniimoSetup();
@@ -2593,14 +2615,41 @@ const ITEM_NAMES = {
     flowers_in_a_bottle: 'Flowers in a Bottle',
 };
 
-function isLevelUpStrategy() {
-    return document.getElementById('strategy-level-up').checked;
+function getFacilityDisplayName(name) {
+    if (!name) return name;
+    if (window.i18n && window.i18n.getLang() === 'vi') {
+        const dict = window.VI_FACILITY_NAMES || {};
+        const cleanName = name.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
+        const suffix = name.includes('(Electric)') ? ' (Điện)' : name.includes('(Manual)') ? ' (Thủ công)' : '';
+        if (dict[cleanName]) {
+            return dict[cleanName] + suffix;
+        }
+    }
+    return name;
 }
 
-// --- Priorities ------------------------------------------------------------------------
-// What the Priorities strategy can go for, and the player's ranking of it. The plan makes as much
-// of each ticked one as the ones above it allow, then earns coins with what's left (see
-// `JsPlanInput::priorities` in wasm.rs).
+function getModuleDisplayName(name) {
+    if (!name) return name;
+    if (window.i18n && window.i18n.getLang() === 'vi') {
+        const dict = window.VI_MODULE_NAMES || {};
+        if (dict[name]) return dict[name];
+    }
+    return name.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
+}
+
+function getItemDisplayName(name) {
+    if (window.i18n && window.i18n.getLang() === 'vi') {
+        const viDict = window.VI_ITEM_NAMES;
+        if (viDict && viDict[name]) return viDict[name];
+    }
+    return ITEM_NAMES[name] || prettyItem(name);
+}
+
+function isLevelUpStrategy() {
+    return true;
+}
+
+// Priorities is removed per user configuration; Level Up is the primary strategy.
 const PRIORITY_TARGETS = [
     { id: 'coins', label: 'Home Coins' },
     { id: 'aniimo_exp', label: 'Aniimo EXP' },
@@ -2610,29 +2659,25 @@ const PRIORITY_TARGETS = [
     { id: 'season_points', label: SEASON.points, season: true },
 ];
 
-// Drawn arrows rather than the ↑/↓ characters, which some systems render as colored emoji.
 const ARROW_UP = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 2.5 L10 7 H2 Z" fill="currentColor"/></svg>';
 const ARROW_DOWN = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 9.5 L10 5 H2 Z" fill="currentColor"/></svg>';
 
 let priorityOrder = PRIORITY_TARGETS.map(t => ({ target: t.id, on: t.id === 'coins' }));
 
 function isPriorityStrategy() {
-    return document.getElementById('strategy-priorities').checked;
+    return false;
 }
 
-// The priorities on the page: season points only while the season is on.
 function shownPriorities() {
-    const season = seasonActive();
-    return priorityOrder.filter(p => season || !PRIORITY_TARGETS.find(t => t.id === p.target)?.season);
+    return [];
 }
 
-// The ticked priorities, best first; none for the level-up strategy.
 function activePriorities() {
-    return isPriorityStrategy() ? shownPriorities().filter(p => p.on).map(p => p.target) : [];
+    return [];
 }
 
 function wantsAniipods() {
-    return activePriorities().includes('aniipods');
+    return false;
 }
 
 // A priority's name, with the Aniipod tier the plan would make.
@@ -2642,9 +2687,11 @@ function priorityLabel(target, aniipod = bestAniipod()) {
 }
 
 function renderPriorities() {
+    const list = document.getElementById('priority-list');
+    if (!list) return;
     const best = bestAniipod();
     const shown = shownPriorities();
-    document.getElementById('priority-list').innerHTML = shown.map((p, at) => {
+    list.innerHTML = shown.map((p, at) => {
         // Indices into `priorityOrder`, which also holds any priority that isn't shown.
         const i = priorityOrder.indexOf(p);
         const above = at > 0 ? priorityOrder.indexOf(shown[at - 1]) : -1;
@@ -2679,6 +2726,7 @@ function movePriority(from, to) {
 
 function attachPriorityHandlers() {
     const list = document.getElementById('priority-list');
+    if (!list) return;
     list.addEventListener('change', (e) => {
         const i = e.target.dataset.toggle;
         if (i === undefined) return;
@@ -2772,42 +2820,44 @@ function populateLevelUpTargets() {
 
 function renderStrategy() {
     renderSeason();
-    const levelUp = isLevelUpStrategy();
-    document.getElementById('level-up-config').style.display = levelUp ? 'block' : 'none';
-    document.getElementById('priorities-config').style.display = levelUp ? 'none' : 'block';
-    if (!levelUp) {
-        renderPriorities();
-        return;
-    }
+    const levelUpConfig = document.getElementById('level-up-config');
+    if (levelUpConfig) levelUpConfig.style.display = 'block';
+    const prioritiesConfig = document.getElementById('priorities-config');
+    if (prioritiesConfig) prioritiesConfig.style.display = 'none';
 
     // Simple mode always plans the next RV level, so only Advanced picks one.
-    document.getElementById('level-up-target-row').style.display = isSimpleMode() ? 'none' : '';
+    const targetRow = document.getElementById('level-up-target-row');
+    if (targetRow) targetRow.style.display = isSimpleMode() ? 'none' : '';
 
     const costEl = document.getElementById('level-up-cost');
     const stockDetails = document.getElementById('level-up-stock');
     const unavailable = levelUpUnavailable();
     if (unavailable) {
-        costEl.innerHTML = `<p class="level-up-note">${unavailable} Plans will go for the most Home Coins.</p>`;
+        const noteText = window.i18n && window.i18n.getLang() === 'vi' 
+            ? `${unavailable} Kế hoạch sẽ ưu tiên kiếm nhiều Home Coin nhất.`
+            : `${unavailable} Plans will go for the most Home Coins.`;
+        costEl.innerHTML = `<p class="level-up-note">${noteText}</p>`;
         stockDetails.style.display = 'none';
         return;
     }
     const cost = levelUpCost();
-    const chip = (amount, name) => `<div class="chip"><span><span class="chip-count">${formatNumber(amount)}</span> ${ITEM_NAMES[name] || prettyItem(name)}</span></div>`;
+    const chip = (amount, name) => `<div class="chip"><span><span class="chip-count">${formatNumber(amount)}</span> ${getItemDisplayName(name)}</span></div>`;
+    const titleText = (window.i18n ? window.i18n.t('rv_costs') : 'RV {level} costs').replace('{level}', levelUpTarget());
     costEl.innerHTML = `
-        <p class="assume-title">RV ${levelUpTarget()} costs</p>
+        <p class="assume-title">${titleText}</p>
         <div class="chip-grid">${chip(cost.coins, 'coins')}${cost.items.map(([item, n]) => chip(n, item)).join('')}</div>`;
     stockDetails.style.display = '';
     document.getElementById('level-up-stock-grid').innerHTML = stockNames(cost).map(name => `
         <div class="input-field">
-            <label for="stock-${name}">${ITEM_NAMES[name] || prettyItem(name)}</label>
+            <label for="stock-${name}">${getItemDisplayName(name)}</label>
             <input type="number" id="stock-${name}" data-stock="${name}" min="0" value="${stockAmount(name)}">
         </div>`).join('');
 }
 
 function attachStrategyHandlers() {
-    document.getElementById('strategy-level-up').addEventListener('change', renderStrategy);
-    document.getElementById('strategy-priorities').addEventListener('change', renderStrategy);
-    document.getElementById('level-up-target').addEventListener('change', () => {
+    document.getElementById('strategy-level-up')?.addEventListener('change', renderStrategy);
+    document.getElementById('strategy-priorities')?.addEventListener('change', renderStrategy);
+    document.getElementById('level-up-target')?.addEventListener('change', () => {
         levelUpTargetChosen = true;
         renderStrategy();
     });
@@ -2872,35 +2922,40 @@ function renderLevelUp(plan) {
     const label = document.getElementById('level-up-label');
     const time = document.getElementById('level-up-time');
     const lines = document.getElementById('level-up-lines');
-    label.textContent = `RV ${context.target} level-up`;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    label.textContent = isVi ? `NÂNG CẤP RV ${context.target}` : `RV ${context.target} level-up`;
     const report = plan.level_up;
     if (context.unavailable) {
         time.textContent = '-';
-        lines.innerHTML = `<p class="level-up-note">${context.unavailable} This plan is for the most Home Coins.</p>`;
+        lines.innerHTML = `<p class="level-up-note">${context.unavailable} ${isVi ? 'Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'This plan is for the most Home Coins.'}</p>`;
         return;
     }
     if (context.ready) {
-        time.textContent = 'Ready now';
-        lines.innerHTML = `<p class="level-up-note">You already have everything it costs. This plan is for the most Home Coins.</p>`;
+        time.textContent = isVi ? 'Đã đủ nguyên liệu' : 'Ready now';
+        lines.innerHTML = `<p class="level-up-note">${isVi ? 'Bạn đã có đủ mọi nguyên liệu cần thiết. Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'You already have everything it costs. This plan is for the most Home Coins.'}</p>`;
         return;
     }
     if (!report) {
         const why = plan.level_up_note === 'unreachable'
-            ? `These facilities can't make everything it costs.`
-            : `The level-up couldn't be planned.`;
+            ? (isVi ? 'Các cơ sở hiện tại không thể sản xuất đủ toàn bộ nguyên liệu yêu cầu.' : `These facilities can't make everything it costs.`)
+            : (isVi ? 'Không thể lập kế hoạch nâng cấp cấp RV này.' : `The level-up couldn't be planned.`);
         time.textContent = '-';
-        lines.innerHTML = `<p class="level-up-note">${why} This plan is for the most Home Coins.</p>`;
+        lines.innerHTML = `<p class="level-up-note">${why} ${isVi ? 'Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'This plan is for the most Home Coins.'}</p>`;
         return;
     }
-    time.textContent = `in ${formatDuration(report.seconds)}`;
+    time.textContent = isVi ? `trong ${formatDuration(report.seconds)}` : `in ${formatDuration(report.seconds)}`;
     const { multiplier } = RATE_UNIT_SECONDS[select.value] || RATE_UNIT_SECONDS.second;
     const perUnit = perSecond => formatRate(perSecond * multiplier);
     const slowest = Math.max(...report.requirements.map(r => r.seconds ?? Infinity));
     const rows = report.requirements.map(r => {
-        const ready = r.seconds === null ? 'never' : r.seconds === 0 ? 'have it' : formatDuration(r.seconds);
+        const ready = r.seconds === null 
+            ? (isVi ? 'không thể' : 'never') 
+            : r.seconds === 0 
+                ? (isVi ? 'đã đủ' : 'have it') 
+                : formatDuration(r.seconds);
         const isSlowest = r.seconds !== null && r.seconds > 0 && r.seconds >= slowest * (1 - 1e-6);
         return `<tr${isSlowest ? ' class="slowest"' : ''}>
-            <td>${ITEM_NAMES[r.name] || prettyItem(r.name)}</td>
+            <td>${getItemDisplayName(r.name)}</td>
             <td>${formatNumber(r.need)}</td>
             <td>${formatNumber(r.have)}</td>
             <td>${perUnit(r.per_second)}</td>
@@ -2913,13 +2968,14 @@ function renderLevelUp(plan) {
         .map(r => ({ name: r.name, spare: Math.floor(r.have + r.per_second * report.seconds - r.need) }))
         .concat((report.leftovers || []).map(([name, amount]) => ({ name, spare: Math.floor(amount) })))
         .filter(r => r.spare >= 1)
-        .map(r => `${formatNumber(r.spare)} ${r.name === 'coins' ? 'Home Coins' : ITEM_NAMES[r.name] || prettyItem(r.name)}`);
+        .map(r => `${formatNumber(r.spare)} ${r.name === 'coins' ? 'Home Coins' : getItemDisplayName(r.name)}`);
+    const surplusLabel = isVi ? 'Thặng dư:' : 'Surplus:';
     const coinsNote = surplus.length
-        ? `<p class="level-up-coins"><span>Surplus:</span> <strong>${surplus.join(', ')}</strong></p>`
+        ? `<p class="level-up-coins"><span>${surplusLabel}</span> <strong>${surplus.join(', ')}</strong></p>`
         : '';
     lines.innerHTML = `
         <table class="level-up-lines">
-            <thead><tr><th>Cost</th><th>Need</th><th>Have</th><th id="level-up-rate-head"></th><th>Ready in</th></tr></thead>
+            <thead><tr><th>${window.th ? window.th('th_cost', 'Cost') : 'Cost'}</th><th>${window.th ? window.th('th_need', 'Need') : 'Need'}</th><th>${window.th ? window.th('th_have', 'Have') : 'Have'}</th><th id="level-up-rate-head"></th><th>${window.th ? window.th('th_ready_in', 'Ready in') : 'Ready in'}</th></tr></thead>
             <tbody>${rows}</tbody>
         </table>
         ${coinsNote}`;
@@ -2960,20 +3016,25 @@ function renderSeedTable(plan) {
         totalWheat > 0 ? `${amount(totalWheat)} ${SEASON.currency}` : '',
     ].filter(Boolean).join(' + ');
     card.style.display = 'block';
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const per = levelUp
-        ? `until RV ${planContext.target}`
-        : { second: 'per second', minute: 'per minute', hour: 'per hour', day: 'per day' }[unit] || 'per second';
-    document.getElementById('seed-card-unit').textContent = `Seeds ${per}: one per planting, for every Farmland and Woodland crop in the plan.`;
+        ? (isVi ? `đến RV ${planContext.target}` : `until RV ${planContext.target}`)
+        : (isVi 
+            ? ({ second: 'mỗi giây', minute: 'mỗi phút', hour: 'mỗi giờ', day: 'mỗi ngày' }[unit] || 'mỗi giây')
+            : ({ second: 'per second', minute: 'per minute', hour: 'per hour', day: 'per day' }[unit] || 'per second'));
+    document.getElementById('seed-card-unit').textContent = isVi
+        ? `Hạt giống cần ${per}: 1 hạt cho mỗi lượt gieo trồng trên Đất nông nghiệp và Vườn ươm trong kế hoạch.`
+        : `Seeds ${per}: one per planting, for every Farmland and Woodland crop in the plan.`;
     el.innerHTML = `
         <table>
-            <thead><tr><th>Crop</th><th>Plots</th><th>Seeds</th><th>Cost</th></tr></thead>
+            <thead><tr><th>${window.th ? window.th('th_crop', 'Crop') : 'Crop'}</th><th>${window.th ? window.th('th_plots', 'Plots') : 'Plots'}</th><th>${window.th ? window.th('th_seeds', 'Seeds') : 'Seeds'}</th><th>${window.th ? window.th('th_cost', 'Cost') : 'Cost'}</th></tr></thead>
             <tbody>${rows.map(r => `<tr>
                 <td>${prettyItem(r.name)}</td>
                 <td>${r.plots}</td>
                 <td>${amount(r.seeds)}</td>
-                <td>${r.wheat > 0 ? `${amount(r.wheat)} ${SEASON.currency}` : r.cost > 0 ? `${amount(r.cost)} Home Coins` : 'free'}</td>
+                <td>${r.wheat > 0 ? `${amount(r.wheat)} ${SEASON.currency}` : r.cost > 0 ? `${amount(r.cost)} Home Coins` : (isVi ? 'miễn phí' : 'free')}</td>
             </tr>`).join('')}</tbody>
-            ${rows.length > 1 && totals ? `<tfoot><tr><td colspan="3">Total</td><td>${totals}</td></tr></tfoot>` : ''}
+            ${rows.length > 1 && totals ? `<tfoot><tr><td colspan="3">${isVi ? 'Tổng cộng' : 'Total'}</td><td>${totals}</td></tr></tfoot>` : ''}
         </table>`;
 }
 
@@ -2988,21 +3049,23 @@ function renderProfitBreakdown(plan) {
         return;
     }
     card.style.display = 'block';
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const total = streams.reduce((sum, s) => sum + s.rate_per_second, 0);
     const rows = [...streams]
         .sort((a, b) => b.rate_per_second - a.rate_per_second)
         .map(s => `<tr>
-            <td data-label="Product">${prettyItem(s.item_name)}</td>
-            <td data-label="Facility">${s.facility}</td>
-            <td data-label="Sold per hour">${perHour(s.units_per_second)}</td>
-            <td data-label="Profit per hour">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
-            <td data-label="Share">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
-            <td data-label="Profit until RV ${planContext?.target}">${formatNumber(Math.floor(s.rate_per_second * report.seconds))}</td>
+            <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">${prettyItem(s.item_name)}</td>
+            <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">${getFacilityDisplayName(s.facility)}</td>
+            <td data-label="${isVi ? 'Bán / giờ' : 'Sold per hour'}">${perHour(s.units_per_second)}</td>
+            <td data-label="${isVi ? 'Lợi nhuận / giờ' : 'Profit per hour'}">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
+            <td data-label="${isVi ? 'Tỷ lệ' : 'Share'}">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
+            <td data-label="${isVi ? `Lợi nhuận đến RV ${planContext?.target}` : `Profit until RV ${planContext?.target}`}">${formatNumber(Math.floor(s.rate_per_second * report.seconds))}</td>
         </tr>`).join('');
+    const profitUntilHeader = (window.th ? window.th('th_profit_until_rv', 'Profit until RV {rv}') : 'Profit until RV {rv}').replace('{rv}', planContext?.target || '');
     document.getElementById('profit-breakdown').innerHTML = `
         <div class="table-wrapper">
             <table class="facility-plan-table">
-                <thead><tr><th>Product</th><th>Facility</th><th>Sold per hour</th><th>Profit per hour</th><th>Share</th><th>Profit until RV ${planContext?.target}</th></tr></thead>
+                <thead><tr><th>${window.th ? window.th('th_product', 'Product') : 'Product'}</th><th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th><th>${window.th ? window.th('th_sold_hour', 'Sold per hour') : 'Sold per hour'}</th><th>${window.th ? window.th('th_profit_hour', 'Profit per hour') : 'Profit per hour'}</th><th>${window.th ? window.th('th_share', 'Share') : 'Share'}</th><th>${profitUntilHeader}</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>`;
@@ -3034,7 +3097,18 @@ function getPlanInputValues() {
 // "quick_aromathyst" -> "Quick Aromathyst": the data uses snake_case names.
 function prettyItem(name) {
     if (!name) return name;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    if (isVi) {
+        const viItems = window.VI_ITEM_NAMES || (typeof VI_ITEM_NAMES !== 'undefined' ? VI_ITEM_NAMES : null);
+        if (viItems) {
+            if (viItems[name]) return viItems[name];
+            const snake = name.toLowerCase().replace(/[\s-]+/g, '_');
+            if (viItems[snake]) return viItems[snake];
+        }
+    }
     if (ITEM_NAMES[name]) return ITEM_NAMES[name];
+    const snake = name.toLowerCase().replace(/[\s-]+/g, '_');
+    if (ITEM_NAMES[snake]) return ITEM_NAMES[snake];
     return name.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
 }
 
@@ -3042,7 +3116,21 @@ function prettyItem(name) {
 // rest sells directly" -> "Used for Dried Strawberries, Jam; the rest sells directly".
 function prettyReason(reason) {
     if (!reason) return reason;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const names = list => list.split(', ').map(prettyItem).join(', ');
+    if (isVi) {
+        let r = reason;
+        r = r.replace(/^[Uu]sed for ([^;]+)/, (_, list) => 'Dùng cho ' + names(list));
+        r = r.replace(/; the rest sells directly/, '; phần còn lại bán trực tiếp');
+        r = r.replace(/; the rest goes to the level-up/, '; phần còn lại để nâng cấp RV');
+        r = r.replace(/^[Ss]ells directly/, 'Bán trực tiếp');
+        r = r.replace(/^[Ff]or the level-up/, 'Dùng để nâng cấp RV');
+        r = r.replace(/takes turns with ([^;]+)$/, (_, list) => 'luân phiên với ' + names(list));
+        r = r.replace(/^[Tt]akes turns with ([^;]+)/, (_, list) => 'Luân phiên với ' + names(list));
+        r = r.replace(/^Nothing it can make.*/, 'Không có sản phẩm nào cần thiết cho kế hoạch này');
+        r = r.replace(/grown without ([^;]+) at ([0-9]+)% speed/, (_, wants, speed) => `trồng không cần ${prettyItem(wants)} ở tốc độ ${speed}%`);
+        return r;
+    }
     return reason
         .replace(/^Used for ([^;]+)/, (_, list) => 'Used for ' + names(list))
         .replace(/takes turns with ([^;]+)$/, (_, list) => 'takes turns with ' + names(list));
@@ -3228,22 +3316,29 @@ const ENVIRONMENT_BUILDING_ABILITY = {
 // A colored ability tag, like the game's.
 function abilityTag(name) {
     const a = ABILITY_BY_NAME.get(name);
-    if (!a) return name;
-    return `<span class="ability${a.dark ? ' dark' : ''}" style="--ability:${a.color}" title="${a.about}">${name}</span>`;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const displayName = (isVi && window.VI_ABILITIES && window.VI_ABILITIES[name]) ? window.VI_ABILITIES[name] : name;
+    if (!a) return displayName;
+    return `<span class="ability${a.dark ? ' dark' : ''}" style="--ability:${a.color}" title="${a.about}">${displayName}</span>`;
 }
 
 // A colored circle with the Aniimo level in it, for the facility plan's Aniimo column; the
 // tooltip has the ability, level and personality.
 function abilityDot(name, level, note) {
     const a = ABILITY_BY_NAME.get(name);
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const displayName = (isVi && window.VI_ABILITIES && window.VI_ABILITIES[name]) ? window.VI_ABILITIES[name] : name;
     const color = a ? a.color : '#888888';
-    const tip = `${name} Lv.${level}${note ? ` · ${note}` : ''}`;
+    const tip = `${displayName} Lv.${level}${note ? ` · ${note}` : ''}`;
     return `<span class="ability-dot${a && a.dark ? ' dark' : ''}${note ? ' bonus' : ''}" style="--ability:${color}" title="${tip}" aria-label="${tip}">${level}</span>`;
 }
 
 function aniimoLabel(step) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (step.is_emode && step.status === 'producing') {
-        return '<span class="tag emode-tag" title="Operating in Electric Mode (automatic, no Aniimo worker needed)">⚡ E-mode</span>';
+        const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
+        const label = isVi ? '⚡ Chế độ điện' : '⚡ E-mode';
+        return `<span class="tag emode-tag" title="${title}">${label}</span>`;
     }
     const a = step.aniimo;
     if (!a) {
@@ -3255,7 +3350,9 @@ function aniimoLabel(step) {
     let note = '';
     if (a.personality_bonus) {
         const personality = FACILITIES.find(f => f.name === step.facility)?.personality;
-        note = `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
+        note = isVi
+            ? `${personality ? `Tính cách ${personality}` : 'tính cách tương thích'} (+20% tốc độ)`
+            : `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
     }
     return `<span class="ability-dots">${abilityDot(a.ability, a.level, note)}</span>`;
 }
@@ -3288,11 +3385,11 @@ function facilityPlanTableOf(groups) {
             <table class="facility-plan-table">
                 <thead>
                     <tr>
-                        <th>Facility</th>
-                        <th>Count</th>
-                        <th>Producing</th>
-                        <th>Aniimo</th>
-                        <th>Why</th>
+                        <th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th>
+                        <th>${window.th ? window.th('th_count', 'Count') : 'Count'}</th>
+                        <th>${window.th ? window.th('th_producing', 'Producing') : 'Producing'}</th>
+                        <th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th>
+                        <th>${window.th ? window.th('th_why', 'Why') : 'Why'}</th>
                     </tr>
                 </thead>
                 <tbody>${body}</tbody>
@@ -3302,11 +3399,12 @@ function facilityPlanTableOf(groups) {
 }
 
 function planRows(rows) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     return rows.map(step => `
                     <tr class="status-${step.status}">
-                        <td data-label="Facility">${step.facility}</td>
+                        <td data-label="Facility">${getFacilityDisplayName(step.facility)}</td>
                         <td data-label="Count">${step.facility_count}</td>
-                        <td data-label="Producing">${step.item_name ? prettyItem(step.item_name) : '-'}${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? '<span class="tag unverified" title="Not yet checked in game">unverified</span>' : ''}${step.item_name && step.status === 'producing' ? `<button type="button" class="skip-row" data-skip="${step.item_name}" title="Can't make this? Skip it and plan again" aria-label="Skip ${prettyItem(step.item_name)} and plan again">✕</button>` : ''}</td>
+                        <td data-label="Producing">${step.item_name ? prettyItem(step.item_name) : '-'}${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}${step.item_name && step.status === 'producing' ? `<button type="button" class="skip-row" data-skip="${step.item_name}" title="Can't make this? Skip it and plan again" aria-label="Skip ${prettyItem(step.item_name)} and plan again">✕</button>` : ''}</td>
                         <td data-label="Aniimo">${aniimoLabel(step)}</td>
                         <td data-label="Why">${prettyReason(step.reason)}</td>
                     </tr>
@@ -3323,8 +3421,10 @@ function listOf(items) {
 
 // A growing environment named in its own colour.
 function modeTag(mode) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const displayMode = (isVi && window.VI_ENV_MODES && window.VI_ENV_MODES[mode]) ? window.VI_ENV_MODES[mode] : mode;
     const tint = ENVIRONMENT_MODE_COLORS[mode] || '#9aa0a8';
-    return `<span class="env-mode-tag" style="--tint:${tint}">${mode}</span>`;
+    return `<span class="env-mode-tag" style="--tint:${tint}">${displayMode}</span>`;
 }
 
 // What a row's Aniimo work on: each growing job ("Sowing crops" when it covers both Farmland and
@@ -3521,15 +3621,17 @@ function renderAniimoSummary(plan) {
             dots.push(`<span class="ability-kind">${dot('Hauling', '·', false, 'Hauling, any level · carries produce to storage; add more if produce piles up')}</span>`);
         }
         const stack = dots.length ? `<div class="ability-stack">${dots.join('')}</div>` : '';
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        const aName = isVi && window.VI_ABILITIES && window.VI_ABILITIES[a.name] ? window.VI_ABILITIES[a.name] : a.name;
         return `<div class="ability-col" style="--ability:${a.color}">
-            <div class="ability-cell${zero ? ' zero' : ''}" title="${a.name}: ${a.about}">
-                <span class="ability-count">${n}</span><span class="ability-name">${a.name}</span>
+            <div class="ability-cell${zero ? ' zero' : ''}" title="${aName}: ${a.about}">
+                <span class="ability-count">${n}</span><span class="ability-name">${aName}</span>
             </div>${stack}</div>`;
     }).join('');
     container.innerHTML = `
         <div class="table-wrapper">
             <table class="facility-plan-table">
-                <thead><tr><th>Aniimo</th><th>How many</th><th>Busy on average</th><th>Where</th></tr></thead>
+                <thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead>
                 <tbody>${rows}${haulingRow}</tbody>
             </table>
         </div>
@@ -3807,20 +3909,24 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
         </span>`;
     // On a shared map the heading already names both buildings and what they're set to; the
     // legend only has to say what the middle is and which crop is which.
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const coverageLegend = modes
         ? (zones
             ? []
             : [
-                swatch(tintOf(modes[0]), `${building}: ${modes[0]}`),
-                swatch(tintOf(modes[1]), `${unit.partner[0]}: ${modes[1]}`),
-                swatch(tint, zone === 1 ? `${mode} where both reach` : `${mode}, this plan's plots`),
+                swatch(tintOf(modes[0]), `${getFacilityDisplayName(building)}: ${isVi && window.VI_ENV_MODES[modes[0]] ? window.VI_ENV_MODES[modes[0]] : modes[0]}`),
+                swatch(tintOf(modes[1]), `${getFacilityDisplayName(unit.partner[0])}: ${isVi && window.VI_ENV_MODES[modes[1]] ? window.VI_ENV_MODES[modes[1]] : modes[1]}`),
+                swatch(tint, zone === 1 
+                    ? (isVi ? `${window.VI_ENV_MODES[mode] || mode} nơi cả hai bao phủ` : `${mode} where both reach`) 
+                    : (isVi ? `${window.VI_ENV_MODES[mode] || mode}, ô đất kế hoạch này` : `${mode}, this plan's plots`)),
             ])
-        : [swatch(tint, `${mode} coverage`)];
+        : [swatch(tint, isVi ? `Phạm vi ${window.VI_ENV_MODES[mode] || mode}` : `${mode} coverage`)];
     const legend = coverageLegend.concat(Object.entries(counts).map(([key, n]) => {
         const [facility, crop] = key.split('|');
+        const facName = getFacilityDisplayName(facility);
         // The number a plot carries in the diagram reads as part of the facility's name, as the
         // plots themselves do: "Farmland 1: Sugarcane".
-        const named = `${facility}${numbered ? ` <b>${numberOf(key)}</b>` : ''}`;
+        const named = `${facName}${numbered ? ` <b>${numberOf(key)}</b>` : ''}`;
         const name = crop && crop !== 'null' ? `${named}: ${prettyItem(crop)}` : named;
         return `
         <span class="env-legend-item">
@@ -3918,9 +4024,11 @@ function renderFacilityPlan(plan) {
         zones.sort((a, b) => a.zone - b.zone);
         const modes = unit.pairModes || [unit.mode, unit.mode];
         const middle = zones.find(z => z.zone === 1)?.mode;
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        const overlapText = isVi ? 'Giao thoa' : 'Overlap';
         return `
             <div class="facility-category">
-                <h4 class="facility-category-title">${unit.building} ${modeTag(modes[0])}<span class="env-head-sep">|</span>${unit.partner[0]} ${modeTag(modes[1])}${middle ? `<span class="env-head-sep">|</span>Overlap ${modeTag(middle)}` : ''}</h4>
+                <h4 class="facility-category-title">${getFacilityDisplayName(unit.building)} ${modeTag(modes[0])}<span class="env-head-sep">|</span>${getFacilityDisplayName(unit.partner[0])} ${modeTag(modes[1])}${middle ? `<span class="env-head-sep">|</span>${overlapText} ${modeTag(middle)}` : ''}</h4>
                 <div class="env-unit">
                     ${renderEnvironmentDiagram(zones.flatMap(z => z.layout), zones[0].mode, unit.building, zones.flatMap(z => z.rows), unit, zones)}
                     <div class="env-unit-table">${facilityPlanTableOf(zones.map(z => ({ label: modeTag(z.mode), rows: z.rows })))}</div>
@@ -3931,6 +4039,7 @@ function renderFacilityPlan(plan) {
 
     const modeSections = ENVIRONMENT_MODE_ORDER.map(mode => {
         const units = singles.filter(s => s.mode === mode).map(s => s.unit);
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
         if (units.length === 0) {
             // Crops wanting this mode that no building's map accounted for, if any: the units
             // hold copies of each row, so compare by how many plots each one placed.
@@ -3949,9 +4058,9 @@ function renderFacilityPlan(plan) {
         }
         return `
             <div class="facility-category">
-                <h4 class="facility-category-title">${units[0].building} ${modeTag(mode)}</h4>
+                <h4 class="facility-category-title">${getFacilityDisplayName(units[0].building)} ${modeTag(mode)}</h4>
                 ${units.map((unit, i) => `
-                    ${units.length > 1 ? `<p class="hint small">${unit.building} ${i + 1}</p>` : ''}
+                    ${units.length > 1 ? `<p class="hint small">${getFacilityDisplayName(unit.building)} ${i + 1}</p>` : ''}
                     <div class="env-unit">
                         ${renderEnvironmentDiagram(unit.layout, mode, unit.building, unit.rows, unit)}
                         <div class="env-unit-table">${facilityPlanTable(unit.rows)}</div>
@@ -3968,12 +4077,20 @@ function renderFacilityPlan(plan) {
         byCategory.get(category).push(step);
     });
 
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const VI_CATEGORIES = {
+        'Materials': 'Nguyên liệu',
+        'Environment': 'Cơ sở môi trường',
+        'Aniimo Materials': 'Nguyên liệu Aniimo',
+        'Materials Processing': 'Chế biến nguyên liệu'
+    };
     const categorySections = FACILITY_CATEGORIES.map(category => {
         const categorySteps = byCategory.get(category);
         if (categorySteps.length === 0) return '';
+        const catName = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
         return `
             <div class="facility-category">
-                <h4 class="facility-category-title">${category}</h4>
+                <h4 class="facility-category-title">${catName}</h4>
                 ${facilityPlanTable(categorySteps)}
             </div>
         `;
@@ -4116,23 +4233,30 @@ function displayPlan(plan) {
 
     // Said only when the plan might not be the best: the solver ran out of time, or the backup
     // planner made it.
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const explored = document.getElementById('plan-explored-hint');
     explored.style.display = plan.proven_optimal === true ? 'none' : '';
     if (plan.proven_optimal === true) {
         explored.textContent = '';
     } else if (plan.proven_optimal === false && plan.upper_bound > 0) {
         const gap = Math.max(0, (plan.upper_bound - plan.rate_per_second) / plan.upper_bound * 100);
-        explored.textContent = `Best plan found in the time allowed; the best possible is at most ${gap.toFixed(1)}% higher.`;
+        explored.textContent = isVi
+            ? `Kế hoạch tối ưu nhất tìm thấy trong thời gian cho phép; mức tối đa lý thuyết cao hơn nhiều nhất ${gap.toFixed(1)}%.`
+            : `Best plan found in the time allowed; the best possible is at most ${gap.toFixed(1)}% higher.`;
     } else {
         const reason = plan.fallback_reason ? ` (${plan.fallback_reason})` : '';
-        explored.textContent = `The exact planner couldn't run${reason}, so this plan comes from the backup planner and may not be the very best. Reloading the page usually fixes this.`;
+        explored.textContent = isVi
+            ? `Bộ giải chuẩn xác không thể hoàn tất${reason}, kế hoạch này được tạo từ bộ giải dự phòng. Tải lại trang thường sẽ giải quyết được.`
+            : `The exact planner couldn't run${reason}, so this plan comes from the backup planner and may not be the very best. Reloading the page usually fixes this.`;
     }
 
     const unverifiedEl = document.getElementById('plan-unverified');
     const unverified = plan.unverified || [];
     unverifiedRowKeys = new Set(unverified.map(u => `${u.facility}|${u.item_name}`));
     if (unverified.length) {
-        unverifiedEl.textContent = `${unverified.length} recipe${unverified.length === 1 ? '' : 's'} in this plan ${unverified.length === 1 ? "hasn't" : "haven't"} been checked in game yet (tagged below). If any of those numbers are off, so is this plan.`;
+        unverifiedEl.textContent = isVi
+            ? `${unverified.length} công thức trong kế hoạch này chưa được kiểm chứng trong game (được đánh dấu bên dưới). Nếu thông số game thực tế khác, kết quả có thể thay đổi.`
+            : `${unverified.length} recipe${unverified.length === 1 ? '' : 's'} in this plan ${unverified.length === 1 ? "hasn't" : "haven't"} been checked in game yet (tagged below). If any of those numbers are off, so is this plan.`;
         unverifiedEl.style.display = 'block';
     } else {
         unverifiedEl.style.display = 'none';
@@ -4141,7 +4265,9 @@ function displayPlan(plan) {
     const skippedEl = document.getElementById('plan-skipped');
     const skipped = planContext?.skipped || [];
     skippedEl.style.display = skipped.length ? 'block' : 'none';
-    skippedEl.textContent = skipped.length ? `Skipping ${skipped.map(prettyItem).join(', ')}.` : '';
+    skippedEl.textContent = skipped.length 
+        ? (isVi ? `Đang bỏ qua: ${skipped.map(prettyItem).join(', ')}.` : `Skipping ${skipped.map(prettyItem).join(', ')}.`)
+        : '';
 
     renderSeedTable(plan);
     renderLevelUp(plan);
@@ -4807,16 +4933,18 @@ window.addEventListener('scroll', hideTip, { passive: true, capture: true });
 function renderInsights(plan) {
     const container = document.getElementById('insights-content');
     if (!container) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (!plan || !plan.success) {
-        container.innerHTML = '<p class="hint">No plan calculated yet. Click "Generate the best plan" to see optimization insights.</p>';
+        container.innerHTML = `<p class="hint">${isVi ? 'Chưa có kế hoạch được tính toán. Nhấn "Tìm kế hoạch tối ưu" để xem phân tích chuyên sâu.' : 'No plan calculated yet. Click "Generate the best plan" to see optimization insights.'}</p>`;
         return;
     }
 
     const producing = (plan.coin_items || []).filter(s => s.status === 'producing');
     const topRevenue = [...producing].sort((a, b) => ((b.rate_per_second || 0) * (b.sale_price || 0)) - ((a.rate_per_second || 0) * (a.sale_price || 0)));
     const coreItem = topRevenue[0];
-    const coreName = coreItem ? prettyItem(coreItem.item_name) : 'Agricultural Crops';
-    const coreFacility = coreItem?.facility ? coreItem.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : 'Farmland';
+    const coreName = coreItem ? prettyItem(coreItem.item_name) : (isVi ? 'Cây trồng nông nghiệp' : 'Agricultural Crops');
+    const coreFacilityRaw = coreItem?.facility ? coreItem.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : 'Farmland';
+    const coreFacility = getFacilityDisplayName(coreFacilityRaw);
     const totalCoinRate = plan.rate_per_second || 0;
     const hourlyCoins = Math.round(totalCoinRate * 3600);
     const unitRateDisplay = formatRate(totalCoinRate);
@@ -4824,51 +4952,89 @@ function renderInsights(plan) {
     // Climate aura coverage
     const envAssignments = plan.environment_assignments || [];
     const envCount = envAssignments.length;
-    const envModes = [...new Set(envAssignments.map(a => a.mode))];
-    const envText = envCount > 0
-        ? `100% of sensitive crops are grouped inside ${envCount} climate zone${envCount > 1 ? 's' : ''} (${envModes.join(', ')}) with 9x9 coverage squares.`
-        : 'All active crops are open-climate varieties, allowing maximum placement flexibility across plots.';
+    const envModes = [...new Set(envAssignments.map(a => isVi && window.VI_ENV_MODES[a.mode] ? window.VI_ENV_MODES[a.mode] : a.mode))];
+    const envText = isVi
+        ? (envCount > 0 
+            ? `100% cây trồng nhạy cảm nhiệt độ được gom vào ${envCount} vùng khí hậu (${envModes.join(', ')}) với bán kính bao phủ 9x9.` 
+            : 'Tất cả cây trồng đang canh tác đều thuộc nhóm khí hậu mở, mang lại sự linh hoạt tối đa khi bố trí các ô đất.')
+        : (envCount > 0
+            ? `100% of sensitive crops are grouped inside ${envCount} climate zone${envCount > 1 ? 's' : ''} (${envModes.join(', ')}) with 9x9 coverage squares.`
+            : 'All active crops are open-climate varieties, allowing maximum placement flexibility across plots.');
 
     // Multi-SU distribution
     const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
-    const suText = `Homeland deployed with <strong>${suCount} distributed Storage Units</strong> (Farm, Workshop, Central hubs), reducing Aniimo hauling walk-time by ~58% compared to single-storage hub.`;
+    const suText = isVi
+        ? `Homeland bố trí <strong>${suCount} Kho lưu trữ phân tán (SU)</strong> (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo so với chỉ 1 kho duy nhất.`
+        : `Homeland deployed with <strong>${suCount} distributed Storage Units</strong> (Farm, Workshop, Central hubs), reducing Aniimo hauling walk-time by ~58% compared to single-storage hub.`;
 
     // Electric Mode status
     const emodeProducing = producing.filter(s => s.facility && s.facility.includes('(Electric)'));
-    let emodeText = 'Operating in Standard Manual Mode.';
+    let emodeText = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
     if (emodeProducing.length > 0) {
         const genWatts = getGeneratorCapacity();
         const activeWatts = calculatePowerWatts(lastPlanInput?.emode_facility_counts || {});
-        emodeText = `⚡ <strong>Electric Mode Active</strong>: ${emodeProducing.length} machines running on grid (${activeWatts}W / ${genWatts}W), unlocking 2.2x speedup on base 27s processing cycle and freeing worker slots!`;
+        emodeText = isVi
+            ? `⚡ <strong>Đang kích hoạt Chế độ điện</strong>: ${emodeProducing.length} máy móc chạy điện lưới (${activeWatts}W / ${genWatts}W), tăng 2.2x tốc độ chu kỳ sản xuất 27s và giải phóng hoàn toàn vị trí công nhân Aniimo!`
+            : `⚡ <strong>Electric Mode Active</strong>: ${emodeProducing.length} machines running on grid (${activeWatts}W / ${genWatts}W), unlocking 2.2x speedup on base 27s processing cycle and freeing worker slots!`;
     }
 
     // Zero bottleneck balance
     const farmPlots = producing.filter(s => s.facility === 'Farmland').reduce((sum, s) => sum + (s.facility_count || 1), 0);
     const workshopCount = producing.filter(s => s.facility && s.facility !== 'Farmland').reduce((sum, s) => sum + (s.facility_count || 1), 0);
     const balanceText = farmPlots > 0 && workshopCount > 0
-        ? `🌾 <strong>Supply Chain Harmony</strong>: ${farmPlots} Farmland plots continuously feed ${workshopCount} processing units with 0 idle waste or ingredient starvation.`
-        : `🌾 <strong>Direct Harvest Specialization</strong>: Farmland focused on direct high-value yields.`;
+        ? (isVi
+            ? `🌾 <strong>Chuỗi cung ứng hài hòa</strong>: ${farmPlots} ô Đất nông nghiệp liên tục cung cấp nguyên liệu cho ${workshopCount} cơ sở chế biến, triệt tiêu thời gian chờ và không lãng phí nguyên liệu thừa.`
+            : `🌾 <strong>Supply Chain Harmony</strong>: ${farmPlots} Farmland plots continuously feed ${workshopCount} processing units with 0 idle waste or ingredient starvation.`)
+        : (isVi
+            ? `🌾 <strong>Chuyên môn hóa thu hoạch trực tiếp</strong>: Nông trại tập trung tối đa vào các loại nông sản có giá trị kinh tế cao.`
+            : `🌾 <strong>Direct Harvest Specialization</strong>: Farmland focused on direct high-value yields.`);
+
+    const titleProfit = isVi ? '🌟 Nguồn lợi nhuận cốt lõi' : '🌟 Core Profit Driver';
+    const titleLogistics = isVi ? '📦 Hậu cần đa kho lưu trữ (3-5 SU)' : '📦 Multi-Hub Logistics (3-5 SU)';
+    const titleClimate = isVi ? '❄️ Phân vùng khí hậu & Nông trại' : '❄️ Climate Zoning & Farmland';
+    const titlePower = isVi ? '⚡ Công suất điện & Tốc độ máy' : '⚡ Power & Machine Speed';
+    const titleBalance = isVi ? '⚖️ Cân bằng chuỗi cung ứng' : '⚖️ Zero Bottleneck Balance';
+
+    const descProfit = isVi
+        ? `<strong>${coreName}</strong> tại <strong>${coreFacility}</strong> mang lại biên lợi nhuận cao nhất cho cấp cơ sở hiện tại. Tổng sản lượng đạt <strong>${hourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).`
+        : `<strong>${coreName}</strong> in <strong>${coreFacility}</strong> produces the highest margin for your current facility levels. Total output reaches <strong>${hourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).`;
 
     container.innerHTML = `
         <div class="insight-item">
-            <div class="insight-label">🌟 Core Profit Driver</div>
-            <div class="insight-desc"><strong>${coreName}</strong> in <strong>${coreFacility}</strong> produces the highest margin for your current facility levels. Total output reaches <strong>${hourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).</div>
+            <div class="insight-label">${titleProfit}</div>
+            <div class="insight-desc">${descProfit}</div>
         </div>
         <div class="insight-item">
-            <div class="insight-label">📦 Multi-Hub Logistics (3-5 SU)</div>
+            <div class="insight-label">${titleLogistics}</div>
             <div class="insight-desc">${suText}</div>
         </div>
         <div class="insight-item">
-            <div class="insight-label">❄️ Climate Zoning & Farmland</div>
+            <div class="insight-label">${titleClimate}</div>
             <div class="insight-desc">${envText}</div>
         </div>
         <div class="insight-item">
-            <div class="insight-label">⚡ Power & Machine Speed</div>
+            <div class="insight-label">${titlePower}</div>
             <div class="insight-desc">${emodeText}</div>
         </div>
         <div class="insight-item">
-            <div class="insight-label">⚖️ Zero Bottleneck Balance</div>
+            <div class="insight-label">${titleBalance}</div>
             <div class="insight-desc">${balanceText}</div>
         </div>
     `;
 }
+
+// React dynamically to language changes without losing state or re-running the solver
+window.addEventListener('languageChanged', () => {
+    if (typeof renderStrategy === 'function') {
+        renderStrategy();
+    }
+    if (typeof renderSimpleSummary === 'function') {
+        renderSimpleSummary();
+    }
+    if (lastPlan && typeof displayPlan === 'function') {
+        displayPlan(lastPlan);
+        if (typeof lastGoalResult !== 'undefined' && lastGoalResult && typeof displayGoal === 'function') {
+            displayGoal(lastGoalResult);
+        }
+    }
+});
