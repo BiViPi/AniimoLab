@@ -1656,6 +1656,19 @@ impl PreparedInput {
         }
         items.retain(|item| !input.exclude.iter().any(|name| name == crate::models::base_item_name(&item.name)));
 
+        // Enforce highest-tier crop rule ONLY for Woodland (to maximize Wood Blocks for level-up):
+        let max_woodland = facility_counts.get_level("Woodland");
+        items.retain(|item| {
+            if item.season.is_some() {
+                return true;
+            }
+            if item.facility == "Woodland" && max_woodland > 0 {
+                item.facility_level >= max_woodland
+            } else {
+                true
+            }
+        });
+
         let mut emode_facilities = input.emode_facilities.clone();
         let mut emode_counts = input.emode_facility_counts.clone();
         if emode_counts.is_empty() {
@@ -2109,5 +2122,86 @@ mod tests {
 only in data/: {only_files:#?}
 only embedded: {only_embedded:#?}"
         );
+    }
+
+    #[test]
+    fn test_rv14_prepared_input_and_climate_rules() {
+        let json_str = r#"{
+            "currency": "coins",
+            "facilities": {
+                "Farmland": [{"count": 28, "level": 6}],
+                "Woodland": [{"count": 15, "level": 5}],
+                "Heat Furnace": [{"count": 2, "level": 1}],
+                "Cooling Unit": [{"count": 2, "level": 1}],
+                "Sunlamp": [{"count": 1, "level": 1}],
+                "Tidewhisper Sandcastle": [{"count": 1, "level": 3}],
+                "Starfall Hammock": [{"count": 1, "level": 1}],
+                "Jukebox Dryer": [{"count": 2, "level": 6}],
+                "Simmering Pot": [{"count": 2, "level": 5}],
+                "Carousel Mill": [{"count": 2, "level": 4}],
+                "Crafting Table": [{"count": 2, "level": 5}],
+                "Woodworking Bench": [{"count": 1, "level": 5}],
+                "Chimney Kiln": [{"count": 1, "level": 5}],
+                "Mine": [{"count": 7, "level": 4}],
+                "Well": [{"count": 2, "level": 4}]
+            },
+            "modules": {
+                "ecological_module": 6,
+                "kitchen_module": 5,
+                "resource_detector": 5,
+                "crafting_module": 4
+            },
+            "production_aniimo_cap": 16,
+            "exclude": ["pearl"]
+        }"#;
+
+        let prepared = super::PreparedInput::from_json(json_str).expect("parse input");
+        let woodland_crops: Vec<&str> = prepared.items.iter().filter(|i| i.facility == "Woodland").map(|i| i.name.as_str()).collect();
+        let farmland_crops: Vec<&str> = prepared.items.iter().filter(|i| i.facility == "Farmland").map(|i| i.name.as_str()).collect();
+
+        // Woodland at RV 14 (Level 5) MUST only contain highest tier crops:
+        assert!(woodland_crops.contains(&"natural_rubber"));
+        assert!(woodland_crops.contains(&"coconut"));
+        assert!(woodland_crops.contains(&"quick_maple_syrup"));
+        assert!(!woodland_crops.contains(&"willow_wood"));
+        assert!(!woodland_crops.contains(&"bamboo"));
+        assert!(!woodland_crops.contains(&"lemon"));
+        assert!(!woodland_crops.contains(&"cherry_blossom"));
+        assert!(!woodland_crops.contains(&"chestnut"));
+        assert!(!woodland_crops.contains(&"palm_bark"));
+
+        // Farmland is NOT locked to highest tier, so it can grow all unlocked crops:
+        assert!(farmland_crops.contains(&"ginseng"));
+        assert!(farmland_crops.contains(&"grape"));
+        assert!(farmland_crops.contains(&"premium_wheat"));
+        assert!(farmland_crops.contains(&"quick_rice"));
+        assert!(farmland_crops.contains(&"rice"));
+        assert!(farmland_crops.contains(&"wheat"));
+
+        // Solve exact plan:
+        let plan = crate::exact::solve_exact(
+            &prepared.items,
+            "coins",
+            &prepared.facility_counts,
+            &prepared.module_levels,
+            crate::exact::Goal::Earn { floors: &[] },
+            Some(std::time::Duration::from_secs(60)),
+            None,
+        ).expect("solve exact plan");
+
+        // Verify environment allocation:
+        // 1. Zero overlap pairs (no artificial Warm zone created)
+        assert_eq!(plan.pairs.len(), 0, "Expected 0 overlap pairs, found: {:?}", plan.pairs);
+
+        // 2. Heat Furnaces: 2 units for Scorching covering 15 trees
+        let heat_furnaces: u32 = plan.environment.iter().filter(|e| e.building == "Heat Furnace").map(|e| e.count).sum();
+        assert_eq!(heat_furnaces, 2, "Expected 2 Heat Furnaces, found: {}", heat_furnaces);
+
+        // 3. Cooling Units: strictly 1 unit (no extra Cooling Unit spawned for Starfall Hammock)
+        let cooling_units: u32 = plan.environment.iter().filter(|e| e.building == "Cooling Unit").map(|e| e.count).sum();
+        assert_eq!(cooling_units, 1, "Expected 1 Cooling Unit, found: {}", cooling_units);
+
+        // 4. Tidewhisper Sandcastle must NOT produce pearl in Warm
+        assert_eq!(plan.units.get("pearl"), None, "Pearl should not be produced at RV 14");
     }
 }

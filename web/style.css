@@ -3176,6 +3176,65 @@ tr:hover .skip-row,
     font-size: 0.65rem;
     padding: 0 0.35rem;
 }
+.homeland-top-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+}
+
+.homeland-level-field {
+    min-width: 140px;
+    flex: 0 0 auto;
+}
+
+.production-aniimo-field {
+    min-width: 220px;
+    flex: 0 0 auto;
+}
+
+.input-with-cap {
+    display: flex;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 6px);
+    overflow: hidden;
+    height: 38px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-with-cap:focus-within {
+    border-color: var(--accent, #00f5a0);
+    box-shadow: 0 0 0 2px rgba(0, 245, 160, 0.15);
+}
+
+.input-with-cap input {
+    border: none !important;
+    background: transparent !important;
+    width: 60px !important;
+    height: 100% !important;
+    padding: 0 0.5rem !important;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.input-with-cap input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.input-cap-max {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    padding-right: 0.75rem;
+    white-space: nowrap;
+    user-select: none;
+    font-weight: 500;
+}
 
 .emode-simple-section {
     margin: 0.75rem 0 1rem;

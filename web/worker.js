@@ -10,9 +10,9 @@ import highsModule from './vendor/highs/highs.mjs';
 // code with an older cached solver.
 // The message handler below is installed right away and waits on this, so no request can arrive
 // before there's a handler for it.
-const load = new URL(import.meta.url).search;
+const load = new URL(import.meta.url).search || `?v=${Date.now()}`;
 const ready = import('./pkg/aniimax.js' + load).then(async (pkg) => {
-    await pkg.default({ module_or_path: fetch(new URL('./pkg/aniimax_bg.wasm', import.meta.url), { cache: 'no-cache' }) });
+    await pkg.default({ module_or_path: fetch(new URL('./pkg/aniimax_bg.wasm' + load, import.meta.url), { cache: 'no-store' }) });
     return pkg;
 });
 

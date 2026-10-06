@@ -457,9 +457,18 @@ fn build_model<'a>(
     // Growing environments: plots of a crop needing environment E at facility F must be covered.
     let gated_types: Vec<&str> = ENVIRONMENT_GATED_FACILITIES.iter().map(|(f, _)| *f).collect();
     let mut needs_cover: BTreeMap<(&str, &str), Vec<usize>> = BTreeMap::new();
+    let pearl_consumed = items.iter().any(|item| {
+        facility_counts.get_count(&item.facility) > 0
+            && facility_counts.can_produce(&item.facility, item.facility_level)
+            && item.module_requirement.as_ref().is_none_or(|(m, l)| module_levels.can_use(m, *l))
+            && item.raw_materials.as_ref().is_some_and(|mats| mats.iter().any(|m| m == "pearl"))
+    });
     for &(recipe, units) in &units_of {
         if let Some(environment) = recipe.environment.as_deref() {
             if gated_types.contains(&recipe.facility.as_str()) {
+                if recipe.facility == "Tidewhisper Sandcastle" && !pearl_consumed {
+                    continue;
+                }
                 needs_cover.entry((recipe.facility.as_str(), environment)).or_default().push(units);
             }
         }
@@ -472,6 +481,9 @@ fn build_model<'a>(
     let types_for = |modes: &[&str]| -> Vec<&str> {
         let mut types: Vec<&str> =
             needs_cover.keys().filter(|(_, e)| modes.contains(e)).map(|(f, _)| *f).collect();
+        if !pearl_consumed {
+            types.retain(|&f| f != "Tidewhisper Sandcastle");
+        }
         types.sort_unstable();
         types.dedup();
         types.sort_by(|a, b| {
@@ -490,7 +502,21 @@ fn build_model<'a>(
             if types.is_empty() {
                 continue;
             }
+            let has_crops = types.iter().any(|&f| f == "Farmland" || f == "Woodland");
             for option in single_building_options(building_size(building), &types) {
+                // If crops need this mode, prevent allocating an entire climate building
+                // that contains 0 crop plots just to house an auxiliary building (e.g. Starfall Hammock).
+                if has_crops {
+                    let crop_count: u32 = types
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, f)| **f == "Farmland" || **f == "Woodland")
+                        .map(|(t, _)| option.counts[t])
+                        .sum();
+                    if crop_count == 0 {
+                        continue;
+                    }
+                }
                 let counts = option.counts.clone();
                 let kind = VarKind::Environment { building, mode, types: types.clone(), option };
                 let count = model.add(0.0, (0.0, owned as f64), !coverage_relaxed(), kind);
@@ -530,7 +556,21 @@ fn build_model<'a>(
                     {
                         continue;
                     }
-                    let types = types_for(&[mode_a, mode_b, middle]);
+                    // Economic feasibility check for overlap pairs:
+                    // An overlap pair is only economically viable if the shared zone produces
+                    // meaningful economic value. Auxiliary leisure facilities like Tidewhisper Sandcastle
+                    // or Starfall Hammock cannot economically justify burning two climate buildings on a pair.
+                    let middle_facs: Vec<&str> = needs_cover.keys().filter(|(_, e)| *e == middle).map(|(f, _)| *f).collect();
+                    if middle_facs.iter().all(|&f| f == "Tidewhisper Sandcastle" || f == "Starfall Hammock") {
+                        continue;
+                    }
+                    if middle_facs.contains(&"Tidewhisper Sandcastle") && !pearl_consumed {
+                        continue;
+                    }
+                    let mut types = types_for(&[mode_a, mode_b, middle]);
+                    if !pearl_consumed {
+                        types.retain(|&f| f != "Tidewhisper Sandcastle");
+                    }
                     if types.is_empty() {
                         continue;
                     }

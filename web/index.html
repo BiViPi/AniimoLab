@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=aniimolab_v3">
+    <link rel="stylesheet" href="style.css?v=aniimolab_v8">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
@@ -54,10 +54,17 @@
                 </div>
 
                 <div id="simple-config">
-                    <div class="input-row">
-                        <div class="input-field">
+                    <div class="input-row homeland-top-row">
+                        <div class="input-field homeland-level-field">
                             <label for="home-level" data-i18n="rv_level">Cấp RV</label>
                             <select id="home-level"></select>
+                        </div>
+                        <div class="input-field production-aniimo-field" id="production-aniimo-field">
+                            <label for="production-aniimo-cap" data-i18n="production_aniimo_cap" data-i18n-title="production_aniimo_tooltip" title="Số Aniimo tối đa cho phép làm việc trong Vùng Sản Xuất (trồng trọt và chế biến); phần còn lại dành cho Vùng Xây Dựng.">Aniimo Vùng Sản Xuất</label>
+                            <div class="input-with-cap">
+                                <input type="number" id="production-aniimo-cap" min="1" max="45" value="26">
+                                <span class="input-cap-max" id="production-aniimo-cap-max">/ 36 tối đa</span>
+                            </div>
                         </div>
                     </div>
                     <div class="emode-simple-section" id="emode-simple-section">
@@ -646,8 +653,8 @@
             }
         });
     </script>
-    <script src="i18n.js?v=aniimolab_v6"></script>
-    <script type="module" src="app.js?v=aniimolab_v6"></script>
+    <script src="i18n.js?v=aniimolab_v10"></script>
+    <script type="module" src="app.js?v=aniimolab_v10"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

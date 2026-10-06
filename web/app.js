@@ -5,7 +5,7 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v6';
+} from './facility-config.js?v=aniimolab_v8';
 
 let wasmReady = false;
 
@@ -19,7 +19,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v8&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -245,6 +245,58 @@ export const EMODE_PRIORITY = [
     'Aniipod Maker'
 ];
 
+export function getProductionAniimoCap() {
+    const el = document.getElementById('production-aniimo-cap');
+    if (!el) return 26;
+    const val = parseInt(el.value, 10);
+    return isNaN(val) ? 26 : Math.max(1, val);
+}
+
+export function updateProductionAniimoCap(homeLevel = selectedHomeLevel()) {
+    const max = ANIIMO_MAX[homeLevel - 1] || 36;
+    const capInput = document.getElementById('production-aniimo-cap');
+    const capMaxLabel = document.getElementById('production-aniimo-cap-max');
+    if (capMaxLabel) {
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        capMaxLabel.textContent = isVi ? `/ ${max} tối đa` : `/ ${max} max`;
+    }
+    if (capInput) {
+        capInput.max = String(max);
+        const saved = localStorage.getItem('aniimax_production_aniimo_cap');
+        if (saved !== null) {
+            const parsed = parseInt(saved, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+                capInput.value = String(Math.min(parsed, max));
+                return;
+            }
+        }
+        const defaultCap = Math.min(26, max);
+        capInput.value = String(defaultCap);
+    }
+}
+
+export function attachProductionAniimoCapHandlers() {
+    const capInput = document.getElementById('production-aniimo-cap');
+    if (capInput) {
+        capInput.addEventListener('change', () => {
+            const homeLevel = selectedHomeLevel();
+            const max = ANIIMO_MAX[homeLevel - 1] || 36;
+            let val = parseInt(capInput.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > max) val = max;
+            capInput.value = String(val);
+            localStorage.setItem('aniimax_production_aniimo_cap', String(val));
+            renderAniimoTeam();
+        });
+        capInput.addEventListener('input', () => {
+            const val = parseInt(capInput.value, 10);
+            if (!isNaN(val) && val > 0) {
+                localStorage.setItem('aniimax_production_aniimo_cap', String(val));
+            }
+        });
+    }
+}
+
 export function getGeneratorCapacity() {
     const homeLevel = selectedHomeLevel();
     const el = document.getElementById('simple-generator-capacity');
@@ -265,6 +317,12 @@ export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), 
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
     if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
     
+    const { facilities } = simpleSetup(homeLevel);
+    const ownedCounts = {};
+    for (const [name, tiers] of Object.entries(facilities)) {
+        ownedCounts[name] = tiers.reduce((sum, t) => sum + t.count, 0);
+    }
+
     // 1. Gather active producing facilities from basePlan (exclude Woodworking Bench and Chimney Kiln)
     const activeCounts = {};
     for (const step of basePlan.coin_items || []) {
@@ -286,17 +344,31 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         }
     }
 
-    // 3. Sort facilities by revenue descending
-    const sortedFacs = Object.keys(activeCounts).sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
-
-    // 4. Greedily allocate up to maxWatts
     const emodeCounts = {};
     let usedWatts = 0;
+
+    // Special rule for Simmering Pot:
+    // At RV 14, player has 4 Fire Aniimo (3 allocated to Chimney Kilns, exactly 1 Lv.4 Fire Aniimo remaining).
+    // In manual basePlan, the 2nd Simmering Pot was idle because of staffing.
+    // By electrifying exactly 1 Simmering Pot (60W), the 2nd pot produces automatically in parallel
+    // with the Lv.4 Fire manual pot (45s speed), consuming 26 Ginseng plots!
+    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 60;
+    if ((ownedCounts['Simmering Pot'] || 0) >= 2 && usedWatts + potWatts <= maxWatts) {
+        emodeCounts['Simmering Pot'] = 1;
+        usedWatts += potWatts;
+    }
+
+    // 3. Sort other facilities by revenue descending
+    const sortedFacs = Object.keys(activeCounts)
+        .filter(f => f !== 'Simmering Pot')
+        .sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
+
+    // 4. Greedily allocate remaining watts to other active processors (Fruit Dryer, Millstone, etc.)
     for (const fac of sortedFacs) {
         const w = FACILITY_POWER_WATTS[fac] || 0;
         if (w <= 0) continue;
-        const units = activeCounts[fac];
-        for (let u = 0; u < units; u++) {
+        const totalUnits = activeCounts[fac];
+        for (let u = 0; u < totalUnits; u++) {
             if (usedWatts + w <= maxWatts) {
                 emodeCounts[fac] = (emodeCounts[fac] || 0) + 1;
                 usedWatts += w;
@@ -916,6 +988,7 @@ function attachModeHandlers() {
         homeSelect.addEventListener('change', () => {
             renderSimpleSummary();
             renderStrategy();
+            updateProductionAniimoCap();
             updateSimpleEmodeState();
             updatePowerGauge();
         });
@@ -1350,23 +1423,6 @@ function homelandPieces(plan, input) {
         const rows = envSteps.filter(s => s.environment === mode);
         if (!rows.length) return;
         let modeUnits = splitByEnvironmentUnit(rows, assignments.filter(a => a.mode === mode));
-        // Optimization: Merge units of same mode if total plots can fit in a single climate zone (up to 32 plots)
-        // to avoid wasting a cooling/heating unit for just a few crops (e.g. 2 Ginseng)
-        if (modeUnits.length > 1 && !modeUnits.some(u => u.partner)) {
-            const totalPlots = modeUnits.reduce((sum, u) => sum + (u.rows ? u.rows.reduce((s, r) => s + r.facility_count, 0) : 0), 0);
-            if (totalPlots <= 32) {
-                const primary = modeUnits[0];
-                for (let k = 1; k < modeUnits.length; k++) {
-                    const other = modeUnits[k];
-                    primary.rows.push(...other.rows);
-                    if (other.layout) {
-                        primary.layout = primary.layout || [];
-                        primary.layout.push(...other.layout);
-                    }
-                }
-                modeUnits = [primary];
-            }
-        }
         modeUnits.forEach(unit => units.push({ mode, unit }));
     });
     const blocks = new Map();
@@ -3076,16 +3132,49 @@ function renderProfitBreakdown(plan) {
 // release removed Bud Tickets, the only other sellable currency.
 function getPlanInputValues() {
     const { facilities, modules } = simpleSetup(selectedHomeLevel());
+    const excluded = [...excludedRecipes()];
+
+    // 1. Highest-tier crops rule ONLY for Woodland:
+    // Only allow crops of the highest unlocked level for Woodland to maximize Wood Blocks for level-up.
+    // At RV 14, Woodland is Lv.5: Only natural_rubber, coconut, quick_maple_syrup are allowed. All lower crops (Lv 1-4) are blocked.
+    // Farmland is NOT locked because Farmland does not produce Wood Blocks.
+    const woodlandTier = facilities['Woodland']?.[0]?.level || 1;
+
+    const woodlandCropsByLevel = {
+        1: ['willow_wood'],
+        2: ['bamboo', 'lemon'],
+        3: ['cherry_blossom', 'apple', 'maple_syrup', 'quick_bamboo'],
+        4: ['palm_bark', 'chestnut', 'walnut', 'quick_lemon'],
+        5: ['natural_rubber', 'coconut', 'quick_maple_syrup'],
+        6: ['cocoa', 'orange_flower', 'quick_coconut'],
+    };
+
+    for (const [lvl, crops] of Object.entries(woodlandCropsByLevel)) {
+        if (Number(lvl) < woodlandTier) {
+            for (const crop of crops) {
+                if (!excluded.includes(crop)) excluded.push(crop);
+            }
+        }
+    }
+
+    // 2. Block Pearl if Crafting Table Lv.6 (Pearl Necklace) is not unlocked (RV < 15)
+    // Selling raw pearl is economically unviable and forces climate wastage.
+    const craftingTableLevel = facilities['Crafting Table']?.[0]?.level || 1;
+    if (craftingTableLevel < 6) {
+        if (!excluded.includes('pearl')) excluded.push('pearl');
+    }
+
     return {
         currency: 'coins',
         priorities: activePriorities(),
         prioritize_byproducts: false,
         level_up: levelUpInput(),
-        exclude: excludedRecipes(),
+        exclude: excluded,
         season: seasonActive(),
         emode_facilities: [],
         emode_facility_counts: {},
         power_grid_rate: getPowerGridRate(),
+        production_aniimo_cap: getProductionAniimoCap(),
         facilities,
         modules
     };
@@ -3562,6 +3651,8 @@ function renderAniimoSummary(plan) {
         return { kept, total: kept.reduce((sum, g) => sum + g.count, 1) }; // 1 for the Hauling row
     };
     const homelandHolds = isSimpleMode() ? ANIIMO_MAX[selectedHomeLevel() - 1] : null;
+    const prodCap = isSimpleMode() ? getProductionAniimoCap() : null;
+    const cap = prodCap || homelandHolds;
     const { kept, total: assigned } = assign();
     if (selectedSetupTab() === 'best') lastBestTeam = kept;
     let total = assigned - kept.reduce((sum, g) => sum + g.count, 0); // the Hauling row
@@ -3575,10 +3666,12 @@ function renderAniimoSummary(plan) {
         .join('');
     const haulingRow = `<tr><td data-label="Aniimo">${abilityTag('Hauling')} any level</td><td data-label="How many">1+</td><td data-label="Busy on average">?</td><td data-label="Where">Carries produce to storage. How much work this is isn't known yet; add more if produce piles up.</td></tr>`;
 
-    // The count above says how many; this is only said when it's more than the homeland holds.
-    const cap = homelandHolds;
+    // The count above says how many; this is only said when it's more than the production zone holds.
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const capNote = cap && total > cap
-        ? `<p class="hint small">That's ${total} Aniimo, more than the ${cap} an RV level ${selectedHomeLevel()} homeland holds.</p>`
+        ? `<p class="hint small">${isVi 
+            ? `Cần ${total} Aniimo, vượt quá giới hạn ${cap} của Vùng Sản Xuất (Homeland chứa tối đa ${homelandHolds}).`
+            : `That's ${total} Aniimo, more than the production zone cap of ${cap} (Homeland holds ${homelandHolds}).`}</p>`
         : '';
     const have = document.getElementById('aniimo-count-have');
     const of = document.getElementById('aniimo-count-of');
@@ -3590,7 +3683,9 @@ function renderAniimoSummary(plan) {
         count.hidden = false;
         count.classList.toggle('over', !!cap && total > cap);
         count.title = cap
-            ? `${total} Aniimo for this plan; an RV level ${selectedHomeLevel()} homeland holds ${cap}`
+            ? (isVi 
+                ? `${total} Aniimo cho kế hoạch này; giới hạn Vùng Sản Xuất là ${cap} (tổng Homeland: ${homelandHolds})`
+                : `${total} Aniimo for this plan; production zone cap is ${cap} (Homeland holds ${homelandHolds})`)
             : `${total} Aniimo for this plan`;
     }
     collapsedSummary.textContent = '';
@@ -4762,6 +4857,8 @@ document.addEventListener('DOMContentLoaded', () => {
     attachFacilityTierHandlers();
     attachEmodeHandlers();
     attachModeHandlers();
+    updateProductionAniimoCap();
+    attachProductionAniimoCapHandlers();
     attachStrategyHandlers();
     attachSkipHandlers();
     renderSkippedRecipes();
