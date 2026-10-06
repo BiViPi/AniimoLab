@@ -507,10 +507,19 @@ function renderTierRows(name) {
 function renderFacilityCards() {
     const grid = document.getElementById('facilities-grid');
     if (!grid) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const VI_CATEGORIES = {
+        'Materials': 'Nguyên liệu',
+        'Environment': 'Cơ sở môi trường',
+        'Aniimo Materials': 'Nguyên liệu Aniimo',
+        'Wood & Ore Processing': 'Sản xuất gỗ và gạch quặng',
+        'Materials Processing': 'Cơ sở chế biến'
+    };
     grid.innerHTML = FACILITY_CATEGORIES.map(category => {
+        const catName = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
         const cards = FACILITIES.filter(f => f.category === category).map(f => `
             <div class="facility-card">
-                <h4>${f.name} <span class="info-icon" data-tooltip="${f.tooltip}">?</span></h4>
+                <h4>${getFacilityDisplayName(f.name)} <span class="info-icon" data-tooltip="${f.tooltip}">?</span></h4>
                 <div class="facility-tiers" data-facility="${f.name}"></div>
                 ${f.hasLevels === false ? '' : '<button type="button" class="add-tier-btn" data-facility="' + f.name + '">+ Add level</button>'}
                 ${f.supportsEmode ? `<label class="facility-emode-toggle" title="Run in Electric Mode (automatic, no Aniimo worker needed)"><input type="checkbox" class="facility-emode-checkbox" data-facility="${f.name}" ${emodeFacilities.has(f.name) ? 'checked' : ''}> ⚡ E-mode</label>` : ''}
@@ -518,7 +527,7 @@ function renderFacilityCards() {
         `).join('');
         return `
             <div class="facility-category">
-                <h4 class="facility-category-title">${category}</h4>
+                <h4 class="facility-category-title">${catName}</h4>
                 <div class="facilities-grid">${cards}</div>
             </div>
         `;
@@ -1605,6 +1614,7 @@ function homelandPieces(plan, input) {
 const LAYOUT_CATEGORY_COLORS = {
     'Materials': '#8d8f5a',
     'Aniimo Materials': '#5c9bd6',
+    'Wood & Ore Processing': '#c28a52',
     'Materials Processing': '#8a7fc4',
     'Environment': '#9aa0a8',
 };
@@ -4169,20 +4179,41 @@ function renderFacilityPlan(plan) {
     const byCategory = new Map(FACILITY_CATEGORIES.map(c => [c, []]));
     ungatedSteps.forEach(step => {
         const category = FACILITY_CATEGORY_BY_NAME.get(step.facility) || 'Materials Processing';
+        if (!byCategory.has(category)) byCategory.set(category, []);
         byCategory.get(category).push(step);
     });
 
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const VI_CATEGORIES = {
-        'Materials': 'Nguyên liệu',
-        'Environment': 'Cơ sở môi trường',
-        'Aniimo Materials': 'Nguyên liệu Aniimo',
-        'Materials Processing': 'Chế biến nguyên liệu'
-    };
-    const categorySections = FACILITY_CATEGORIES.map(category => {
-        const categorySteps = byCategory.get(category);
+    
+    // Gộp Nguyên liệu & Nguyên liệu Aniimo thành "Sản xuất nguyên liệu" (chạy 24/7), tách riêng Gỗ & Gạch quặng và Cơ sở chế biến
+    const PLAN_DISPLAY_CATEGORIES = [
+        {
+            titleVi: 'Sản xuất nguyên liệu',
+            titleEn: 'Materials Production',
+            sourceCategories: ['Materials', 'Aniimo Materials']
+        },
+        {
+            titleVi: 'Sản xuất gỗ và gạch quặng',
+            titleEn: 'Wood & Ore Processing',
+            sourceCategories: ['Wood & Ore Processing']
+        },
+        {
+            titleVi: 'Cơ sở chế biến',
+            titleEn: 'Processing Facilities',
+            sourceCategories: ['Materials Processing']
+        }
+    ];
+
+    const categorySections = PLAN_DISPLAY_CATEGORIES.map(cat => {
+        let categorySteps = [];
+        cat.sourceCategories.forEach(sc => {
+            const list = byCategory.get(sc) || [];
+            categorySteps.push(...list);
+        });
+        // Chỉ liệt kê cơ sở cần dùng, cái nào không dùng thì không show
+        categorySteps = categorySteps.filter(step => step.status === 'producing' && Boolean(step.item_name));
         if (categorySteps.length === 0) return '';
-        const catName = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
+        const catName = isVi ? cat.titleVi : cat.titleEn;
         return `
             <div class="facility-category">
                 <h4 class="facility-category-title">${catName}</h4>
@@ -4678,6 +4709,25 @@ const RECIPE_MODULE_LABELS = {
     crafting_module: 'Crafting Module',
 };
 
+const VI_JOB_STEPS = {
+    'Sowing': 'Gieo hạt',
+    'Watering': 'Tưới nước',
+    'Reaping': 'Thu hoạch',
+    'Logging': 'Đốn gỗ',
+    'Collecting': 'Thu thập'
+};
+
+const VI_PERSONALITIES = {
+    'Instinctive': 'Bản năng',
+    'Practical': 'Thực tế',
+    'Energetic': 'Nhiệt huyết',
+    'Nimble': 'Nhanh nhẹn',
+    'Faithful': 'Trung thành',
+    'Tenacious': 'Kiên trì',
+    'Playful': 'Nghịch ngợm',
+    'Judicious': 'Cẩn trọng'
+};
+
 // Cached after the first render, since the underlying data never changes for a given wasm build.
 let recipesRendered = false;
 
@@ -4694,6 +4744,7 @@ function formatRecipeTime(seconds) {
 }
 
 function formatRecipeInputs(recipe) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (recipe.raw_materials && recipe.raw_materials.length > 0) {
         const amounts = recipe.required_amount || [];
         return recipe.raw_materials
@@ -4701,7 +4752,7 @@ function formatRecipeInputs(recipe) {
             .join(', ');
     }
     if (recipe.cost && recipe.cost > 0) {
-        return `Plant cost: ${recipe.cost}`;
+        return isVi ? `Chi phí hạt: ${recipe.cost} Home Coin` : `Plant cost: ${recipe.cost}`;
     }
     return '-';
 }
@@ -4710,7 +4761,7 @@ function formatRecipeYield(recipe) {
     let text = `${recipe.yield_amount}`;
     if (recipe.byproduct) {
         const [name, amount] = recipe.byproduct;
-        text += ` <span class="hint small">(+${amount} ${name})</span>`;
+        text += ` <span class="hint small">(+${amount} ${prettyItem(name)})</span>`;
     }
     return text;
 }
@@ -4718,6 +4769,7 @@ function formatRecipeYield(recipe) {
 // "Fire Lv.2+, best Lv.4 Practical": the minimum ability level a recipe accepts, then the best
 // Aniimo for it. Crops and trees list the ability of each job (sowing, reaping and so on).
 function formatRecipeAniimo(recipe, facility) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (!recipe.aniimo) {
         const jobs = [];
         (recipe.jobs || []).forEach(job => {
@@ -4727,24 +4779,31 @@ function formatRecipeAniimo(recipe, facility) {
             else jobs.push({ job, times: 1 });
         });
         if (jobs.length === 0) return '-';
-        return `<span class="job-list">${jobs.map(({ job: [step, ability, level], times }) =>
-            `<span class="job"><span class="job-step">${step}${times > 1 ? ` &times;${times}` : ''}</span> ${abilityTag(ability)}${level > 1 ? ` Lv.${level}+` : ''}</span>`).join('')}</span>`;
+        return `<span class="job-list">${jobs.map(({ job: [step, ability, level], times }) => {
+            const stepName = isVi && VI_JOB_STEPS[step] ? VI_JOB_STEPS[step] : step;
+            return `<span class="job"><span class="job-step">${stepName}${times > 1 ? ` &times;${times}` : ''}</span> ${abilityTag(ability)}${level > 1 ? ` Lv.${level}+` : ''}</span>`;
+        }).join('')}</span>`;
     }
     const [ability, minLevel] = recipe.aniimo;
-    const best = `best Lv.${bestAniimoLevel(ability)}${facility.personality ? ' ' + facility.personality : ''}`;
+    const persName = facility.personality ? (isVi && VI_PERSONALITIES[facility.personality] ? VI_PERSONALITIES[facility.personality] : facility.personality) : '';
+    const best = isVi
+        ? `Tối ưu Lv.${bestAniimoLevel(ability)}${persName ? ' ' + persName : ''}`
+        : `best Lv.${bestAniimoLevel(ability)}${facility.personality ? ' ' + facility.personality : ''}`;
     return `<span>${abilityTag(ability)} Lv.${minLevel}+<span class="recipe-best">${best}</span></span>`;
 }
 
 // "44 Home Coins", or what a level-up material is for.
 function formatRecipeSell(recipe) {
-    if (recipe.sell_currency === 'none') return '<span class="hint small">RV level-ups</span>';
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    if (recipe.sell_currency === 'none') return `<span class="hint small">${isVi ? 'Nâng cấp RV' : 'RV level-ups'}</span>`;
     return `${formatNumber(recipe.sell_value)} ${recipe.sell_value === 1 ? 'Home Coin' : 'Home Coins'}`;
 }
 
 function formatRecipeModule(recipe) {
     if (!recipe.module_requirement) return '-';
     const [name, level] = recipe.module_requirement;
-    const label = RECIPE_MODULE_LABELS[name] || name;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const label = (isVi && window.VI_MODULE_NAMES && window.VI_MODULE_NAMES[name]) || RECIPE_MODULE_LABELS[name] || name;
     return `${label} Lv.${level}`;
 }
 
@@ -4753,6 +4812,30 @@ function formatRecipeModule(recipe) {
 // level then name.
 function renderRecipeTables(recipes) {
     const container = document.getElementById('facilities-modal-container');
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+
+    const VI_CATEGORIES = {
+        'Materials': 'Nguyên liệu',
+        'Environment': 'Cơ sở môi trường',
+        'Aniimo Materials': 'Nguyên liệu Aniimo',
+        'Wood & Ore Processing': 'Sản xuất gỗ và gạch quặng',
+        'Materials Processing': 'Cơ sở chế biến'
+    };
+
+    const thItem = isVi ? 'Vật phẩm' : 'Item';
+    const thLevel = isVi ? 'Cấp' : 'Level';
+    const thInputs = isVi ? 'Nguyên liệu' : 'Inputs';
+    const thYield = isVi ? 'Sản lượng' : 'Yield';
+    const thTime = isVi ? 'Thời gian' : 'Time';
+    const thSell = isVi ? 'Giá bán' : 'Sell';
+    const thModule = isVi ? 'Mô-đun' : 'Module';
+    const thAniimo = isVi ? 'Aniimo' : 'Aniimo';
+    const tipTime = isVi 
+        ? 'Thời gian phát triển của cây trồng và cây lấy gỗ (mỗi lần tưới nước giảm 1/8 thời gian còn lại, tối đa 2 lần). Với các xưởng chế biến và cơ sở thu thập, thời gian hiển thị khối lượng công việc (Workload): ở 100% Hiệu suất, máy hoàn thành 1 khối lượng công việc/giây. Với Chế độ điện (⚡ E-mode), máy tự vận hành theo thời gian cơ bản mà không cần Aniimo.'
+        : 'Grow time for crops and trees, before watering takes an eighth off it twice. Everything else lists workload: at 100% Efficiency a processor gets through one workload a second, a gathering facility 1.25 on a level-2 recipe and 1.5 on a level-3 one. An Aniimo at the level a recipe needs works at 100%; higher levels are faster, up to level 4. E-mode runs without Aniimo workers.';
+    const tipAniimo = isVi
+        ? 'Cấp độ kỹ năng tối thiểu để chế tạo, cùng với Aniimo tối ưu nhất (Lv.4 với tính cách tương thích tăng +20% tốc độ). Đối với cây trồng/lâm nghiệp, hiển thị kỹ năng cần cho từng công đoạn (Gieo hạt, Tưới nước, Thu hoạch...).'
+        : 'The lowest ability level that can make this, and the best Aniimo for it: level 4, the top, with the facility\'s personality (+20% speed). For crops and trees, the ability each job needs, in order.';
 
     const byFacility = new Map();
     recipes.forEach(r => {
@@ -4766,38 +4849,39 @@ function renderRecipeTables(recipes) {
     container.innerHTML = FACILITY_CATEGORIES.map(category => {
         const facilitiesInCategory = FACILITIES.filter(f => f.category === category && byFacility.has(f.name));
         if (facilitiesInCategory.length === 0) return '';
+        const catTitle = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
 
         const tables = facilitiesInCategory.map(f => {
             // `data-label` names each cell when rows stack on phones; empty cells are left out there.
             const cell = (label, value) => `<td data-label="${label}"${value === '-' ? ' class="empty"' : ''}>${value}</td>`;
             const rows = byFacility.get(f.name).map(r => `
                 <tr${r.verified === false ? ' class="unverified"' : ''}>
-                    <td class="recipe-name">${prettyItem(r.name)}${SPECIAL_NAMES.has(r.name) ? ' <span class="tag special" title="Takes a rare currency to unlock">special</span>' : ''}${r.season ? ` <span class="tag special" title="${SEASON.name} only">season</span>` : ''}${r.verified === false ? ' <span class="info-icon" data-tooltip="Not yet checked in game.">?</span>' : ''}</td>
-                    ${cell('Level', r.facility_level)}
-                    ${cell('Inputs', formatRecipeInputs(r))}
-                    ${cell('Yield', formatRecipeYield(r))}
-                    ${cell('Time', r.workload ? `${r.workload} workload${r.emode_base_time ? ` <span class="tag emode-tag-small" title="E-mode base time: ${formatRecipeTime(r.emode_base_time)}">⚡${formatRecipeTime(r.emode_base_time)}</span>` : ''}` : formatRecipeTime(r.production_time))}
-                    ${cell('Sell', formatRecipeSell(r))}
-                    ${cell('Module', formatRecipeModule(r))}
-                    ${cell('Aniimo', formatRecipeAniimo(r, f))}
+                    <td class="recipe-name">${prettyItem(r.name)}${SPECIAL_NAMES.has(r.name) ? ` <span class="tag special" title="${isVi ? 'Cần tiền tệ hiếm để mở khóa' : 'Takes a rare currency to unlock'}">${isVi ? 'đặc biệt' : 'special'}</span>` : ''}${r.season ? ` <span class="tag special" title="${SEASON.name} only">${isVi ? 'mùa vụ' : 'season'}</span>` : ''}${r.verified === false ? ` <span class="info-icon" data-tooltip="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game.'}">?</span>` : ''}</td>
+                    ${cell(thLevel, r.facility_level)}
+                    ${cell(thInputs, formatRecipeInputs(r))}
+                    ${cell(thYield, formatRecipeYield(r))}
+                    ${cell(thTime, r.workload ? `${r.workload} workload${r.emode_base_time ? ` <span class="tag emode-tag-small" title="${isVi ? 'Thời gian gốc Chế độ điện: ' : 'E-mode base time: '}${formatRecipeTime(r.emode_base_time)}">⚡${formatRecipeTime(r.emode_base_time)}</span>` : ''}` : formatRecipeTime(r.production_time))}
+                    ${cell(thSell, formatRecipeSell(r))}
+                    ${cell(thModule, formatRecipeModule(r))}
+                    ${cell(thAniimo, formatRecipeAniimo(r, f))}
                 </tr>
             `).join('');
 
             return `
                 <div class="facility-recipe-table">
-                    <h4>${f.name}</h4>
+                    <h4>${getFacilityDisplayName(f.name)}</h4>
                     <div class="table-wrapper">
                         <table class="recipe-table">
                             <thead>
                                 <tr>
-                                    <th>Item</th>
-                                    <th>Level</th>
-                                    <th>Inputs</th>
-                                    <th>Yield</th>
-                                    <th>Time <span class="info-icon" data-tooltip="Grow time for crops and trees, before watering takes an eighth off it twice. Everything else lists workload: at 100% Efficiency a processor gets through one workload a second, a gathering facility 1.25 on a level-2 recipe and 1.5 on a level-3 one. An Aniimo at the level a recipe needs works at 100%; higher levels are faster, up to level 4 (at a processor, 300% one level above, then +100% per level; at gathering facilities each level adds half a workload a second, reading as +50% on a level-1 recipe, +40% on a level-2 one and +33% on a level-3 one).">?</span></th>
-                                    <th>Sell</th>
-                                    <th>Module</th>
-                                    <th>Aniimo <span class="info-icon" data-tooltip="The lowest ability level that can make this, and the best Aniimo for it: level 4, the top, with the facility's personality (+20% speed). For crops and trees, the ability each job needs, in order.">?</span></th>
+                                    <th>${thItem}</th>
+                                    <th>${thLevel}</th>
+                                    <th>${thInputs}</th>
+                                    <th>${thYield}</th>
+                                    <th>${thTime} <span class="info-icon" data-tooltip="${tipTime}">?</span></th>
+                                    <th>${thSell}</th>
+                                    <th>${thModule}</th>
+                                    <th>${thAniimo} <span class="info-icon" data-tooltip="${tipAniimo}">?</span></th>
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
@@ -4809,7 +4893,7 @@ function renderRecipeTables(recipes) {
 
         return `
             <div class="facility-category">
-                <h4 class="facility-category-title">${category}</h4>
+                <h4 class="facility-category-title">${catTitle}</h4>
                 ${tables}
             </div>
         `;
@@ -5229,6 +5313,10 @@ function renderInsights(plan) {
 
 // React dynamically to language changes without losing state or re-running the solver
 window.addEventListener('languageChanged', () => {
+    recipesRendered = false;
+    if (typeof renderFacilityCards === 'function') {
+        renderFacilityCards();
+    }
     if (typeof renderStrategy === 'function') {
         renderStrategy();
     }

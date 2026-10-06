@@ -419,9 +419,8 @@
                 <button class="close-button" onclick="closeFacilities()">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="hint">Every recipe in the game data, grouped by facility. This is a reference table, not tied
-                    to your owned facility counts or levels.</p>
-                <p class="hint small" id="facilities-loading-hint">Loading recipe data...</p>
+                <p class="hint" data-i18n="modal_facilities_hint">Toàn bộ công thức trong dữ liệu game, phân nhóm theo cơ sở sản xuất. Đây là bảng tra cứu tham khảo, không phụ thuộc vào số lượng hay cấp độ cơ sở bạn đang sở hữu.</p>
+                <p class="hint small" id="facilities-loading-hint">Đang tải dữ liệu công thức...</p>
                 <div id="facilities-modal-container" class="facilities-container"></div>
             </div>
         </div>
@@ -435,109 +434,47 @@
                 <button class="close-button" onclick="closeMath()">&times;</button>
             </div>
             <div class="modal-body">
-                <h3>The Model</h3>
-                <p>Every plan is one mixed-integer program covering every recipe and facility at once, solved with <a
-                        href="https://highs.dev" target="_blank" rel="noopener">HiGHS</a>. Each recipe your facility
-                    levels and modules unlock, \(r\), gets a rate \(b_r\) (batches per second) and a whole number of
-                    units \(u_r\) set to it: plots for a crop, machines for a processed item.</p>
+                <h3>1. Mô hình Tối ưu hóa Toàn diện (The Model)</h3>
+                <p>Mỗi kế hoạch sản xuất trong AniimoLab là một bài toán <strong>Quy hoạch tuyến tính hỗn hợp nguyên (Mixed-Integer Linear Programming - MILP)</strong> tối ưu hóa đồng thời tất cả cơ sở và công thức trên Homeland, được giải bằng công cụ giải toán tối ưu <a href="https://highs.dev" target="_blank" rel="noopener">HiGHS</a>. Mỗi công thức \(r\) mở khóa theo cấp độ cơ sở và mô-đun nâng cấp được gán một tốc độ sản xuất \(b_r\) (số mẻ mỗi giây) cùng một số lượng đơn vị cơ sở nguyên vẹn \(u_r\): số ô đất cho cây trồng, số máy móc cho sản phẩm chế biến.</p>
                 <div class="math-block">\[ \max \ \sum_i p_i \, s_i \;-\; \sum_r c_r \, b_r \]</div>
-                <p>where \(s_i\) is how much of item \(i\) is sold per second at price \(p_i\), and \(c_r\) is a crop's
-                    seed cost. During the Harvest Moon Festival, season crops' seeds cost Moonray Wheat instead, which
-                    plans take as unlimited. Subject to:</p>
+                <p>Trong đó \(s_i\) là lượng vật phẩm \(i\) bán ra mỗi giây ở đơn giá \(p_i\), và \(c_r\) là chi phí hạt giống của cây trồng. Trong sự kiện Lễ hội Trăng Thu hoạch, hạt giống mùa vụ tiêu tốn Lúa mì Ánh trăng thay vì Home Coin. Bài toán tuân thủ các ràng buộc vật lý nghiêm ngặt:</p>
                 <ul>
-                    <li><strong>Whole units.</strong> \(b_r \, t_r \le u_r\), with \(u_r\) a whole number and \(t_r\)
-                        the time per batch. A unit runs one recipe and is left running.</li>
-                    <li><strong>Item balance.</strong> Everything made covers what other recipes use plus what's sold. A
-                        quick variant makes the same item as the regular one.</li>
-                    <li><strong>What you own.</strong> For every facility and level \(L\), the units on recipes needing
-                        level \(L\) or higher add up to at most what you own at that level. A higher-level plot can run
-                        a lower-level recipe.</li>
-                    <li><strong>Growing environments.</strong> A crop wanting Cool, Warm, Freeze or Scorching grows at
-                        full speed on a plot covered by a Heat Furnace or Cooling Unit set to that mode, and more slowly
-                        on an uncovered one (see below). An Adequate crop needs a Sunlamp and grows nowhere else.</li>
+                    <li><strong>Đơn vị cơ sở nguyên vẹn:</strong> \(b_r \, t_r \le u_r\), với \(u_r\) là số nguyên và \(t_r\) là thời gian hoàn thành một mẻ. Mỗi cơ sở duy trì sản xuất liên tục một công thức được gán.</li>
+                    <li><strong>Cân bằng chuỗi vật phẩm:</strong> Toàn bộ sản lượng tạo ra phải đáp ứng trọn vẹn nhu cầu làm nguyên liệu cho các công thức chế biến tiếp theo cộng với lượng hàng xuất bán trực tiếp. Biến thể làm nhanh (quick variants) cho ra cùng sản phẩm với công thức chuẩn.</li>
+                    <li><strong>Giới hạn cơ sở sở hữu:</strong> Đối với mỗi loại cơ sở và cấp độ \(L\), tổng số máy móc chạy các công thức yêu cầu cấp \(L\) trở lên không vượt quá số lượng bạn sở hữu ở cấp đó. Cơ sở cấp cao hơn có thể chạy các công thức cấp thấp hơn.</li>
+                    <li><strong>Vùng phủ môi trường & Nhiệt độ:</strong> Cây trồng yêu cầu Mát mẻ, Ấm áp, Băng giá hoặc Thiêu đốt phát triển với 100% tốc độ trong phạm vi của Lò nhiệt hoặc Máy làm mát cài đặt đúng chế độ; nếu nằm ngoài vùng phủ sẽ sinh trưởng chậm hơn. Cây cần điều kiện Thích hợp bắt buộc phải có Đèn mặt trời bao phủ.</li>
+                    <li><strong>Vận hành Chế độ điện (⚡ E-mode):</strong> Thuật toán tự động cân bằng phụ tải máy móc theo công suất phát điện (Watts). Khi máy móc chạy điện, công nhân Aniimo được giải phóng hoàn toàn để chuyển sang tưới nước toàn đảo, tăng 25% tốc độ phát triển cho cây trồng và lâm nghiệp.</li>
+                    <li><strong>Phân tầng 3 cấp & Tự động loại bỏ máy rảnh:</strong> Kế hoạch phân tách rõ ràng: <em>Sản xuất nguyên liệu</em> (khai thác thô 24/7), <em>Sản xuất gỗ và gạch quặng</em> (vật liệu nâng cấp RV), và <em>Cơ sở chế biến</em> (thành phẩm thương mại). Các máy móc không sinh lời hoặc thừa slot được tự động loại bỏ để tập trung nhân lực và điện năng vào chuỗi sản phẩm mang lại lợi nhuận cao nhất.</li>
                 </ul>
-                <p>HiGHS proves the plan is the best possible. On the rare setup where that takes longer than 30
-                    seconds, it stops with the best plan so far and the results say how far from the best it could be.
-                    Every plan is then re-checked on its own before it's shown.</p>
+                <p>Bộ giải HiGHS chứng minh phương án tìm được là tối ưu chuẩn xác. Trong các cấu hình hiếm hoi vượt quá 30 giây, bộ giải sẽ dừng lại ở kết quả tốt nhất tìm được cùng giới hạn sai số (gap). Mọi kế hoạch đều được kiểm tra tính hợp lệ trước khi hiển thị.</p>
 
-                <h3>Time per Batch</h3>
-                <p>Crops and trees take their grow time, less the Aniimo's watering: a plot asks for water twice as it
-                    grows, at two thirds and at one third of its time left, and each watering takes an eighth of the
-                    crop's own time off. A 40-minute crop comes in at 30 and a 4-minute one at 3. A crop short of its
-                    environment grows slower but still loses the same minutes, so a Warm crop with no building takes 50
-                    minutes and is watered down to 40; that part isn't checked in game yet.</p>
-                <p>Everything else has a workload, and how long it takes depends on the Aniimo's Efficiency \(e\), which
-                    the facility screen shows, and a base rate \(r\):</p>
-                <div class="math-block">\[ t = \frac{\text{workload}}{r \times e \times 1.2^{\,\text{personality}}} \]
-                </div>
-                <p>At a processor, \(r\) is one workload a second. At a gathering facility (Well, Mine, Sandcastle, Dewy
-                    House and the like) and at the Dance Pad Polisher and Aniipod Maker, it's higher on recipes needing
-                    a higher ability level: 1 a second at level 1, 1.25 at level 2 and 1.5 at level 3. A Growth Fruit,
-                    5,400 workload, takes an hour at 100%.</p>
-                <p>Efficiency \(e\) depends on the Aniimo's ability level compared with the level the recipe needs. At
-                    exactly the needed level it's 100%. At a processor, one level above the recipe's need is 300%, and
-                    each level after that adds 100% (400%, 500%). At a gathering facility, each level above adds half a
-                    workload a second, whatever the recipe needs, so against the recipe's own base rate that reads as
-                    +50% a level on a level-1 recipe, +40% on a level-2 one and +33% on a level-3 one. The Dance Pad
-                    Polisher and Aniipod Maker add 40% a level. The personality term counts only when the Aniimo has the
-                    facility's personality (+20%); the Polisher and Aniipod Maker have none. Ability levels stop at 4.
-                </p>
+                <h3>2. Thời gian hoàn thành một mẻ (Time per Batch)</h3>
+                <p>Cây trồng và cây lấy gỗ được tính theo thời gian sinh trưởng tự nhiên trừ đi thời gian tưới nước của Aniimo: mỗi ô đất yêu cầu tưới nước 2 lần (ở mốc 2/3 và 1/3 thời gian còn lại), mỗi lần tưới giúp giảm 1/8 tổng thời gian sinh trưởng. Cây 40 phút chỉ mất 30 phút, cây 4 phút chỉ mất 3 phút. Nếu cây trồng thiếu điều kiện môi trường tối ưu, thời gian sẽ kéo dài tương ứng nhưng vẫn giữ nguyên số phút được giảm do tưới nước.</p>
+                <p>Tất cả sản phẩm chế biến và thu thập đều có Khối lượng công việc (Workload). Thời gian sản xuất phụ thuộc vào Hiệu suất Aniimo \(e\) và Tỷ lệ cơ bản \(r\):</p>
+                <div class="math-block">\[ t = \frac{\text{workload}}{r \times e \times 1.2^{\,\text{personality}}} \]</div>
+                <p>Ở xưởng chế biến, \(r\) cố định là 1 workload/giây. Ở cơ sở thu thập (Giếng nước, Mỏ khoáng, Lâu đài cát, Nhà sương mai...) và Máy tạo Aniipod / Đệm nhảy, tỷ lệ này tăng theo cấp kỹ năng công thức: 1/giây ở Lv.1, 1.25 ở Lv.2 và 1.5 ở Lv.3.</p>
+                <p>Hiệu suất \(e\) phụ thuộc vào cấp độ kỹ năng của Aniimo so với cấp yêu cầu: đúng cấp đạt 100%. Ở xưởng chế biến, vượt 1 cấp đạt 300%, mỗi cấp tiếp theo tăng thêm 100% (400%, 500%). Ở cơ sở thu thập, mỗi cấp vượt thêm 0.5 workload/giây. Điểm thưởng tính cách tăng thêm 20% tốc độ nếu Aniimo mang tính cách tương thích với cơ sở. Cấp độ kỹ năng tối đa trong game là Lv.4.</p>
 
-                <h3>Environment Coverage</h3>
-                <p>Environments are steps of temperature: Freeze -2, Cool -1, no building 0, Warm +1, Scorching +2. A
-                    crop grows at 100% at its own, 80% one step away, 50% two steps and 20% beyond that. An uncovered
-                    plot is neutral, so a Cool or Warm crop still manages 80% and a Freeze or Scorching one 50%, which
-                    is why plans sometimes grow them with no building at all. Adequate is separate: those crops need a
-                    Sunlamp. Efficiency stretches the grow time, so a Rose at 80% takes 50m instead of 40m for the same
-                    8 roses, before watering.</p>
-                <p>Temperatures add where two buildings both reach a plot, capped at -2 and +2, and the game shows the
-                    result on the plot itself: Scorching and Cool together read Warm, Warm and Cool read Room temp.
-                    Plans use that, so a Heat Furnace on Scorching with four tiles of space to a Cooling Unit on Cool
-                    covers three zones at once, Scorching, Warm between them and Cool. Where the second building sits
-                    decides the split: every placement whose coverage still overlaps the first is worked out, in a row
-                    or on the diagonal, from touching (6 plots, 24 in the middle and 6, for Farmland) out to a corner's
-                    worth of overlap (22, 10 and 22). Two buildings this close cover fewer plots in total than two
-                    standing apart, so a plan only does it when the third zone is worth more. Place the pair exactly as
-                    the plan's diagram shows, and keep any other building's area clear of them.</p>
-                <p>A Cooling Unit is 2×2 tiles, and a Heat Furnace and Sunlamp one tile each; each covers a 9×9 area
-                    centered on it. A plot counts as covered if any part of it is inside, and everything snaps to
-                    quarter tiles. Every useful way one building can cover a mix of Farmland, Woodland and the rest is
-                    worked out once by exact packing; the plan then picks a mode and one of those mixes for each
-                    building.</p>
+                <h3>3. Phạm vi phủ môi trường & Giao thoa nhiệt độ (Environment Coverage)</h3>
+                <p>Nhiệt độ môi trường gồm 5 nấc: Băng giá (-2), Mát mẻ (-1), Trung tính (0), Ấm áp (+1), Thiêu đốt (+2). Cây trồng đạt 100% tốc độ khi đúng nhiệt độ, 80% khi lệch 1 nấc, 50% khi lệch 2 nấc và 20% khi xa hơn. Ô đất không có máy che ở mức trung tính (0) nên cây Mát mẻ hoặc Ấm áp vẫn đạt 80%, cây Băng giá hoặc Thiêu đốt đạt 50%. Riêng điều kiện Thích hợp bắt buộc phải có Đèn mặt trời.</p>
+                <p><strong>Giao thoa nhiệt độ:</strong> Khi hai công trình môi trường đặt cạnh nhau có vùng phủ chồng lấn, nhiệt độ sẽ cộng dồn (giới hạn từ -2 đến +2). Ví dụ: Lò nhiệt chế độ Thiêu đốt (+2) đặt cách Máy làm mát chế độ Mát mẻ (-1) vài ô sẽ tạo ra một vùng Ấm áp (+1) ở giữa, hình thành đồng thời 3 vùng khí hậu trên cùng một cụm đất. Kế hoạch tính toán chính xác sơ đồ đặt công trình ghép đôi theo sơ đồ hiển thị.</p>
+                <p>Máy làm mát có kích thước 2×2 ô, Lò nhiệt và Đèn mặt trời kích thước 1×1 ô; tất cả đều phủ vùng 9×9 ô xung quanh tâm công trình.</p>
 
-                <h3>Level Up</h3>
-                <p>A level-up costs Home Coins \(C_0\) plus the materials it asks for, \(C_1\) and \(C_2\) (raw Wood
-                    Blocks and Mineral Sand up to RV 6, a Woodworking Bench item and a Chimney Kiln item from RV 7), and
-                    you may already have some of each, \(S_j\). The plan finds the most level-ups per day, \(\lambda\),
-                    it could keep up, where for Home Coins and each item:</p>
+                <h3>4. Chiến lược Nâng cấp RV (Level Up Strategy)</h3>
+                <p>Nâng cấp RV tiêu tốn Home Coin \(C_0\) cùng các vật phẩm đặc thù \(C_1, C_2\) (Khối gỗ và Cát khoáng thô đến RV 6; vật phẩm Bàn mộc và Lò nung ống khói từ RV 7), trừ đi số lượng bạn đã có sẵn trong kho \(S_j\). Kế hoạch tìm số lần lên cấp tối đa mỗi ngày \(\lambda\):</p>
                 <div class="math-block">\[ \text{made}_j \ \ge\ \frac{\lambda \, (C_j - S_j)}{86400} \]</div>
-                <p>(\(\text{made}_j\) per second), so the level-up takes \(1/\lambda\) days. Stock of anything lower in
-                    a chain (Wood Blocks, Mineral Sand, a lower tier) counts toward what's made, since the Bench and
-                    Kiln process it up. Two more solves follow, each keeping what the last one found: the most Home
-                    Coins at that pace, then as much extra of the level-up items as spare Bench and Kiln time allows.
-                    That's why ore often finishes before wood and shows up as surplus.</p>
-                <p>Each tier takes 8 of the tier below (4 for the last), so the Bench and Kiln switch between tiers
-                    rather than running one recipe like other processors.</p>
+                <p>Thời gian nâng cấp là \(1/\lambda\) ngày. Toàn bộ vật phẩm cấp thấp hơn trong chuỗi chế biến (Khối gỗ, Cát khoáng, vật phẩm bậc dưới) được tự động tính vào thành phẩm. Hai lần giải tiếp theo giữ nguyên tiến độ lên cấp và dồn toàn bộ thời gian máy dư thừa còn lại để tối đa hóa Home Coin và tích lũy thặng dư vật phẩm Bàn mộc & Lò nung.</p>
 
-                <h3>Priorities</h3>
-                <p>The plan solves once per ticked priority, in your order. Each solve makes as much of its priority as
-                    it can while keeping at least what the earlier ones reached; a last solve then earns as many Home
-                    Coins as all of those leave room for. Aniimo EXP, Aniipods and, during the Harvest Moon Festival,
-                    Harvest Moon Points count as their own currencies, so the same model handles them like Home Coins.
-                </p>
+                <h3>5. Thứ tự ưu tiên (Priorities)</h3>
+                <p>Bộ giải xử lý tuần tự từng mục tiêu bạn tích chọn theo đúng thứ tự ưu tiên: Kinh nghiệm Aniimo, Aniipod, Điểm sự kiện... Mỗi bước giữ vững sản lượng đạt được ở các bước trước, và lần giải cuối cùng sẽ tối đa hóa Home Coin từ phần công suất còn lại.</p>
 
-                <h3>Time to Reach a Goal</h3>
-                <p>Each product starts adding up once its first batch clears its ingredient chain (its lead time), then
-                    keeps its steady rate:</p>
-                <div class="math-block">\[ \text{amount}(t) = \sum_i \text{rate}_i \cdot \max(0,\ t - \text{lead}_i) \]
-                </div>
-                <p>This only ever grows with \(t\), so the time to reach a target is found by binary search.</p>
+                <h3>6. Thời gian đạt mục tiêu (Time to Reach a Goal)</h3>
+                <p>Mỗi sản phẩm bắt đầu tích lũy sau khi mẻ đầu tiên hoàn thành toàn bộ chuỗi nguyên liệu (thời gian trễ - lead time), sau đó duy trì tốc độ ổn định:</p>
+                <div class="math-block">\[ \text{amount}(t) = \sum_i \text{rate}_i \cdot \max(0,\ t - \text{lead}_i) \]</div>
+                <p>Thời gian cần thiết để đạt mục tiêu được xác định chính xác thông qua thuật toán tìm kiếm nhị phân (binary search).</p>
 
-                <h3>The Backup Planner</h3>
-                <p>If the exact planner can't run (rare; reloading the page usually fixes it), an older planner steps
-                    in. It solves the same problem as a continuous linear program, rounds to whole plots and one recipe
-                    per machine, then re-solves. Its plans are usually close to the best but not guaranteed, and the
-                    results say when it was used.</p>
+                <h3>7. Bộ giải dự phòng (Backup Planner)</h3>
+                <p>Trong trường hợp hãn hữu bộ giải WebAssembly chính xác không thể khởi chạy, bộ giải quy hoạch tuyến tính liên tục dự phòng sẽ tự động tiếp quản để đảm bảo trải nghiệm người dùng không bị gián đoạn.</p>
             </div>
         </div>
     </div>
@@ -550,51 +487,40 @@
                 <button class="close-button" onclick="closeHelp()">&times;</button>
             </div>
             <div class="modal-body">
-                <h3>1. Tell It What You've Built</h3>
-                <p><strong>Simple</strong>: pick your RV level, and the calculator assumes you've built and upgraded
-                    everything that level allows. <strong>Advanced</strong>: set the count and level of every facility
-                    and upgrade module yourself. In Advanced, "Fill from RV level" sets everything to what an RV level
-                    allows, as a starting point.</p>
-                <p>Under <strong>Recipes</strong>, special recipes (Rose Shortbread, Potato Kvass and a few others) take
-                    a rare currency to unlock, so plans leave them out until you tick the ones you have.</p>
-                <p>Also under <strong>Recipes</strong>, add anything you can't make yet, such as recipes behind unlocks
-                    you don't have. Plans won't use them. The ✕ next to a product in a plan skips it and plans again.
-                </p>
+                <h3>1. Thiết lập Homeland của bạn</h3>
+                <p><strong>Chế độ cơ bản (Simple)</strong>: Chỉ cần chọn cấp RV của bạn, hệ thống sẽ tự động thiết lập số lượng và cấp độ tối đa của mọi cơ sở bạn có thể xây dựng theo đúng tiến trình game.</p>
+                <p><strong>Chế độ nâng cao (Advanced)</strong>: Cho phép bạn tùy chỉnh chính xác số lượng, cấp độ từng ô đất, xưởng chế biến và mô-đun nâng cấp mà bạn thực tế đang sở hữu. Nút "Điền theo cấp RV" giúp điền nhanh thông số chuẩn làm mốc ban đầu.</p>
+                <p><strong>Chế độ điện (⚡ E-mode)</strong>: Bật/tắt chế độ chạy điện cho từng loại máy móc hỗ trợ (Cối xay, Bếp nấu, Bàn chế tạo, Bàn mộc, Lò nung...). Lựa chọn mức cấp điện máy phát (100% Tiêu chuẩn hoặc 120% Tối ưu buff). Máy chạy điện sẽ tự động vận hành không cần Aniimo, giải phóng nhân công chuyển sang tưới nước toàn đảo giúp tăng 25% tốc độ cây trồng.</p>
+                <p><strong>Tùy chỉnh công thức</strong>:</p>
+                <ul>
+                    <li><em>Công thức đặc biệt</em>: Các công thức cần tiền tệ hiếm để mở khóa trong game (Bánh quy hoa hồng, Kvass khoai tây...). Kế hoạch chỉ sử dụng các công thức bạn đã tích chọn.</li>
+                    <li><em>Công thức cần bỏ qua</em>: Nhập các công thức bạn chưa mở khóa hoặc không muốn làm để bộ giải bỏ qua. Bạn cũng có thể bấm nút <strong>✕</strong> trực tiếp trên từng dòng của bảng kế hoạch để loại trừ và giải lại tức thì.</li>
+                </ul>
 
-                <h3>2. Chiến lược nâng cấp RV</h3>
-                <p>Chiến lược nâng cấp tính toán chính xác toàn bộ nguyên liệu cần cho cấp RV tiếp theo nhanh nhất có thể. Trong mục "Kho vật phẩm hiện có", bạn có thể nhập số lượng gỗ thô, cát khoáng hoặc vật phẩm đang có sẵn để trừ vào chi phí nâng cấp. Toàn bộ năng lực sản xuất dư thừa sẽ được tự động tối ưu hóa để kiếm Home Coin.</p>
+                <h3>2. Chiến lược nâng cấp RV & Kho vật phẩm hiện có</h3>
+                <p>Chiến lược nâng cấp tính toán chính xác toàn bộ nguyên liệu cần thiết cho cấp RV tiếp theo trong thời gian ngắn nhất có thể. Trong mục <strong>"Kho vật phẩm hiện có"</strong>, bạn có thể nhập số lượng Khối gỗ, Cát khoáng, Gỗ thô hoặc các vật phẩm bậc cao đang có sẵn trong hòm đồ để khấu trừ trực tiếp vào chi phí nâng cấp. Toàn bộ năng lực sản xuất dư thừa của Homeland sẽ được tự động tối ưu hóa để kiếm Home Coin.</p>
 
                 <h3>3. Tìm kế hoạch tối ưu</h3>
-                <p>Click "Find the best plan" to see how long the level-up takes (or your best rate) and what each
-                    facility should make. Set it up once and leave it running. Everything you enter is saved in your
-                    browser; "Clear saved values" resets it.</p>
+                <p>Nhấn nút <strong>"Tìm kế hoạch tối ưu"</strong> để bộ giải toán học MILP phân tích toàn bộ Homeland và đưa ra phương án sản xuất chi tiết. Bạn chỉ cần cài đặt theo bảng kết quả trong game và để máy móc chạy tự động. Toàn bộ dữ liệu bạn nhập được lưu tự động trên trình duyệt; bấm <strong>"Đặt lại dữ liệu"</strong> khi muốn khôi phục về ban đầu.</p>
 
-                <h3>4. Set a Goal (Optional)</h3>
-                <p>Pick what you're aiming for, enter the target amount and what you have now, and the card says how
-                    long it takes and what else you'll have by then. It updates instantly as you type.</p>
+                <h3>4. Đặt mục tiêu tích lũy (Tùy chọn)</h3>
+                <p>Chọn mục tiêu bạn đang hướng tới (Home Coin, Kinh nghiệm Aniimo, Điểm mùa vụ...), nhập số lượng mong muốn và lượng đang có sẵn. Hệ thống sẽ tính chính xác tổng thời gian hoàn thành cùng toàn bộ lượng tài nguyên phụ tích lũy được trong khoảng thời gian đó.</p>
 
-                <h3>Understanding the Results</h3>
+                <h3>5. Hướng dẫn đọc kết quả chi tiết</h3>
                 <ul>
-                    <li><strong>Aniimo Team</strong>: which Aniimo to keep on your homeland, for the fastest setup
-                        (Best) or the least you can get by with (Minimum). <strong>My Aniimo</strong> plans with the
-                        Aniimo you list instead and shows what each one does. Open it for the full list.</li>
-                    <li><strong>Level-Up</strong>: how soon you'll have everything the level-up costs, and how fast each
-                        cost comes in (pick the unit at the top of that column). The slowest one is in bold. Surplus is
-                        what's left over when it's ready, such as extra Home Coins or ore.</li>
-                    <li><strong>Your Rates</strong>: with Priorities, what the plan makes of each priority in your
-                        order, then Home Coins from what's left, per second, minute, hour or day.</li>
-                    <li><strong>Seeds to Plant</strong>: the seeds your Farmland and Woodland go through and what they
-                        cost, in total until the level-up with Level up, or at the chosen rate with Priorities.</li>
-                    <li><strong>Profit by Product</strong>: with Level up, what each product earns per hour and in total
-                        until the level-up is ready.</li>
-                    <li><strong>What Each Facility Should Do</strong>: what to set each facility to, all running at
-                        once. Recipes tagged "unverified" haven't been checked in game yet.</li>
-                    <li><strong>Opportunities</strong>: changes within your reach (a recipe to unlock, an Aniimo level,
-                        and in Advanced mode a module or facility) ranked by how much they'd improve the plan.</li>
-                    <li><strong>Homeland Layout</strong>: where to put each facility so the busiest are nearest the
-                        Storage Unit.</li>
-                    <li><strong>Set a Goal</strong>: with Priorities, how long it takes to reach a target amount of Home
-                        Coins or any priority that's on, and what else you'll have by then.</li>
+                    <li><strong>Tổ đội công nhân Aniimo</strong>: Danh sách công nhân Aniimo tối ưu nhất cần phân bổ trên đảo (theo hệ, cấp độ và tính cách). Tab <em>Aniimo của tôi</em> cho phép bạn nhập danh sách thú cưng thực tế đang có để hệ thống tự động gán việc phù hợp nhất.</li>
+                    <li><strong>Chiến lược lên cấp RV</strong>: Thời gian hoàn tất toàn bộ nguyên liệu lên cấp (mục chậm nhất được in đậm) cùng lượng tài nguyên thặng dư tích lũy được khi hoàn thành.</li>
+                    <li><strong>Tốc độ thu hoạch</strong>: Tốc độ sản sinh Home Coin và sản phẩm theo từng giây, phút, giờ hoặc ngày.</li>
+                    <li><strong>Nhiệm vụ từng cơ sở sản xuất (Cấu trúc 3 tầng chuẩn hóa)</strong>:
+                        <ul>
+                            <li>🌿 <strong>Sản xuất nguyên liệu</strong>: Gom toàn bộ cơ sở khai thác thô chạy nền liên tục 24/7 (Đất nông nghiệp, Vườn ươm, Mỏ khoáng, Giếng nước, Lâu đài cát, Nhà sương mai, Giường mây, Võng sao, Cối xay gió hoa).</li>
+                            <li>🪵 <strong>Sản xuất gỗ và gạch quặng</strong>: Bàn mộc và Lò nung ống khói chuyên xử lý phụ phẩm thành vật liệu nâng cấp RV.</li>
+                            <li>🍲 <strong>Cơ sở chế biến</strong>: Các xưởng chế biến thành phẩm thương mại có biên lợi nhuận cao nhất. Mọi máy móc để trống hoặc không dùng đến được tự động ẩn hoàn toàn để bảng luôn sạch đẹp và dễ theo dõi.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Hạt giống cần gieo trồng & Lợi nhuận sản phẩm</strong>: Thống kê chi tiết số hạt giống cần mua và bảng xếp hạng lợi nhuận ròng của từng sản phẩm.</li>
+                    <li><strong>Mô phỏng bố cục Homeland 2D</strong>: Sơ đồ gợi ý bố trí vị trí các cơ sở và Kho lưu trữ phân tán (Storage Unit - SU), giúp giảm tới ~58% quãng đường chạy bộ của Aniimo vận chuyển.</li>
+                    <li><strong>Phân tích chiến lược & Cơ hội cải thiện</strong>: Giải thích tường tận lý do lựa chọn hoặc loại bỏ các chuỗi sản phẩm, đồng thời xếp hạng các cơ hội nâng cấp mang lại hiệu quả kinh tế lớn nhất tiếp theo cho bạn.</li>
                 </ul>
             </div>
         </div>

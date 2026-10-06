@@ -165,13 +165,13 @@ export const FACILITIES = [
         tooltip: "Lv.1: Aniipod&#10;Lv.2: Aniipod Pro&#10;Lv.3: Aniipod Mega&#10;Aniipods are for catching Aniimo, not for selling.&#10;Unlock levels not yet confirmed in game."
     },
     {
-        name: 'Woodworking Bench', slug: 'woodworking-bench', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Artisanship', personality: 'Energetic', supportsEmode: true, powerWatts: 30,
+        name: 'Woodworking Bench', slug: 'woodworking-bench', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Artisanship', personality: 'Energetic', supportsEmode: true, powerWatts: 30,
         unlocks: { 1: 6, 2: 10, 3: 14, 4: 18 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Rough Lumber&#10;Lv.2: Standard Planks&#10;Lv.3: Laminated Beams&#10;Lv.4: Densified Timber Component&#10;Turns Wood Blocks into RV level-up materials."
     },
     {
-        name: 'Chimney Kiln', slug: 'chimney-kiln', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, powerWatts: 30,
+        name: 'Chimney Kiln', slug: 'chimney-kiln', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, powerWatts: 30,
         unlocks: { 1: 6, 2: 10, 3: 14, 4: 18 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Coarse-Sifted Ore&#10;Lv.2: Sintered Ore Brick&#10;Lv.3: Refined Ore&#10;Lv.4: Microcrystalline Ore Plate&#10;Turns Mineral Sand into RV level-up materials."
@@ -354,7 +354,7 @@ export function opposedPersonality(name) {
 
 // Display order for facility categories. Auxiliary facilities (Storage Unit, power/climate
 // buildings) are deliberately excluded here: they don't produce items.
-export const FACILITY_CATEGORIES = ['Materials', 'Environment', 'Aniimo Materials', 'Materials Processing'];
+export const FACILITY_CATEGORIES = ['Materials', 'Environment', 'Aniimo Materials', 'Wood & Ore Processing', 'Materials Processing'];
 
 // Facility name -> category, so other pages can group by the same categories as the facility
 // input cards (Materials/Aniimo Materials are grower facilities, Materials Processing is processor
