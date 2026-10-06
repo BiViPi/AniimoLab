@@ -4643,3 +4643,613 @@ tr:hover .skip-row,
     margin-top: 1.25rem;
 }
 
+/* ==========================================================================
+   Comprehensive Light Theme Design System
+   ========================================================================== */
+body.light,
+.light,
+html.light,
+[data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --surface-3: #e2e8f0;
+    --surface-elevated: #ffffff;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(5, 150, 105, 0.45);
+    --accent: #059669;
+    --accent-cyan: #0284c7;
+    --on-accent: #ffffff;
+    --success: #059669;
+    --error: #e11d48;
+    --warning: #d97706;
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+}
+
+/* --- Cards & Headers --- */
+body.light .card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+}
+
+body.light .card:hover {
+    border-color: rgba(5, 150, 105, 0.35) !important;
+}
+
+body.light .card h2,
+body.light .card h3,
+body.light .card h4,
+body.light .section-title-text {
+    color: #0f172a !important;
+}
+
+body.light .card p.hint {
+    color: #64748b !important;
+}
+
+body.light label {
+    color: #334155 !important;
+}
+
+/* --- App Navbar --- */
+body.light .app-navbar {
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.light .brand-title {
+    color: #0f172a !important;
+}
+
+body.light .brand-subtitle {
+    color: #64748b !important;
+}
+
+body.light .brand-tag {
+    background: #f1f5f9 !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    color: #334155 !important;
+}
+
+body.light .brand-tag.tag-emode {
+    background: #ecfdf5 !important;
+    color: #059669 !important;
+    border-color: rgba(5, 150, 105, 0.25) !important;
+}
+
+body.light .brand-tag.tag-mip {
+    background: #f0fdf4 !important;
+    color: #047857 !important;
+    border-color: rgba(4, 120, 87, 0.2) !important;
+}
+
+body.light .nav-btn {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #334155 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+body.light .nav-btn:hover {
+    background: #f1f5f9 !important;
+    border-color: var(--accent) !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* --- Banner Alert --- */
+body.light .cyber-alert {
+    background: #fffbeb !important;
+    border: 1px solid #fde68a !important;
+    color: #92400e !important;
+}
+
+body.light .alert-icon {
+    color: #d97706 !important;
+    filter: none !important;
+}
+
+/* --- Inputs & Selects --- */
+body.light input[type="number"],
+body.light input[type="text"],
+body.light select {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    color: #0f172a !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+}
+
+body.light input[type="number"]:focus,
+body.light input[type="text"]:focus,
+body.light select:focus {
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
+}
+
+body.light #clear-saved-btn,
+body.light .btn-reset-saved {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #475569 !important;
+}
+
+body.light #clear-saved-btn:hover,
+body.light .btn-reset-saved:hover {
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #dc2626 !important;
+}
+
+/* --- Toggle Switch Track --- */
+body.light .switch-track {
+    background: #cbd5e1 !important;
+}
+
+body.light input:checked + .switch-track {
+    background: #059669 !important;
+}
+
+body.light .season-switch input:checked + .switch-track {
+    background: #f59e0b !important;
+}
+
+/* --- E-mode & Power Gauge --- */
+body.light .emode-simple-section {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .emode-title {
+    color: #0f172a !important;
+}
+
+body.light .power-gauge-container {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light .power-gauge-title {
+    color: #b45309 !important;
+}
+
+body.light .power-gauge-value {
+    color: #0f172a !important;
+}
+
+body.light .power-gauge-track {
+    background: #e2e8f0 !important;
+}
+
+body.light .power-gauge-fill {
+    background: linear-gradient(90deg, #059669 0%, #0284c7 70%, #d97706 100%) !important;
+    box-shadow: none !important;
+}
+
+/* --- Lễ hội Trung Thu --- */
+body.light .season-block {
+    background: #ffffff !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+body.light .season-title {
+    color: #0f172a !important;
+}
+
+body.light .season-badge {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+
+body.light .season-plots-card {
+    background: #fffbeb !important;
+    border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+body.light .season-plots-title {
+    color: #92400e !important;
+}
+
+body.light .season-plots-badge {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+body.light .season-plots-summary {
+    color: #78350f !important;
+    border-top: 1px dashed rgba(245, 158, 11, 0.25) !important;
+}
+
+body.light .season-plots-summary strong {
+    color: #451a03 !important;
+}
+
+body.light .stepper-ctrl {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.14) !important;
+}
+
+body.light .stepper-btn {
+    color: #0f172a !important;
+}
+
+body.light .stepper-btn:hover {
+    background: #f1f5f9 !important;
+    color: #059669 !important;
+}
+
+body.light .stepper-input {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+body.light .season-dish-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .season-dish-card:hover {
+    border-color: #f59e0b !important;
+    background: #fffdf5 !important;
+}
+
+body.light .season-dish-card.active {
+    background: #fffbeb !important;
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 0 1px #f59e0b, 0 4px 12px rgba(245, 158, 11, 0.15) !important;
+}
+
+body.light .dish-thumb {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .dish-name {
+    color: #0f172a !important;
+}
+
+body.light .dish-points-badge {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+}
+
+/* --- Công thức đặc biệt --- */
+body.light .special-recipe-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .special-recipe-card:hover {
+    border-color: #059669 !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light .special-recipe-card.active {
+    background: #ecfdf5 !important;
+    border-color: #059669 !important;
+    box-shadow: 0 0 0 1px #059669, 0 4px 12px rgba(5, 150, 105, 0.12) !important;
+}
+
+body.light .special-card-thumb {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .special-card-name {
+    color: #0f172a !important;
+}
+
+body.light .special-rv-badge {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+body.light .special-rv-badge.rv-future {
+    background: #fff7ed !important;
+    color: #c2410c !important;
+    border-color: #fed7aa !important;
+}
+
+body.light .skip-recipes-details {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .skip-recipes-details summary {
+    color: #0f172a !important;
+}
+
+body.light .skip-chip {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* --- Primary CTA Button --- */
+body.light #optimize-btn {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 20px rgba(5, 150, 105, 0.35) !important;
+}
+
+body.light #optimize-btn:hover {
+    filter: brightness(1.05) !important;
+    box-shadow: 0 6px 26px rgba(5, 150, 105, 0.45) !important;
+}
+
+/* --- Results & Tables --- */
+body.light .results-section,
+body.light #results-content {
+    color: #0f172a;
+}
+
+body.light table {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light thead tr {
+    background: #f1f5f9 !important;
+}
+
+body.light th {
+    color: #475569 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light td {
+    color: #0f172a !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light tfoot td {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+body.light tbody tr:hover {
+    background: #f8fafc !important;
+}
+
+body.light .rate-amount {
+    color: #059669 !important;
+}
+
+body.light .chip {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .insight-card,
+body.light .ranking-card,
+body.light .summary-stat-box {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.light .insight-title {
+    color: #0f172a !important;
+}
+
+body.light .insight-body {
+    color: #475569 !important;
+}
+
+body.light .plan-category-title {
+    color: #0f172a !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .why-this-plan-box {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .why-section-card {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light .why-section-card h4 {
+    color: #0f172a !important;
+}
+
+body.light .why-section-card p,
+body.light .why-section-card li {
+    color: #334155 !important;
+}
+
+body.light .custom-card-divider {
+    background: rgba(0, 0, 0, 0.07) !important;
+}
+
+/* --- Modals & Aniimo Tier List in Light Mode --- */
+body.light .modal-content {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    color: #0f172a !important;
+}
+
+body.light .modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .modal-header h2,
+body.light .modal-title-wrap h2 {
+    color: #0f172a !important;
+}
+
+body.light .modal-subtitle {
+    color: #64748b !important;
+}
+
+body.light .close-button {
+    color: #64748b !important;
+}
+
+body.light .close-button:hover {
+    color: #0f172a !important;
+}
+
+body.light .aniimo-tier-modal-content {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light .tier-filter-chips {
+    background: #ffffff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .tier-chip {
+    background: #f1f5f9 !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #475569 !important;
+}
+
+body.light .tier-chip:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+body.light .tier-chip.active {
+    background: #ecfdf5 !important;
+    border-color: #059669 !important;
+    color: #047857 !important;
+}
+
+body.light .tier-ability-section {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-left: 4px solid var(--ability-theme, #059669) !important;
+}
+
+body.light .tier-group-title h3 {
+    color: #0f172a !important;
+}
+
+body.light .tier-group-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .tier-block {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+}
+
+body.light .tier-ss-block {
+    border-left: 3px solid #f59e0b !important;
+    background: linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%) !important;
+}
+
+body.light .tier-s-block {
+    border-left: 3px solid #0284c7 !important;
+    background: linear-gradient(90deg, #f0f9ff 0%, #f8fafc 100%) !important;
+}
+
+body.light .tier-aniimo-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light .tier-aniimo-card:hover {
+    border-color: var(--accent) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .tier-aniimo-card.is-prismana-card {
+    background: linear-gradient(135deg, #fffdfa 0%, #ffffff 100%) !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+body.light .tier-aniimo-card.is-prismana-card:hover {
+    border-color: #f59e0b !important;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2) !important;
+}
+
+body.light .tier-card-avatar-wrap {
+    background: #f1f5f9 !important;
+}
+
+body.light .tier-card-name {
+    color: #0f172a !important;
+}
+
+body.light .tier-card-num {
+    color: #64748b !important;
+}
+
+body.light .tier-card-secondary {
+    color: #64748b !important;
+}
+
+body.light .pill-ss {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+
+body.light .pill-s {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+}
+
+body.light .count-ss {
+    background: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+}
+
+body.light .count-s {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+}
+
+body.light .btn-tierlist-trigger,
+body.light .btn-view-tier-list,
+body.light .roster-tier-btn {
+    background: #fffbeb !important;
+    border: 1px solid #fde68a !important;
+    color: #92400e !important;
+    font-weight: 700 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .btn-tierlist-trigger:hover,
+body.light .btn-view-tier-list:hover,
+body.light .roster-tier-btn:hover {
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    color: #78350f !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2) !important;
+}
+
+body.light .explain {
+    background: #f8fafc !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #334155 !important;
+}
+
+body.light .explain summary {
+    color: #0f172a !important;
+}
+
+body.light .explain summary:hover {
+    color: #059669 !important;
+}
+
+
+

@@ -4497,33 +4497,76 @@ export function getWorkerForLevel(ability, level) {
 }
 
 /**
+/**
+ * Resident facilities that strictly require a specific Aniimo.
+ * - Nhà sương mai (Dewy House): Fragrancier
+ * - Giường mây (Nimbus Bed): Turbo
+ * - Lâu đài cát cấp 2 (Tidewhisper Sandcastle Lv.2): Panpanta
+ * - Lâu đài cát cấp 3 (Tidewhisper Sandcastle Lv.3): Sherro
+ * - Võng sao (Starfall Hammock): Stellarys
+ */
+export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel = 1) {
+    if (!facility) return null;
+    const fac = facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').trim();
+    if (fac === 'Dewy House' || fac === 'Nhà sương mai') return 'Fragrancier';
+    if (fac === 'Nimbus Bed' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') return 'Turbo';
+    if (fac === 'Tidewhisper Sandcastle' || fac === 'Lâu đài cát' || fac === 'Lâu đài cát Tidewhisper') {
+        if (itemName === 'pearl' || (facilityLevel && facilityLevel >= 3)) return 'Sherro';
+        if (itemName === 'quick_sea_salt' || (facilityLevel && facilityLevel >= 2)) return 'Panpanta';
+        return 'Panpanta';
+    }
+    if (fac === 'Starfall Hammock' || fac === 'Võng sao Starfall') return 'Stellarys';
+    return null;
+}
+
+/**
  * Render an individual Aniimo worker avatar card with badge and rich tooltip.
  * Luôn đề xuất Aniimo có cấp độ cao nhất (Prismana Lv.4 hoặc Lv.3), tránh đề xuất cấp 1, 2.
  * @param {string} ability - Ability name
  * @param {number} minLevel - Work min level required
  * @param {string} note - Optional bonus note (e.g. personality bonus)
  * @param {boolean} compact - Compact mode for multi-worker tasks
+ * @param {string} specificName - Optional specific Aniimo name override
  * @returns {string} HTML markup
  */
-export function renderAniimoWorkerCard(ability, minLevel = 1, note = '', compact = false) {
-    // Luôn ưu tiên công nhân cấp cao nhất
-    const rec = getRecommendedWorker(ability, minLevel, true);
+export function renderAniimoWorkerCard(ability, minLevel = 1, note = '', compact = false, specificName = '') {
+    let worker = null;
+    let isPrismana = false;
+    let workerLevel = typeof minLevel === 'number' ? minLevel : 3;
+    let alternatives = [];
+
+    if (specificName) {
+        const found = ANIIMO_DB.find(a => a.name.toLowerCase() === specificName.toLowerCase());
+        if (found) {
+            const ab = found.abilities.find(a => a.ability_en === ability) || found.abilities[0];
+            isPrismana = found.is_prismana && ((ab?.prismana_level || 0) >= 4);
+            workerLevel = isPrismana ? (ab?.prismana_level || 4) : Math.min(3, ab?.base_level || 3);
+            worker = found;
+        }
+    }
+
+    if (!worker) {
+        const rec = getRecommendedWorker(ability, minLevel, true);
+        if (rec && rec.primary) {
+            worker = rec.primary;
+            isPrismana = rec.isPrismana;
+            workerLevel = rec.level;
+            alternatives = rec.alternatives || [];
+        }
+    }
+
     const theme = ABILITY_THEMES[ability] || { color: '#888888', icon: '🐾', vi: ability };
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const abilityDisplay = isVi ? theme.vi : ability;
 
-    if (!rec || !rec.primary) {
+    if (!worker) {
         return `<span class="ability-dot" style="--ability:${theme.color}">${minLevel}</span>`;
     }
-
-    const worker = rec.primary;
-    const isPrismana = rec.isPrismana;
-    const workerLevel = rec.level; // Luôn hiển thị cấp cao nhất của Aniimo (4 hoặc 3)
     
     // Construct rich tooltip
-    const altsText = rec.alternatives.length > 0
-        ? (isVi ? `Đề xuất khác / thay thế: ${rec.alternatives.map(a => a.name + (a.is_prismana ? ' (Prismana Lv.4)' : ` (Lv.${Math.min(3, a.base_level || 3)})`)).join(', ')}` 
-                : `Other options / alternatives: ${rec.alternatives.map(a => a.name + (a.is_prismana ? ' (Prismana Lv.4)' : ` (Lv.${Math.min(3, a.base_level || 3)})`)).join(', ')}`)
+    const altsText = alternatives.length > 0
+        ? (isVi ? `Đề xuất khác / thay thế: ${alternatives.map(a => a.name + (a.is_prismana ? ' (Prismana Lv.4)' : ` (Lv.${Math.min(3, a.base_level || 3)})`)).join(', ')}` 
+                : `Other options / alternatives: ${alternatives.map(a => a.name + (a.is_prismana ? ' (Prismana Lv.4)' : ` (Lv.${Math.min(3, a.base_level || 3)})`)).join(', ')}`)
         : '';
     
     const reqNote = (typeof minLevel === 'number' && minLevel < workerLevel)
@@ -4579,15 +4622,32 @@ export function renderAniimoTasksCluster(tasks, facilityName) {
  * @param {number} count
  * @param {string} tip
  * @param {boolean} bonus
+ * @param {string} specificName
  * @returns {string}
  */
-export function renderRosterWorkerBadge(ability, level, count = 1, tip = '', bonus = false) {
-    const rec = getRecommendedWorker(ability, 4, true);
+export function renderRosterWorkerBadge(ability, level, count = 1, tip = '', bonus = false, specificName = '') {
+    let worker = null;
+    let isPrismana = true;
+    let workerLevel = 4;
+
+    if (specificName) {
+        const found = ANIIMO_DB.find(a => a.name.toLowerCase() === specificName.toLowerCase());
+        if (found) {
+            const ab = found.abilities.find(a => a.ability_en === ability) || found.abilities[0];
+            isPrismana = found.is_prismana && ((ab?.prismana_level || 0) >= 4);
+            workerLevel = isPrismana ? (ab?.prismana_level || 4) : Math.min(3, ab?.base_level || 3);
+            worker = found;
+        }
+    }
+
+    if (!worker) {
+        const rec = getRecommendedWorker(ability, 4, true);
+        worker = rec ? rec.primary : null;
+        isPrismana = rec ? rec.isPrismana : true;
+        workerLevel = rec ? rec.level : 4;
+    }
+
     const theme = ABILITY_THEMES[ability] || { color: '#888888', icon: '🐾', vi: ability };
-    
-    const worker = rec ? rec.primary : null;
-    const isPrismana = rec ? rec.isPrismana : true;
-    const workerLevel = rec ? rec.level : 4;
     const times = count > 1 ? `<span class="ability-times">×${count}</span>` : '';
     
     if (!worker) {

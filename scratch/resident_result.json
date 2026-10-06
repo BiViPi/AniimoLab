@@ -1,0 +1,42 @@
+{
+  "facilityRows": [
+    {
+      "fac": "Nhà sương mai",
+      "item": "Thạch hương nhanh",
+      "aniimo": "3\n            \n            Fragrancier",
+      "aniimoImg": "https://aniidex.com/images/aniimo/UI_PetHead_10352.webp"
+    },
+    {
+      "fac": "Giường mây Nimbus",
+      "item": "Lông cừu nhanh",
+      "aniimo": "4\n            \n            Turbo",
+      "aniimoImg": "https://aniidex.com/images/aniimo/UI_PetHead_10262.webp"
+    },
+    {
+      "fac": "Lâu đài cát Tidewhisper",
+      "item": "Muối biển nhanh",
+      "aniimo": "4\n            \n            Panpanta",
+      "aniimoImg": "https://aniidex.com/images/aniimo/UI_PetHead_10174.webp"
+    }
+  ],
+  "teamRows": [
+    "AniimoSố lượngTỷ lệ bận TBVị trí làm việc",
+    "Chế tác Lv.4 · Energetic (E), Judicious (J)10.7Woodworking Bench (Dầm gỗ ép), Woodworking Bench (Gỗ thô xẻ), Woodworking Bench (Ván gỗ tiêu chuẩn), Crafting Table (Chuông gió cao cấp)",
+    "Ám Lv.110.0Reaping farmland",
+    "Thổ Lv.110.1Reclaiming crops",
+    "Thổ Lv.4 · Playful (P)77.07× Mine (Quặng đồng)",
+    "Hỏa any level22.02× Heat Furnace (Scorching)",
+    "Hỏa Lv.4 · Nimble (N)10.1Blazing Stove (Bánh cuốn hấp)",
+    "Hỏa Lv.4 · Practical (S)10.4Chimney Kiln (Quặng sàng thô), Chimney Kiln (Quặng tinh chế), Chimney Kiln (Gạch quặng thiêu kết)",
+    "Mộc Lv.110.1Sowing crops, Collecting crops",
+    "Băng any level11.0Cooling Unit (Cool)",
+    "Giải trí Lv.4 · Stellarys11.0Starfall Hammock (Ngôi sao)",
+    "Giải trí Lv.4 · Fragrancier11.0Dewy House (Thạch hương nhanh)",
+    "Giải trí Lv.4 · Panpanta11.0Tidewhisper Sandcastle (Muối biển nhanh)",
+    "Giải trí Lv.4 · Turbo11.0Nimbus Bed (Lông cừu nhanh)",
+    "Quang any level11.0Sunlamp (Adequate)",
+    "Thủy Lv.110.1Watering crops",
+    "Thủy Lv.4 · Faithful (F)22.02× Well (Nước ngọt nhanh)",
+    "Vận chuyển any level1+?Carries produce to storage. How much work this is isn't known yet; add more if produce piles up."
+  ]
+}

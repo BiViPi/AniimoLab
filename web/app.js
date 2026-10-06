@@ -5,9 +5,9 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v19';
-import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel } from './aniimo-data.js?v=aniimolab_v19';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v19';
+} from './facility-config.js?v=aniimolab_v20';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v20';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v20';
 
 let wasmReady = false;
 
@@ -3572,12 +3572,30 @@ function integrateSeasonPlan(plan) {
         });
     }
 
+    let updatedLevelUp = plan.level_up;
+    if (plan.level_up && plan.level_up.requirements) {
+        const newRatePerSec = plan.rate_per_second + extraCoinsRate;
+        const newReqs = plan.level_up.requirements.map(r => {
+            if (r.name === 'coins') {
+                const short = Math.max(0, r.need - r.have);
+                const seconds = short <= 0 ? 0 : (newRatePerSec > 0 ? short / newRatePerSec : null);
+                return { ...r, per_second: newRatePerSec, seconds };
+            }
+            return r;
+        });
+        updatedLevelUp = {
+            ...plan.level_up,
+            requirements: newReqs
+        };
+    }
+
     return {
         ...plan,
         coin_items: newSteps,
         income_streams: newStreams,
         rate_per_second: plan.rate_per_second + extraCoinsRate,
-        season_points: seasonPointsRate
+        season_points: seasonPointsRate,
+        level_up: updatedLevelUp
     };
 }
 
@@ -3844,7 +3862,8 @@ function aniimoLabel(step) {
             ? `${personality ? `Tính cách ${personality}` : 'tính cách tương thích'} (+20% tốc độ)`
             : `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
     }
-    return renderAniimoWorkerCard(a.ability, a.level, note);
+    const specificWorker = getFacilitySpecificWorker(step.facility, step.item_name, step.facility_level);
+    return renderAniimoWorkerCard(a.ability, a.level, note, false, specificWorker);
 }
 
 // "Fire Lv.4 · Practical": one kind of Aniimo, with the facility's personality when the plan
@@ -3941,6 +3960,9 @@ function whereText(g) {
 // Nimbus Bed and a Starfall Hammock, which it can because those never want opposites.
 function aniimoNeeds(g) {
     if (g.environment) return g.label.slice(g.ability.length).trim();
+    if (g.specificWorker) {
+        return `Lv.${g.level} · <strong>${g.specificWorker}</strong>`;
+    }
     const personalities = [...g.personalities]
         .sort()
         .map(name => `${name} (${personalityLetter(name)})`)
@@ -3960,13 +3982,24 @@ function renderAniimoSummary(plan) {
     const container = document.getElementById('aniimo-summary');
     const groups = new Map();
     (plan.coin_items || []).forEach(step => {
+        const specificWorker = getFacilitySpecificWorker(step.facility, step.item_name, step.facility_level);
         (step.aniimo_tasks || []).forEach(task => {
-            const key = taskLabel(task, step.facility);
+            const key = specificWorker ? `${taskLabel(task, step.facility)} (${specificWorker})` : taskLabel(task, step.facility);
             if (!groups.has(key)) {
                 const personality = task.personality_bonus
                     ? FACILITIES.find(f => f.name === step.facility)?.personality ?? null
                     : null;
-                groups.set(key, { label: key, ability: task.ability, level: task.level, bonus: task.personality_bonus, personality, busy: 0, where: new Map(), jobs: new Map() });
+                groups.set(key, {
+                    label: key,
+                    ability: task.ability,
+                    level: task.level,
+                    bonus: task.personality_bonus,
+                    personality,
+                    busy: 0,
+                    where: new Map(),
+                    jobs: new Map(),
+                    specificWorker: specificWorker || null
+                });
             }
             const g = groups.get(key);
             g.busy += task.busy;
@@ -4042,7 +4075,7 @@ function renderAniimoSummary(plan) {
             && (!g.personality || !host.personalities.has(opposedPersonality(g.personality)));
         rows.forEach(g => {
             // A facility with a resident Aniimo keeps it to itself.
-            const host = g.environment ? null : kept.find(k => holds(k, g));
+            const host = (g.environment || g.specificWorker) ? null : kept.find(k => !k.specificWorker && holds(k, g));
             if (host) {
                 host.spare -= g.busy;
                 host.busy += g.busy;
@@ -4107,7 +4140,7 @@ function renderAniimoSummary(plan) {
     const teamDots = g => {
         const where = whereText(g);
         const tip = `${g.count > 1 ? `${g.count}× ` : ''}${g.label}${g.bonus ? ' (+20% tốc độ)' : ''} · ${where}`;
-        return renderRosterWorkerBadge(g.ability, g.environment ? '·' : g.level, g.count, tip, g.bonus);
+        return renderRosterWorkerBadge(g.ability, g.environment ? '·' : g.level, g.count, tip, g.bonus, g.specificWorker || '');
     };
     document.getElementById('aniimo-abilities').innerHTML = ABILITIES.map(a => {
         const n = a.name === 'Hauling' ? `${needed.get(a.name) + 1}+` : needed.get(a.name);

@@ -588,16 +588,37 @@
     </div>
 
     <script>
+        function updateThemeButton(isLight) {
+            const button = document.getElementById('themeToggle');
+            if (!button) return;
+            const themeLabel = window.i18n ? (isLight ? (window.i18n.getLang() === 'vi' ? 'Tối' : 'Dark') : (window.i18n.getLang() === 'vi' ? 'Sáng' : 'Light')) : (isLight ? 'Tối' : 'Sáng');
+            button.innerHTML = `<span class="btn-sym">${isLight ? '🌙' : '☀️'}</span> <span>${themeLabel}</span>`;
+        }
+
         window.toggleTheme = function () {
             const body = document.body;
             body.classList.toggle('light');
-            const button = document.getElementById('themeToggle');
             const isLight = body.classList.contains('light');
-            const themeLabel = window.i18n ? (isLight ? (window.i18n.getLang() === 'vi' ? 'Tối' : 'Dark') : (window.i18n.getLang() === 'vi' ? 'Sáng' : 'Light')) : 'Theme';
-            if (button) {
-                button.innerHTML = `<span class="btn-sym">${isLight ? '🌙' : '☀️'}</span> <span>${themeLabel}</span>`;
-            }
-        }
+            try {
+                localStorage.setItem('aniimolab_theme', isLight ? 'light' : 'dark');
+            } catch (e) {}
+            updateThemeButton(isLight);
+        };
+
+        // Initialize saved theme on load
+        (function() {
+            try {
+                const saved = localStorage.getItem('aniimolab_theme');
+                if (saved === 'light') {
+                    document.body.classList.add('light');
+                }
+            } catch (e) {}
+        })();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const isLight = document.body.classList.contains('light');
+            updateThemeButton(isLight);
+        });
 
         window.showAniimoTierList = function () {
             document.getElementById('aniimoTierModal').classList.add('show');
@@ -658,8 +679,8 @@
             }
         });
     </script>
-    <script src="i18n.js?v=aniimolab_v18"></script>
-    <script type="module" src="app.js?v=aniimolab_v18"></script>
+    <script src="i18n.js?v=aniimolab_v20"></script>
+    <script type="module" src="app.js?v=aniimolab_v20"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

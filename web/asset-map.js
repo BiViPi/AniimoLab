@@ -71,7 +71,8 @@ export function itemToSlug(itemName) {
         'quick-sea-salt': 'sea-salt',
         'quick-lambswool': 'wool',
         'quick-scales': 'scales',
-        'quick-aromathyst': 'aromathyst'
+        'quick-aromathyst': 'aromathyst',
+        'umbral-sweet-and-spicy-sauce': 'umbral-sweet-spicy-sauce'
     };
 
     if (ALIASES[slug]) return ALIASES[slug];
