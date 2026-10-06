@@ -1,0 +1,902 @@
+[
+  {
+    "slug": "/vi/aniimo/emberpup/",
+    "name": "",
+    "number": "001",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10051.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/flameruff/",
+    "name": "",
+    "number": "002",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10052.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/scorchhowl/",
+    "name": "",
+    "number": "003",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10053.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/inferlupa/",
+    "name": "",
+    "number": "004",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10055.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/celestis/",
+    "name": "",
+    "number": "005",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10011.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/stellarys/",
+    "name": "",
+    "number": "006",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10012.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/chirpi/",
+    "name": "",
+    "number": "007",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10181.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/tromber/",
+    "name": "",
+    "number": "008",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10184.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/cornet/",
+    "name": "",
+    "number": "009",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10185.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/tubster/",
+    "name": "",
+    "number": "010",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10187.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/iris/",
+    "name": "",
+    "number": "011",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10211.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/irisal/",
+    "name": "",
+    "number": "012",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10212.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/skippy/",
+    "name": "",
+    "number": "013",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10041.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/pranky/",
+    "name": "",
+    "number": "014",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10042.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/glacy/",
+    "name": "",
+    "number": "015",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10043.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/leafy/",
+    "name": "",
+    "number": "016",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10045.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/nimbi/",
+    "name": "",
+    "number": "017",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10261.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/turbo/",
+    "name": "",
+    "number": "018",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10262.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/dreaple/",
+    "name": "",
+    "number": "019",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10263.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/hummin/",
+    "name": "",
+    "number": "020",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10201.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/hexxin/",
+    "name": "",
+    "number": "021",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10203.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/tuckin/",
+    "name": "",
+    "number": "022",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10207.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/budclaw/",
+    "name": "",
+    "number": "023",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10161.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/shrubclaw/",
+    "name": "",
+    "number": "024",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10162.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/geoclaw/",
+    "name": "",
+    "number": "025",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10163.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/sparki/",
+    "name": "",
+    "number": "026",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10331.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/flamerion/",
+    "name": "",
+    "number": "027",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10333.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/flutternym/",
+    "name": "",
+    "number": "028",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10231.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/gracewing/",
+    "name": "",
+    "number": "029",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10232.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/somniwing/",
+    "name": "",
+    "number": "030",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10233.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/eko/",
+    "name": "",
+    "number": "031",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10441.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/eklue/",
+    "name": "",
+    "number": "032",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10443.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/budsquire/",
+    "name": "",
+    "number": "033",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10321.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/thornblade/",
+    "name": "",
+    "number": "034",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10323.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/melloblum/",
+    "name": "",
+    "number": "035",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10324.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/pomegg/",
+    "name": "",
+    "number": "036",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10471.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/pomawk/",
+    "name": "",
+    "number": "037",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10475.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/dewy/",
+    "name": "",
+    "number": "038",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10351.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fragrancier/",
+    "name": "",
+    "number": "039",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10352.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/wisptis/",
+    "name": "",
+    "number": "040",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10031.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/ignitis/",
+    "name": "",
+    "number": "041",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10032.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bonesky/",
+    "name": "",
+    "number": "042",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10131.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fenrier/",
+    "name": "",
+    "number": "043",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10132.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/glynsera/",
+    "name": "",
+    "number": "044",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10133.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bolty/",
+    "name": "",
+    "number": "045",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10221.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/blazen/",
+    "name": "",
+    "number": "046",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10222.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/squarrel/",
+    "name": "",
+    "number": "047",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10511.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/squashel/",
+    "name": "",
+    "number": "048",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10512.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/susuta/",
+    "name": "",
+    "number": "049",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10171.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/popota/",
+    "name": "",
+    "number": "050",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10172.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/piopiota/",
+    "name": "",
+    "number": "051",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10173.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/panpanta/",
+    "name": "",
+    "number": "052",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10174.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/shelly/",
+    "name": "",
+    "number": "053",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10191.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/sheldon/",
+    "name": "",
+    "number": "054",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10192.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/sherro/",
+    "name": "",
+    "number": "055",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10194.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/baleetle/",
+    "name": "",
+    "number": "056",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10451.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/waleetle/",
+    "name": "",
+    "number": "057",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10453.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bouldus/",
+    "name": "",
+    "number": "058",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10454.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fentuft/",
+    "name": "",
+    "number": "059",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10291.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fenmane/",
+    "name": "",
+    "number": "060",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10293.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/helmut/",
+    "name": "",
+    "number": "061",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10021.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/pawney/",
+    "name": "",
+    "number": "062",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10026.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/rookey/",
+    "name": "",
+    "number": "063",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10027.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/jawling/",
+    "name": "",
+    "number": "064",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10024.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/helmwhelp/",
+    "name": "",
+    "number": "065",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10022.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/helgon/",
+    "name": "",
+    "number": "066",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10023.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/infergon/",
+    "name": "",
+    "number": "067",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10025.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/cubbo/",
+    "name": "",
+    "number": "068",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10501.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/grizbo/",
+    "name": "",
+    "number": "069",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10503.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/pebbling/",
+    "name": "",
+    "number": "070",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10281.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/lavazar/",
+    "name": "",
+    "number": "071",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10282.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/magmarex/",
+    "name": "",
+    "number": "072",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10283.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/geodeback/",
+    "name": "",
+    "number": "073",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10284.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/minespine/",
+    "name": "",
+    "number": "074",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10285.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/cozite/",
+    "name": "",
+    "number": "075",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10431.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bailite/",
+    "name": "",
+    "number": "076",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10433.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bulbly/",
+    "name": "",
+    "number": "077",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10141.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/veilfloat/",
+    "name": "",
+    "number": "078",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10142.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/luminelle/",
+    "name": "",
+    "number": "079",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10143.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fahloo/",
+    "name": "",
+    "number": "080",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10481.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/erlath/",
+    "name": "",
+    "number": "081",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10483.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/besauce/",
+    "name": "",
+    "number": "082",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10122.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/reefish/",
+    "name": "",
+    "number": "084",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10381.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/coraliz/",
+    "name": "",
+    "number": "085",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10383.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/cheekie/",
+    "name": "",
+    "number": "086",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10461.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/wavwal/",
+    "name": "",
+    "number": "087",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10463.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/bubbeep/",
+    "name": "",
+    "number": "088",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10581.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/glameep/",
+    "name": "",
+    "number": "089",
+    "is_prismana": true,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10583.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/popapus/",
+    "name": "",
+    "number": "090",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10621.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/gachapus/",
+    "name": "",
+    "number": "091",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10623.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/malangel/",
+    "name": "",
+    "number": "092",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10421.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/malevsera/",
+    "name": "",
+    "number": "093",
+    "is_prismana": false,
+    "is_delisted": true,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10423.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/irisalis/",
+    "name": "",
+    "number": "10001",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10213.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/dazmand/",
+    "name": "",
+    "number": "10002",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10474.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fulmintis/",
+    "name": "",
+    "number": "10003",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10033.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/sparkelf/",
+    "name": "",
+    "number": "11001",
+    "is_prismana": true,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_69993.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/fennelun/",
+    "name": "",
+    "number": "99995",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10373.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/lunara/",
+    "name": "",
+    "number": "99996",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10371.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/soleon/",
+    "name": "",
+    "number": "99997",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10363.webp",
+    "abilities": []
+  },
+  {
+    "slug": "/vi/aniimo/helion/",
+    "name": "",
+    "number": "99998",
+    "is_prismana": false,
+    "is_delisted": false,
+    "img_url": "/_ipx/q_95&amp;fit_inside&amp;s_148x148/images/aniimo/UI_PetHead_10361.webp",
+    "abilities": []
+  }
+]

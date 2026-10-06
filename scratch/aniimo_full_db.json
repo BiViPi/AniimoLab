@@ -1,0 +1,2308 @@
+[
+  {
+    "number": "001",
+    "name": "Emberpup",
+    "slug": "/vi/aniimo/emberpup/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10051.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10051.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "002",
+    "name": "Flameruff",
+    "slug": "/vi/aniimo/flameruff/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10052.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10052.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "003",
+    "name": "Scorchhowl",
+    "slug": "/vi/aniimo/scorchhowl/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10053.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10053.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "004",
+    "name": "Inferlupa",
+    "slug": "/vi/aniimo/inferlupa/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10055.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10055.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "005",
+    "name": "Celestis",
+    "slug": "/vi/aniimo/celestis/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10011.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10011.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "006",
+    "name": "Stellarys",
+    "slug": "/vi/aniimo/stellarys/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10012.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10012.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "007",
+    "name": "Chirpi",
+    "slug": "/vi/aniimo/chirpi/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10181.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10181.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "008",
+    "name": "Tromber",
+    "slug": "/vi/aniimo/tromber/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10184.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10184.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "009",
+    "name": "Cornet",
+    "slug": "/vi/aniimo/cornet/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10185.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10185.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "010",
+    "name": "Tubster",
+    "slug": "/vi/aniimo/tubster/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10187.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10187.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "011",
+    "name": "Iris",
+    "slug": "/vi/aniimo/iris/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10211.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10211.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "012",
+    "name": "Irisal",
+    "slug": "/vi/aniimo/irisal/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10212.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10212.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "013",
+    "name": "Skippy",
+    "slug": "/vi/aniimo/skippy/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10041.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10041.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "014",
+    "name": "Pranky",
+    "slug": "/vi/aniimo/pranky/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10042.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10042.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "015",
+    "name": "Glacy",
+    "slug": "/vi/aniimo/glacy/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10043.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10043.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "016",
+    "name": "Leafy",
+    "slug": "/vi/aniimo/leafy/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10045.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10045.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "017",
+    "name": "Nimbi",
+    "slug": "/vi/aniimo/nimbi/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10261.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10261.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "018",
+    "name": "Turbo",
+    "slug": "/vi/aniimo/turbo/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10262.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10262.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "019",
+    "name": "Dreaple",
+    "slug": "/vi/aniimo/dreaple/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10263.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10263.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "020",
+    "name": "Hummin",
+    "slug": "/vi/aniimo/hummin/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10201.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10201.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "021",
+    "name": "Hexxin",
+    "slug": "/vi/aniimo/hexxin/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10203.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10203.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 2,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "022",
+    "name": "Tuckin",
+    "slug": "/vi/aniimo/tuckin/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10207.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10207.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "023",
+    "name": "Budclaw",
+    "slug": "/vi/aniimo/budclaw/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10161.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10161.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "024",
+    "name": "Shrubclaw",
+    "slug": "/vi/aniimo/shrubclaw/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10162.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10162.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "025",
+    "name": "Geoclaw",
+    "slug": "/vi/aniimo/geoclaw/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10163.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10163.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "026",
+    "name": "Sparki",
+    "slug": "/vi/aniimo/sparki/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10331.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10331.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "027",
+    "name": "Flamerion",
+    "slug": "/vi/aniimo/flamerion/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10333.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10333.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "028",
+    "name": "Flutternym",
+    "slug": "/vi/aniimo/flutternym/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10231.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10231.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "029",
+    "name": "Gracewing",
+    "slug": "/vi/aniimo/gracewing/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10232.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10232.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "030",
+    "name": "Somniwing",
+    "slug": "/vi/aniimo/somniwing/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10233.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10233.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 4,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 4,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "031",
+    "name": "Eko",
+    "slug": "/vi/aniimo/eko/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10441.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10441.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "032",
+    "name": "Eklue",
+    "slug": "/vi/aniimo/eklue/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10443.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10443.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "033",
+    "name": "Budsquire",
+    "slug": "/vi/aniimo/budsquire/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10321.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10321.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "034",
+    "name": "Thornblade",
+    "slug": "/vi/aniimo/thornblade/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10323.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10323.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "035",
+    "name": "Melloblum",
+    "slug": "/vi/aniimo/melloblum/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10324.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10324.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "036",
+    "name": "Pomegg",
+    "slug": "/vi/aniimo/pomegg/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10471.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10471.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "037",
+    "name": "Pomawk",
+    "slug": "/vi/aniimo/pomawk/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10475.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10475.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "038",
+    "name": "Dewy",
+    "slug": "/vi/aniimo/dewy/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10351.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10351.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Perfumery",
+        "ability_vi": "Điều Hương",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "039",
+    "name": "Fragrancier",
+    "slug": "/vi/aniimo/fragrancier/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10352.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10352.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Perfumery",
+        "ability_vi": "Điều Hương",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "040",
+    "name": "Wisptis",
+    "slug": "/vi/aniimo/wisptis/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10031.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10031.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "041",
+    "name": "Ignitis",
+    "slug": "/vi/aniimo/ignitis/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10032.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10032.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "042",
+    "name": "Bonesky",
+    "slug": "/vi/aniimo/bonesky/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10131.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10131.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "043",
+    "name": "Fenrier",
+    "slug": "/vi/aniimo/fenrier/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10132.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10132.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "044",
+    "name": "Glynsera",
+    "slug": "/vi/aniimo/glynsera/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10133.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10133.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "045",
+    "name": "Bolty",
+    "slug": "/vi/aniimo/bolty/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10221.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10221.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "046",
+    "name": "Blazen",
+    "slug": "/vi/aniimo/blazen/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10222.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10222.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "047",
+    "name": "Squarrel",
+    "slug": "/vi/aniimo/squarrel/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10511.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10511.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "048",
+    "name": "Squashel",
+    "slug": "/vi/aniimo/squashel/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10512.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10512.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "049",
+    "name": "Susuta",
+    "slug": "/vi/aniimo/susuta/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10171.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10171.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "050",
+    "name": "Popota",
+    "slug": "/vi/aniimo/popota/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10172.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10172.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "051",
+    "name": "Piopiota",
+    "slug": "/vi/aniimo/piopiota/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10173.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10173.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "052",
+    "name": "Panpanta",
+    "slug": "/vi/aniimo/panpanta/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10174.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10174.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "053",
+    "name": "Shelly",
+    "slug": "/vi/aniimo/shelly/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10191.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10191.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "054",
+    "name": "Sheldon",
+    "slug": "/vi/aniimo/sheldon/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10192.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10192.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "055",
+    "name": "Sherro",
+    "slug": "/vi/aniimo/sherro/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10194.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10194.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "056",
+    "name": "Baleetle",
+    "slug": "/vi/aniimo/baleetle/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10451.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10451.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "057",
+    "name": "Waleetle",
+    "slug": "/vi/aniimo/waleetle/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10453.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10453.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "058",
+    "name": "Bouldus",
+    "slug": "/vi/aniimo/bouldus/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10454.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10454.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "059",
+    "name": "Fentuft",
+    "slug": "/vi/aniimo/fentuft/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10291.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10291.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "060",
+    "name": "Fenmane",
+    "slug": "/vi/aniimo/fenmane/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10293.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10293.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "061",
+    "name": "Helmut",
+    "slug": "/vi/aniimo/helmut/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10021.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10021.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "062",
+    "name": "Pawney",
+    "slug": "/vi/aniimo/pawney/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10026.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10026.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "063",
+    "name": "Rookey",
+    "slug": "/vi/aniimo/rookey/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10027.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10027.webp",
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "064",
+    "name": "Jawling",
+    "slug": "/vi/aniimo/jawling/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10024.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10024.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "065",
+    "name": "Helmwhelp",
+    "slug": "/vi/aniimo/helmwhelp/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10022.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10022.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "066",
+    "name": "Helgon",
+    "slug": "/vi/aniimo/helgon/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10023.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10023.webp",
+    "abilities": [
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "067",
+    "name": "Infergon",
+    "slug": "/vi/aniimo/infergon/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10025.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10025.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "068",
+    "name": "Cubbo",
+    "slug": "/vi/aniimo/cubbo/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10501.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10501.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "069",
+    "name": "Grizbo",
+    "slug": "/vi/aniimo/grizbo/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10503.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10503.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "070",
+    "name": "Pebbling",
+    "slug": "/vi/aniimo/pebbling/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10281.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10281.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "071",
+    "name": "Lavazar",
+    "slug": "/vi/aniimo/lavazar/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10282.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10282.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "072",
+    "name": "Magmarex",
+    "slug": "/vi/aniimo/magmarex/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10283.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10283.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "073",
+    "name": "Geodeback",
+    "slug": "/vi/aniimo/geodeback/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10284.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10284.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "074",
+    "name": "Minespine",
+    "slug": "/vi/aniimo/minespine/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10285.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10285.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "075",
+    "name": "Cozite",
+    "slug": "/vi/aniimo/cozite/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10431.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10431.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "076",
+    "name": "Bailite",
+    "slug": "/vi/aniimo/bailite/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10433.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10433.webp",
+    "abilities": [
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "077",
+    "name": "Bulbly",
+    "slug": "/vi/aniimo/bulbly/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10141.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10141.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "078",
+    "name": "Veilfloat",
+    "slug": "/vi/aniimo/veilfloat/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10142.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10142.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 2,
+        "prismana_level": 2
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 2,
+        "prismana_level": 2
+      }
+    ]
+  },
+  {
+    "number": "079",
+    "name": "Luminelle",
+    "slug": "/vi/aniimo/luminelle/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10143.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10143.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "080",
+    "name": "Fahloo",
+    "slug": "/vi/aniimo/fahloo/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10481.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10481.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "081",
+    "name": "Erlath",
+    "slug": "/vi/aniimo/erlath/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10483.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10483.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "082",
+    "name": "Besauce",
+    "slug": "/vi/aniimo/besauce/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10122.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10122.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "084",
+    "name": "Reefish",
+    "slug": "/vi/aniimo/reefish/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10381.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10381.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "085",
+    "name": "Coraliz",
+    "slug": "/vi/aniimo/coraliz/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10383.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10383.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "086",
+    "name": "Cheekie",
+    "slug": "/vi/aniimo/cheekie/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10461.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10461.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "087",
+    "name": "Wavwal",
+    "slug": "/vi/aniimo/wavwal/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10463.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10463.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "088",
+    "name": "Bubbeep",
+    "slug": "/vi/aniimo/bubbeep/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10581.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10581.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "089",
+    "name": "Glameep",
+    "slug": "/vi/aniimo/glameep/",
+    "is_prismana": true,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10583.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10583.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "090",
+    "name": "Popapus",
+    "slug": "/vi/aniimo/popapus/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10621.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10621.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "091",
+    "name": "Gachapus",
+    "slug": "/vi/aniimo/gachapus/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10623.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10623.webp",
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "092",
+    "name": "Malangel",
+    "slug": "/vi/aniimo/malangel/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10421.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10421.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 1,
+        "prismana_level": 1
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 1,
+        "prismana_level": 1
+      }
+    ]
+  },
+  {
+    "number": "093",
+    "name": "Malevsera",
+    "slug": "/vi/aniimo/malevsera/",
+    "is_prismana": false,
+    "is_delisted": true,
+    "pet_head": "UI_PetHead_10423.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10423.webp",
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "10001",
+    "name": "Irisalis",
+    "slug": "/vi/aniimo/irisalis/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10213.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10213.webp",
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 4,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 4,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "10002",
+    "name": "Dazmand",
+    "slug": "/vi/aniimo/dazmand/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10474.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10474.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "10003",
+    "name": "Fulmintis",
+    "slug": "/vi/aniimo/fulmintis/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10033.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10033.webp",
+    "abilities": [
+      {
+        "ability_en": "Lightning",
+        "ability_vi": "Lôi",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "11001",
+    "name": "Tinh Linh Nuôi Chung",
+    "slug": "/vi/aniimo/sparkelf/",
+    "is_prismana": true,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_69993.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_69993.webp",
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "number": "99995",
+    "name": "Fennelun",
+    "slug": "/vi/aniimo/fennelun/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10373.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10373.webp",
+    "abilities": [
+      {
+        "ability_en": "Light",
+        "ability_vi": "Quang",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "99996",
+    "name": "Lunara",
+    "slug": "/vi/aniimo/lunara/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10371.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10371.webp",
+    "abilities": [
+      {
+        "ability_en": "Light",
+        "ability_vi": "Quang",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "99997",
+    "name": "Soleon",
+    "slug": "/vi/aniimo/soleon/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10363.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10363.webp",
+    "abilities": [
+      {
+        "ability_en": "Light",
+        "ability_vi": "Quang",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  },
+  {
+    "number": "99998",
+    "name": "Helion",
+    "slug": "/vi/aniimo/helion/",
+    "is_prismana": false,
+    "is_delisted": false,
+    "pet_head": "UI_PetHead_10361.webp",
+    "img_url": "https://aniidex.com/images/aniimo/UI_PetHead_10361.webp",
+    "abilities": [
+      {
+        "ability_en": "Light",
+        "ability_vi": "Quang",
+        "base_level": 3,
+        "prismana_level": 3
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 3
+      }
+    ]
+  }
+]
