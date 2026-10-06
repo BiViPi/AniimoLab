@@ -4240,3 +4240,406 @@ tr:hover .skip-row,
     font-size: 0.8rem;
     color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Card 3 Redesign: Harvest Moon Festival & Special Recipes
+   ========================================================================== */
+
+.custom-card-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.5rem 0;
+}
+
+/* --- Section 2.1: Harvest Moon Festival --- */
+.season-block {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.04) 0%, rgba(217, 119, 6, 0.02) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    transition: border-color 0.2s ease;
+}
+
+.season-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.season-title-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+}
+
+.season-moon-icon {
+    font-size: 1.25rem;
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
+}
+
+.season-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.season-plots-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin: 1rem 0;
+}
+
+.season-plots-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.season-plots-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.season-plots-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--surface-3);
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.season-plots-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.season-plot-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.season-plot-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.stepper-ctrl {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.stepper-btn {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.stepper-btn:hover {
+    background: var(--surface-3);
+    color: var(--accent);
+}
+
+.stepper-input {
+    width: 44px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.season-plots-summary {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    line-height: 1.4;
+}
+
+.season-plots-summary strong {
+    color: var(--text);
+}
+
+.season-dishes-section {
+    margin-top: 1rem;
+}
+
+.season-dishes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+}
+
+.season-dish-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.season-dish-card:hover {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.season-dish-card.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
+}
+
+.dish-checkbox {
+    accent-color: #f59e0b;
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+}
+
+.dish-thumb {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-3);
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.dish-thumb img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.dish-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.dish-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dish-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.dish-facility {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dish-points-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-weight: 700;
+    font-size: 0.72rem;
+    margin-left: auto;
+}
+
+/* --- Section 2.2: Special Recipes (Prominent Visual Grid) --- */
+.special-recipes-block {
+    margin-top: 0.5rem;
+}
+
+.section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.section-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-star-icon {
+    font-size: 1.15rem;
+    color: #eab308;
+    filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.5));
+}
+
+.section-title-text {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text);
+}
+
+.special-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.85rem;
+}
+
+.special-recipe-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.22s ease;
+    position: relative;
+}
+
+.special-recipe-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.special-recipe-card.active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.special-card-checkbox {
+    accent-color: var(--accent);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.special-card-thumb {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.special-card-thumb img {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+}
+
+.special-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.special-card-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.special-card-facility {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.special-rv-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    width: fit-content;
+    margin-top: 0.2rem;
+}
+
+.special-rv-badge.rv-future {
+    background: rgba(249, 115, 22, 0.12);
+    color: #fb923c;
+    border-color: rgba(249, 115, 22, 0.25);
+}
+
+.skip-recipes-details {
+    margin-top: 1.25rem;
+}
+

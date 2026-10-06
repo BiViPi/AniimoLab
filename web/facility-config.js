@@ -225,12 +225,12 @@ export const ANIIPOD_TIERS = ['aniipod', 'aniipod_pro', 'aniipod_mega'];
 // Recipes unlocked with a rare currency (a few come from RV level-ups or from collecting one of
 // every product). Plans leave them out until the player says they have them.
 export const SPECIAL_RECIPES = [
-    { name: 'rose_shortbread', facility: 'Claw Game Cooker' },
-    { name: 'potato_kvass', facility: 'Bouncy Brew Keg' },
-    { name: 'ginseng_porridge', facility: 'Simmering Pot' },
-    { name: 'strawberry_candy', facility: 'Blazing Stove' },
-    { name: 'flowers_in_a_bottle', facility: 'Crafting Table' },
-    { name: 'lotion', facility: 'Phonolfactory Table' },
+    { name: 'rose_shortbread', facility: 'Claw Game Cooker', unlockRV: 7 },
+    { name: 'potato_kvass', facility: 'Bouncy Brew Keg', unlockRV: 9 },
+    { name: 'ginseng_porridge', facility: 'Simmering Pot', unlockRV: 12 },
+    { name: 'strawberry_candy', facility: 'Blazing Stove', unlockRV: 16 },
+    { name: 'flowers_in_a_bottle', facility: 'Crafting Table', unlockRV: 18 },
+    { name: 'lotion', facility: 'Phonolfactory Table', unlockRV: 19 },
 ];
 
 // The Harvest Moon Festival, from RV 10: season crops' seeds cost Moonray Wheat, which season
@@ -251,6 +251,16 @@ export const SEASON = {
         { name: 'umbral_sweet_and_spicy_sauce' },
     ],
 };
+
+// Full list of Harvest Moon festival dishes with facilities, points, and unlock info
+export const SEASON_RECIPES = [
+    { name: 'harvest_platter', facility: 'Crafting Table', points: 8, unlockRV: 10, note: true },
+    { name: 'umbral_hot_pot', facility: 'Blazing Stove', points: 8, unlockRV: 10, note: true },
+    { name: 'umbral_pickle', facility: 'Pickling Jar', points: 8, unlockRV: 10, note: true },
+    { name: 'umbral_sweet_and_spicy_sauce', facility: 'Simmering Pot', points: 8, unlockRV: 10, note: true },
+    { name: 'roasted_waxing_moon_pepper', facility: 'Claw Game Cooker', points: 4, unlockRV: 10, note: false },
+    { name: 'moondew_radish_slices', facility: 'Blazing Stove', points: 4, unlockRV: 10, note: false },
+];
 
 // What reaching each RV level costs: coins, plus raw Wood Blocks and Mineral Sand up to RV 6 and
 // one Woodworking Bench item and one Chimney Kiln item from RV 7.

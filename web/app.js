@@ -3,11 +3,11 @@
 import {
     FACILITIES, FACILITY_CATEGORIES, FACILITY_CATEGORY_BY_NAME, FACILITY_FOOTPRINTS, HOMELAND_PLOTS, HOMELAND_PLOT_SIZE,
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
-    LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
+    LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v8';
-import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel } from './aniimo-data.js?v=aniimolab_v17';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v14';
+} from './facility-config.js?v=aniimolab_v19';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel } from './aniimo-data.js?v=aniimolab_v19';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v19';
 
 let wasmReady = false;
 
@@ -761,7 +761,8 @@ function getPersistedFieldIds() {
         'resource-detector-level', 'crafting-module-level',
         'rate-unit', 'season-on', 'layout-sim-on', 'power-grid-rate',
         'emode-simple-on', 'simple-power-grid-rate',
-        'generator-capacity', 'simple-generator-capacity'
+        'generator-capacity', 'simple-generator-capacity',
+        'season-radish-plots', 'season-pepper-plots'
     ];
 }
 
@@ -816,7 +817,19 @@ function initFacilityTiers(data) {
 }
 
 function saveInputsToStorage() {
-    const data = { facilityTiers, levelUpStock, skippedRecipes: [...skippedRecipes], unlockedSpecial: [...unlockedSpecial], priorities: priorityOrder, aniimoLevels, roster, emodeFacilities: [...emodeFacilities] };
+    const data = {
+        facilityTiers,
+        levelUpStock,
+        skippedRecipes: [...skippedRecipes],
+        unlockedSpecial: [...unlockedSpecial],
+        priorities: priorityOrder,
+        aniimoLevels,
+        roster,
+        emodeFacilities: [...emodeFacilities],
+        seasonRadishPlots,
+        seasonPepperPlots,
+        selectedSeasonDishes: [...selectedSeasonDishes],
+    };
     getPersistedFieldIds().forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -831,6 +844,11 @@ function saveInputsToStorage() {
 
 function loadInputsFromStorage(data) {
     if (!data) return;
+    if (typeof data.seasonRadishPlots === 'number') seasonRadishPlots = data.seasonRadishPlots;
+    if (typeof data.seasonPepperPlots === 'number') seasonPepperPlots = data.seasonPepperPlots;
+    if (Array.isArray(data.selectedSeasonDishes)) {
+        selectedSeasonDishes = new Set(data.selectedSeasonDishes.filter(n => typeof n === 'string'));
+    }
     if (Array.isArray(data.emodeFacilities)) {
         emodeFacilities = new Set(data.emodeFacilities);
         document.querySelectorAll('.facility-emode-checkbox').forEach(cb => {
@@ -1014,18 +1032,44 @@ let unlockedSpecial = new Set();
 const SPECIAL_NAMES = new Set(SPECIAL_RECIPES.map(r => r.name));
 
 function renderSpecialRecipes() {
-    document.getElementById('special-grid').innerHTML = SPECIAL_RECIPES.map(r => `
-        <label class="special-option">
-            <input type="checkbox" data-special="${r.name}"${unlockedSpecial.has(r.name) ? ' checked' : ''}>
-            <span>${prettyItem(r.name)}</span>
-        </label>`).join('');
+    const grid = document.getElementById('special-grid');
+    if (!grid) return;
+    const currentRv = selectedHomeLevel();
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    grid.innerHTML = SPECIAL_RECIPES.map(r => {
+        const checked = unlockedSpecial.has(r.name);
+        const unlockRv = r.unlockRV || 1;
+        const isLocked = isSimpleMode() && currentRv < unlockRv;
+        const rvBadgeText = isVi
+            ? `Mở khóa tại RV ${unlockRv}`
+            : `Unlocks at RV ${unlockRv}`;
+        return `
+        <label class="special-recipe-card ${checked ? 'active' : ''}">
+            <input type="checkbox" class="special-card-checkbox" data-special="${r.name}"${checked ? ' checked' : ''}>
+            <div class="special-card-thumb">
+                ${renderItemIcon(r.name)}
+            </div>
+            <div class="special-card-info">
+                <span class="special-card-name">${getItemDisplayName(r.name)}</span>
+                <span class="special-card-facility">
+                    ${renderFacilityIcon(r.facility)}
+                    <span>${getFacilityDisplayName(r.facility)}</span>
+                </span>
+                <span class="special-rv-badge ${isLocked ? 'rv-future' : ''}">${rvBadgeText}</span>
+            </div>
+        </label>`;
+    }).join('');
+    renderRecipeCount();
 }
 
 function attachSpecialHandlers() {
-    document.getElementById('special-grid').addEventListener('change', (e) => {
+    const grid = document.getElementById('special-grid');
+    if (!grid) return;
+    grid.addEventListener('change', (e) => {
         const name = e.target.dataset.special;
         if (!name) return;
         if (e.target.checked) unlockedSpecial.add(name); else unlockedSpecial.delete(name);
+        e.target.closest('.special-recipe-card')?.classList.toggle('active', e.target.checked);
         renderRecipeCount();
         saveInputsToStorage();
     });
@@ -2450,46 +2494,133 @@ function renderRosterSummary(plan) {
     count.title = `${working} of your ${have} Aniimo have work in this plan`;
 }
 
-// --- Season ----------------------------------------------------------------------------
+// --- Season (Lễ hội Trung Thu) -------------------------------------------------------------
 // The Harvest Moon Festival (see `SEASON`): on the page from RV 10, or always in Advanced mode,
-// where there's no RV level to go by. While it's on, plans may use the season's recipes, bar Recipe
-// Notes the player hasn't unlocked, and say how much Moonray Wheat their seeds use.
+// where there's no RV level to go by. While it's on, players can configure dedicated plots for
+// Moondew Radish and Waxing Moon Pepper, select festival dishes to prioritize, and earn Harvest Moon points.
+
+let seasonRadishPlots = 2;
+let seasonPepperPlots = 2;
+let selectedSeasonDishes = new Set(SEASON_RECIPES.map(r => r.name));
 
 function seasonAvailable() {
     return !isSimpleMode() || selectedHomeLevel() >= SEASON.minHomeLevel;
 }
 
 function seasonActive() {
-    return seasonAvailable() && document.getElementById('season-on').checked;
+    return seasonAvailable() && document.getElementById('season-on')?.checked;
+}
+
+function updateSeasonPlotsSummary() {
+    const summaryEl = document.getElementById('season-plots-summary');
+    if (!summaryEl) return;
+    const totalFarmland = simpleSetup(selectedHomeLevel()).facilities['Farmland']?.[0]?.count || 32;
+    const used = seasonRadishPlots + seasonPepperPlots;
+    const remaining = Math.max(0, totalFarmland - used);
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    if (isVi) {
+        summaryEl.innerHTML = `Dành <strong>${used} ô đất</strong> (${seasonRadishPlots} Củ cải + ${seasonPepperPlots} Ớt) cho sự kiện Trung Thu. Còn lại <strong>${remaining} ô đất nông nghiệp</strong> cho nhân sâm, lúa nước và các cây trồng khác.`;
+    } else {
+        summaryEl.innerHTML = `Dedicated <strong>${used} plots</strong> (${seasonRadishPlots} Radish + ${seasonPepperPlots} Pepper) for the event. Remaining <strong>${remaining} farmland plots</strong> for standard agriculture.`;
+    }
 }
 
 function renderSeason() {
-    document.getElementById('season-section').hidden = !seasonAvailable();
-    document.getElementById('season-config').hidden = !seasonActive();
-    document.getElementById('season-notes').innerHTML = SEASON.recipeNotes.map(r => `
-        <label class="special-option">
-            <input type="checkbox" data-special="${r.name}"${unlockedSpecial.has(r.name) ? ' checked' : ''}>
-            <span>${prettyItem(r.name)}</span>
-        </label>`).join('');
+    const seasonSec = document.getElementById('season-section');
+    if (seasonSec) seasonSec.hidden = !seasonAvailable();
+    const seasonCfg = document.getElementById('season-config');
+    if (seasonCfg) seasonCfg.hidden = !seasonActive();
+
+    // Update stepper inputs
+    const radishInput = document.getElementById('season-radish-plots');
+    if (radishInput) radishInput.value = seasonRadishPlots;
+    const pepperInput = document.getElementById('season-pepper-plots');
+    if (pepperInput) pepperInput.value = seasonPepperPlots;
+
+    updateSeasonPlotsSummary();
+
+    const notesGrid = document.getElementById('season-notes');
+    if (notesGrid) {
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        notesGrid.innerHTML = SEASON_RECIPES.map(r => {
+            const checked = selectedSeasonDishes.has(r.name);
+            const pointsText = `+${r.points} ${isVi ? 'điểm' : 'pts'}`;
+            return `
+            <label class="season-dish-card ${checked ? 'active' : ''}">
+                <input type="checkbox" class="dish-checkbox" data-season-dish="${r.name}"${checked ? ' checked' : ''}>
+                <div class="dish-thumb">
+                    ${renderItemIcon(r.name)}
+                </div>
+                <div class="dish-details">
+                    <span class="dish-name">${getItemDisplayName(r.name)}</span>
+                    <span class="dish-meta">
+                        <span class="dish-facility">${getFacilityDisplayName(r.facility)}</span>
+                        <span class="dish-points-badge">${pointsText}</span>
+                    </span>
+                </div>
+            </label>`;
+        }).join('');
+    }
 }
 
 function attachSeasonHandlers() {
-    document.getElementById('season-on').addEventListener('change', renderStrategy);
-    document.getElementById('season-notes').addEventListener('change', (e) => {
-        const name = e.target.dataset.special;
+    document.getElementById('season-on')?.addEventListener('change', () => {
+        renderStrategy();
+        saveInputsToStorage();
+    });
+
+    // Stepper buttons for dedicated festival plots
+    document.querySelectorAll('[data-step-plot]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const crop = btn.dataset.stepPlot;
+            const dir = Number(btn.dataset.stepDir);
+            if (crop === 'radish') {
+                seasonRadishPlots = Math.max(0, Math.min(10, seasonRadishPlots + dir));
+                const input = document.getElementById('season-radish-plots');
+                if (input) input.value = seasonRadishPlots;
+            } else if (crop === 'pepper') {
+                seasonPepperPlots = Math.max(0, Math.min(10, seasonPepperPlots + dir));
+                const input = document.getElementById('season-pepper-plots');
+                if (input) input.value = seasonPepperPlots;
+            }
+            updateSeasonPlotsSummary();
+            saveInputsToStorage();
+        });
+    });
+
+    // Inputs for dedicated plots
+    document.getElementById('season-radish-plots')?.addEventListener('input', (e) => {
+        seasonRadishPlots = Math.max(0, Math.min(10, Number(e.target.value) || 0));
+        updateSeasonPlotsSummary();
+        saveInputsToStorage();
+    });
+    document.getElementById('season-pepper-plots')?.addEventListener('input', (e) => {
+        seasonPepperPlots = Math.max(0, Math.min(10, Number(e.target.value) || 0));
+        updateSeasonPlotsSummary();
+        saveInputsToStorage();
+    });
+
+    // Dishes selection
+    document.getElementById('season-notes')?.addEventListener('change', (e) => {
+        const name = e.target.dataset.seasonDish;
         if (!name) return;
-        if (e.target.checked) unlockedSpecial.add(name); else unlockedSpecial.delete(name);
+        if (e.target.checked) selectedSeasonDishes.add(name);
+        else selectedSeasonDishes.delete(name);
+        e.target.closest('.season-dish-card')?.classList.toggle('active', e.target.checked);
         saveInputsToStorage();
     });
 }
 
-// Every recipe plans may not use: the player's skips and any special recipe not unlocked.
+// Every recipe plans may not use: the player's skips, locked special recipes, and unselected season dishes.
 function excludedRecipes() {
-    const locked = [...SPECIAL_RECIPES, ...SEASON.recipeNotes].map(r => r.name).filter(name => !unlockedSpecial.has(name));
+    const lockedSpecial = SPECIAL_RECIPES.map(r => r.name).filter(name => !unlockedSpecial.has(name));
+    const lockedSeason = seasonActive()
+        ? SEASON_RECIPES.map(r => r.name).filter(name => !selectedSeasonDishes.has(name))
+        : SEASON_RECIPES.map(r => r.name);
     // Going for Aniipods means the best tier only; the others would be cheaper but catch worse.
     const best = wantsAniipods() ? bestAniipod() : null;
     const lesser = best ? ANIIPOD_TIERS.filter(name => name !== best) : [];
-    return [...new Set([...skippedRecipes, ...locked, ...lesser])];
+    return [...new Set([...skippedRecipes, ...lockedSpecial, ...lockedSeason, ...lesser])];
 }
 
 // --- Recipes to skip -------------------------------------------------------------------
@@ -2923,6 +3054,7 @@ function renderStrategy() {
 
     const costEl = document.getElementById('level-up-cost');
     const stockDetails = document.getElementById('level-up-stock');
+    if (!costEl || !stockDetails) return;
     const unavailable = levelUpUnavailable();
     if (unavailable) {
         const noteText = window.i18n && window.i18n.getLang() === 'vi' 
@@ -2939,11 +3071,14 @@ function renderStrategy() {
         <p class="assume-title">${titleText}</p>
         <div class="chip-grid">${chip(cost.coins, 'coins')}${cost.items.map(([item, n]) => chip(n, item)).join('')}</div>`;
     stockDetails.style.display = '';
-    document.getElementById('level-up-stock-grid').innerHTML = stockNames(cost).map(name => `
-        <div class="input-field">
-            <label for="stock-${name}">${getItemDisplayName(name)}</label>
-            <input type="number" id="stock-${name}" data-stock="${name}" min="0" value="${stockAmount(name)}">
-        </div>`).join('');
+    const stockGrid = document.getElementById('level-up-stock-grid');
+    if (stockGrid) {
+        stockGrid.innerHTML = stockNames(cost).map(name => `
+            <div class="input-field">
+                <label for="stock-${name}">${getItemDisplayName(name)}</label>
+                <input type="number" id="stock-${name}" data-stock="${name}" min="0" value="${stockAmount(name)}">
+            </div>`).join('');
+    }
 }
 
 function attachStrategyHandlers() {
@@ -2954,13 +3089,13 @@ function attachStrategyHandlers() {
         renderStrategy();
     });
     const grid = document.getElementById('level-up-stock-grid');
-    grid.addEventListener('input', (e) => {
+    grid?.addEventListener('input', (e) => {
         const name = e.target.dataset.stock;
         if (!name) return;
         levelUpStock[name] = Math.max(0, floatOrDefault(e.target.value, 0));
         saveInputsToStorage();
     });
-    grid.addEventListener('keypress', (e) => {
+    grid?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && e.target.matches('input')) runFindPlan();
     });
 }
@@ -3195,9 +3330,13 @@ function getPlanInputValues() {
         6: ['cocoa', 'orange_flower', 'quick_coconut'],
     };
 
+    // If season is active and user wants umbral_pickle, keep apple for cider_vinegar
+    const keepAppleForSeason = seasonActive() && selectedSeasonDishes.has('umbral_pickle');
+
     for (const [lvl, crops] of Object.entries(woodlandCropsByLevel)) {
         if (Number(lvl) < woodlandTier) {
             for (const crop of crops) {
+                if (keepAppleForSeason && crop === 'apple') continue;
                 if (!excluded.includes(crop)) excluded.push(crop);
             }
         }
@@ -3208,6 +3347,15 @@ function getPlanInputValues() {
     const craftingTableLevel = facilities['Crafting Table']?.[0]?.level || 1;
     if (craftingTableLevel < 6) {
         if (!excluded.includes('pearl')) excluded.push('pearl');
+    }
+
+    // 3. Deduct dedicated event plots from Farmland sent to solver:
+    if (seasonActive()) {
+        const totalFarmland = facilities['Farmland']?.[0]?.count || 0;
+        const dedicated = Math.min(totalFarmland, seasonRadishPlots + seasonPepperPlots);
+        if (facilities['Farmland'] && facilities['Farmland'][0]) {
+            facilities['Farmland'][0].count = Math.max(0, totalFarmland - dedicated);
+        }
     }
 
     return {
@@ -3223,6 +3371,213 @@ function getPlanInputValues() {
         production_aniimo_cap: getProductionAniimoCap(),
         facilities,
         modules
+    };
+}
+
+// Integrates dedicated festival crops and chosen festival dishes into the solved plan
+function integrateSeasonPlan(plan) {
+    if (!plan || !plan.success || !seasonActive()) return plan;
+    const radishPlots = seasonRadishPlots;
+    const pepperPlots = seasonPepperPlots;
+    if (radishPlots <= 0 && pepperPlots <= 0) return plan;
+
+    // Harvest rate (with watering, cycle is 1200s, yield is 8 per harvest)
+    const cycleTime = 1200;
+    const yieldPerHarvest = 8;
+    let radishPerSec = (radishPlots * yieldPerHarvest) / cycleTime;
+    let pepperPerSec = (pepperPlots * yieldPerHarvest) / cycleTime;
+
+    const newSteps = [...(plan.coin_items || [])];
+    const newStreams = [...(plan.income_streams || [])];
+    let extraCoinsRate = 0;
+    let seasonPointsRate = 0;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+
+    // Add dedicated Farmland steps
+    if (radishPlots > 0) {
+        newSteps.push({
+            facility: 'Farmland',
+            item_name: 'moondew_radish',
+            facility_count: radishPlots,
+            status: 'producing',
+            cycle_time: cycleTime,
+            is_grower: true,
+            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
+            environment: null
+        });
+    }
+    if (pepperPlots > 0) {
+        newSteps.push({
+            facility: 'Farmland',
+            item_name: 'waxing_moon_pepper',
+            facility_count: pepperPlots,
+            status: 'producing',
+            cycle_time: cycleTime,
+            is_grower: true,
+            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
+            environment: null
+        });
+    }
+
+    // Process selected dishes in order of priority (higher points first)
+    const dishes = SEASON_RECIPES.filter(r => selectedSeasonDishes.has(r.name))
+        .sort((a, b) => b.points - a.points);
+
+    // If dishes are selected, allocate crops to produce them
+    if (dishes.length > 0) {
+        // Find dishes that use both radish and pepper
+        const comboDishes = dishes.filter(d => ['harvest_platter', 'umbral_hot_pot', 'umbral_sweet_and_spicy_sauce', 'umbral_pickle'].includes(d.name));
+        if (comboDishes.length > 0) {
+            const maxCombos = Math.min(radishPerSec / 8, pepperPerSec / 8);
+            const perCombo = maxCombos / comboDishes.length;
+            for (const dish of comboDishes) {
+                if (perCombo > 1e-7) {
+                    const sellVal = dish.name === 'harvest_platter' ? 5290
+                        : dish.name === 'umbral_hot_pot' ? 2150
+                        : dish.name === 'umbral_sweet_and_spicy_sauce' ? 2390
+                        : 2290; // umbral_pickle
+                    const coinsPerSec = perCombo * sellVal;
+                    const ptsPerSec = perCombo * dish.points;
+                    extraCoinsRate += coinsPerSec;
+                    seasonPointsRate += ptsPerSec;
+                    radishPerSec -= perCombo * 8;
+                    pepperPerSec -= perCombo * 8;
+
+                    newSteps.push({
+                        facility: dish.facility,
+                        item_name: dish.name,
+                        facility_count: 1,
+                        status: 'producing',
+                        cycle_time: 203,
+                        is_grower: false,
+                        reason: isVi ? `Món ăn Lễ hội Trung Thu (+${dish.points} điểm)` : `Festival dish (+${dish.points} pts)`,
+                        environment: null
+                    });
+
+                    newStreams.push({
+                        item_name: dish.name,
+                        facility: dish.facility,
+                        sell_value: sellVal,
+                        rate_per_second: coinsPerSec,
+                        units_per_second: perCombo,
+                        lead_time_seconds: 0,
+                        total_units: 0,
+                        total_value: 0,
+                        points: dish.points
+                    });
+                }
+            }
+        }
+
+        // Dedicated single-crop dishes if any crop remains
+        if (selectedSeasonDishes.has('moondew_radish_slices') && radishPerSec > 1e-7) {
+            const slicesUnits = radishPerSec / 8;
+            radishPerSec = 0;
+            const coinsPerSec = slicesUnits * 2370;
+            const ptsPerSec = slicesUnits * 4;
+            extraCoinsRate += coinsPerSec;
+            seasonPointsRate += ptsPerSec;
+
+            newSteps.push({
+                facility: 'Blazing Stove',
+                item_name: 'moondew_radish_slices',
+                facility_count: 1,
+                status: 'producing',
+                cycle_time: 203,
+                is_grower: false,
+                reason: isVi ? 'Món ăn Lễ hội Trung Thu (+4 điểm)' : 'Festival dish (+4 pts)',
+                environment: null
+            });
+
+            newStreams.push({
+                item_name: 'moondew_radish_slices',
+                facility: 'Blazing Stove',
+                sell_value: 2370,
+                rate_per_second: coinsPerSec,
+                units_per_second: slicesUnits,
+                lead_time_seconds: 0,
+                total_units: 0,
+                total_value: 0,
+                points: 4
+            });
+        }
+
+        if (selectedSeasonDishes.has('roasted_waxing_moon_pepper') && pepperPerSec > 1e-7) {
+            const roastUnits = pepperPerSec / 8;
+            pepperPerSec = 0;
+            const coinsPerSec = roastUnits * 1520;
+            const ptsPerSec = roastUnits * 4;
+            extraCoinsRate += coinsPerSec;
+            seasonPointsRate += ptsPerSec;
+
+            newSteps.push({
+                facility: 'Claw Game Cooker',
+                item_name: 'roasted_waxing_moon_pepper',
+                facility_count: 1,
+                status: 'producing',
+                cycle_time: 162,
+                is_grower: false,
+                reason: isVi ? 'Món ăn Lễ hội Trung Thu (+4 điểm)' : 'Festival dish (+4 pts)',
+                environment: null
+            });
+
+            newStreams.push({
+                item_name: 'roasted_waxing_moon_pepper',
+                facility: 'Claw Game Cooker',
+                sell_value: 1520,
+                rate_per_second: coinsPerSec,
+                units_per_second: roastUnits,
+                lead_time_seconds: 0,
+                total_units: 0,
+                total_value: 0,
+                points: 4
+            });
+        }
+    }
+
+    // Any remaining raw crops sold directly for baseline festival points
+    if (radishPerSec > 1e-7) {
+        const coinsPerSec = radishPerSec * 74;
+        const ptsPerSec = radishPerSec * 1;
+        extraCoinsRate += coinsPerSec;
+        seasonPointsRate += ptsPerSec;
+        newStreams.push({
+            item_name: 'moondew_radish',
+            facility: 'Farmland',
+            sell_value: 74,
+            rate_per_second: coinsPerSec,
+            units_per_second: radishPerSec,
+            lead_time_seconds: 0,
+            total_units: 0,
+            total_value: 0,
+            points: 1
+        });
+    }
+
+    if (pepperPerSec > 1e-7) {
+        const coinsPerSec = pepperPerSec * 74;
+        const ptsPerSec = pepperPerSec * 1;
+        extraCoinsRate += coinsPerSec;
+        seasonPointsRate += ptsPerSec;
+        newStreams.push({
+            item_name: 'waxing_moon_pepper',
+            facility: 'Farmland',
+            sell_value: 74,
+            rate_per_second: coinsPerSec,
+            units_per_second: pepperPerSec,
+            lead_time_seconds: 0,
+            total_units: 0,
+            total_value: 0,
+            points: 1
+        });
+    }
+
+    return {
+        ...plan,
+        coin_items: newSteps,
+        income_streams: newStreams,
+        rate_per_second: plan.rate_per_second + extraCoinsRate,
+        season_points: seasonPointsRate
     };
 }
 
@@ -4597,6 +4952,8 @@ async function runFindPlan() {
             finalEmodeCounts = {};
         }
 
+        bestPlan = integrateSeasonPlan(bestPlan);
+
         lastEmodeCounts = finalEmodeCounts;
         lastPlanInput = input;
         finishSolveSteps();
@@ -4616,7 +4973,7 @@ async function runFindPlan() {
             .then(json => {
                 if (runId !== planRunId) return;
                 setStep('minimum', 'done');
-                plansBySetup.minimum = JSON.parse(json);
+                plansBySetup.minimum = integrateSeasonPlan(JSON.parse(json));
                 if (selectedAniimoSetup() === 'minimum') showSelectedPlan();
             })
             .catch(error => {

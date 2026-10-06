@@ -1663,7 +1663,11 @@ impl PreparedInput {
                 return true;
             }
             if item.facility == "Woodland" && max_woodland > 0 {
-                item.facility_level >= max_woodland
+                if input.season && item.name == "apple" {
+                    true
+                } else {
+                    item.facility_level >= max_woodland
+                }
             } else {
                 true
             }

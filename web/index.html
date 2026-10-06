@@ -114,8 +114,8 @@
                 </div>
             </section>
 
-            <!-- Card 2: RV Level-Up Strategy & Inventory -->
-            <section class="card config-strategy-card">
+            <!-- Card 2: RV Level-Up Strategy & Inventory (Hidden per request - costs already shown in results) -->
+            <section class="card config-strategy-card" style="display: none;">
                 <div class="card-head">
                     <h2 data-i18n="strategy_title">Chiến lược nâng cấp RV</h2>
                 </div>
@@ -138,27 +138,84 @@
                 </div>
             </section>
 
-            <!-- Card 3: Season & Recipes -->
+            <!-- Card 3: Season & Special Recipes -->
             <section class="card config-custom-card">
-                <div class="season" id="season-section" hidden>
-                    <label class="priority-switch season-switch">
-                        <input type="checkbox" role="switch" id="season-on">
-                        <span class="switch-track" aria-hidden="true"></span>
-                        <span class="season-title" data-i18n="season_title">Lễ hội Trăng Thu hoạch</span>
-                    </label>
+                <!-- Section 2.1: Lễ hội Trung Thu (Harvest Moon Festival) -->
+                <div class="season-block" id="season-section">
+                    <div class="season-header-row">
+                        <label class="priority-switch season-switch">
+                            <input type="checkbox" role="switch" id="season-on">
+                            <span class="switch-track" aria-hidden="true"></span>
+                            <span class="season-title-wrapper">
+                                <span class="season-moon-icon" aria-hidden="true">🌕</span>
+                                <span class="season-title" data-i18n="season_title">Lễ hội Trung Thu</span>
+                                <span class="season-badge" data-i18n="season_badge">Sự kiện mùa vụ</span>
+                            </span>
+                        </label>
+                    </div>
+
                     <div id="season-config" hidden>
-                        <p class="hint" data-i18n="season_hint">Sự kiện theo mùa với đơn vị tiền tệ riêng: Lúa mì Ánh trăng, dùng để mua hạt giống mùa vụ. Kế hoạch hiển thị lượng hạt giống cần dùng và điểm Harvest Moon kiếm được.</p>
-                        <p class="assume-title" data-i18n="recipe_notes">Ghi chú công thức</p>
-                        <div class="special-grid" id="season-notes"></div>
+                        <p class="hint" data-i18n="season_hint">Sự kiện mùa vụ đặc biệt với tiền tệ Lúa mì Ánh trăng để mua hạt giống. Solver sẽ ưu tiên tối đa việc sản xuất các món ăn sự kiện bạn chọn để farm điểm Harvest Moon.</p>
+
+                        <!-- Cấu hình ô đất nông nghiệp dành riêng cho Củ cải & Ớt -->
+                        <div class="season-plots-card">
+                            <div class="season-plots-head">
+                                <span class="season-plots-title" data-i18n="season_plots_title">Ô đất nông nghiệp cho sự kiện</span>
+                                <span class="season-plots-badge">Tối đa</span>
+                            </div>
+                            <div class="season-plots-inputs">
+                                <div class="season-plot-stepper">
+                                    <label for="season-radish-plots" class="season-plot-label">
+                                        <span class="plot-crop-name" data-i18n="season_plots_radish">Ô đất Củ cải</span>
+                                    </label>
+                                    <div class="stepper-ctrl">
+                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="-1" aria-label="Giảm ô củ cải">−</button>
+                                        <input type="number" id="season-radish-plots" min="0" max="10" value="2" class="stepper-input">
+                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="1" aria-label="Tăng ô củ cải">+</button>
+                                    </div>
+                                </div>
+                                <div class="season-plot-stepper">
+                                    <label for="season-pepper-plots" class="season-plot-label">
+                                        <span class="plot-crop-name" data-i18n="season_plots_pepper">Ô đất Ớt</span>
+                                    </label>
+                                    <div class="stepper-ctrl">
+                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="-1" aria-label="Giảm ô ớt">−</button>
+                                        <input type="number" id="season-pepper-plots" min="0" max="10" value="2" class="stepper-input">
+                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="1" aria-label="Tăng ô ớt">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="season-plots-summary" id="season-plots-summary">
+                                Dành <strong>4 ô đất</strong> (2 Củ cải + 2 Ớt) cho sự kiện Trung Thu. Còn lại <strong>28 ô đất nông nghiệp</strong> cho nhân sâm & lúa nước.
+                            </div>
+                        </div>
+
+                        <!-- Danh sách món ăn sự kiện để ưu tiên -->
+                        <div class="season-dishes-section">
+                            <p class="assume-title" data-i18n="season_dishes_title">Món ăn sự kiện cần ưu tiên farm điểm</p>
+                            <div class="season-dishes-grid" id="season-notes"></div>
+                        </div>
                     </div>
                 </div>
 
-                <details class="explain recipes-section" id="recipes-section">
-                    <summary><span data-i18n="recipes_title">Tùy chỉnh công thức</span><span class="skip-count" id="recipe-count"></span></summary>
-                    <p class="assume-title" data-i18n="special_recipes_title">Công thức đặc biệt</p>
-                    <p class="hint small" data-i18n="special_recipes_hint">Các công thức này cần tiền tệ hiếm để mở khóa. Kế hoạch chỉ sử dụng các công thức bạn đã tích chọn.</p>
-                    <div class="special-grid" id="special-grid"></div>
-                    <p class="assume-title" data-i18n="recipes_to_skip">Công thức cần bỏ qua</p>
+                <div class="custom-card-divider" aria-hidden="true"></div>
+
+                <!-- Section 2.2: Công thức đặc biệt (Special Recipes - Nổi bật) -->
+                <div class="special-recipes-block" id="special-recipes-section">
+                    <div class="section-title-row">
+                        <div class="section-title-group">
+                            <span class="section-star-icon" aria-hidden="true">⭐</span>
+                            <h3 class="section-title-text" data-i18n="special_recipes_title">Công thức đặc biệt</h3>
+                        </div>
+                        <span class="skip-count" id="recipe-count"></span>
+                    </div>
+                    <p class="hint small" data-i18n="special_recipes_hint">Các công thức cao cấp mở khóa theo cấp RV hoặc tiền tệ hiếm. Tích chọn các công thức bạn muốn kế hoạch sử dụng.</p>
+                    <div class="special-cards-grid" id="special-grid"></div>
+                </div>
+
+                <!-- Section: Công thức cần bỏ qua (Collapsible) -->
+                <details class="explain skip-recipes-details" id="recipes-section">
+                    <summary><span data-i18n="recipes_to_skip">Công thức cần bỏ qua</span></summary>
                     <p class="hint small" data-i18n="recipes_to_skip_hint">Kế hoạch sẽ không sử dụng các công thức này. Bạn cũng có thể bỏ qua trực tiếp bằng nút ✕ trên bảng kế hoạch.</p>
                     <div class="skip-add">
                         <input type="text" id="skip-input" list="skip-options" placeholder="Tìm kiếm công thức..." data-i18n-placeholder="search_recipes_placeholder"
