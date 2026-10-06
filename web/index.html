@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=aniimolab_v11">
+    <link rel="stylesheet" href="style.css?v=aniimolab_v15">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
@@ -29,6 +29,7 @@
             </div>
         </div>
         <div class="navbar-actions">
+            <button class="nav-btn" onclick="showAniimoTierList()" id="aniimoTierToggle"><span class="btn-sym">🏆</span> <span data-i18n="nav_aniimo_tier">BXH Aniimo</span></button>
             <button class="nav-btn" onclick="showFacilities()" id="facilitiesToggle"><span class="btn-sym">🏭</span> <span data-i18n="nav_facilities">Công thức</span></button>
             <button class="nav-btn" onclick="showMath()" id="mathToggle"><span class="btn-sym">📐</span> <span data-i18n="nav_math">Thuật toán</span></button>
             <button class="nav-btn" onclick="showHelp()" id="helpToggle"><span class="btn-sym">📖</span> <span data-i18n="nav_guide">Hướng dẫn</span></button>
@@ -220,22 +221,10 @@
                                         <span class="chevron" aria-hidden="true"></span>
                                         <h2 data-i18n="aniimo_team_title">Tổ đội công nhân Aniimo</h2>
                                     </button>
-                                    <div class="tabs compact" role="radiogroup" aria-label="Aniimo setup">
-                                        <label title="The best Aniimo you have, with each facility's personality"><input
-                                                type="radio" name="aniimo-setup" id="aniimo-best" value="best" checked>
-                                            <span data-i18n="aniimo_best">Tối ưu nhất</span></label>
-                                        <label
-                                            title="The lowest ability level each recipe accepts: the least you can get by with"><input
-                                                type="radio" name="aniimo-setup" id="aniimo-minimum" value="minimum">
-                                            <span data-i18n="aniimo_minimum">Tối thiểu</span></label>
-                                        <label title="Plan with the Aniimo you actually have"><input type="radio"
-                                                name="aniimo-setup" id="aniimo-custom" value="custom"> <span data-i18n="aniimo_custom">Aniimo của tôi</span></label>
-                                    </div>
-                                </div>
-                                <div class="aniimo-setup-panel" id="aniimo-setup-panel">
-                                    <p class="hint small" id="aniimo-setup-hint"></p>
-                                    <div class="ability-levels" id="ability-levels"></div>
-                                    <div class="roster-editor" id="roster-editor" hidden></div>
+                                    <button type="button" class="btn-tierlist-trigger" onclick="showAniimoTierList()" title="Xem bảng xếp hạng Aniimo Tier SS (Cấp 4) và Tier S (Cấp 3)">
+                                        <span class="tier-trigger-icon">🏆</span>
+                                        <span class="tier-trigger-text" data-i18n="btn_aniimo_tierlist">Bảng xếp hạng Aniimo (Tier SS / S)</span>
+                                    </button>
                                 </div>
                                 <p class="aniimo-count" id="aniimo-count" hidden><span
                                         id="aniimo-count-have">0</span><span class="aniimo-count-of"
@@ -248,8 +237,7 @@
                                 <div id="aniimo-body" hidden>
                                     <details class="explain">
                                         <summary data-i18n="aniimo_explain_summary">Cách tổ đội Aniimo được tính toán</summary>
-                                        <p><strong>Tối ưu nhất</strong>: Cấp độ Aniimo cao nhất bạn có theo từng kỹ năng kết hợp với tính cách tương thích (+20% tốc độ). <strong>Aniimo của tôi</strong>: Danh sách Aniimo bạn hiện có; mỗi Aniimo sẽ làm việc theo kỹ năng và số giờ rảnh. <strong>Tối thiểu</strong>: Cấp độ kỹ năng thấp nhất mà mỗi công thức chấp nhận.</p>
-                                        <p>Mỗi Aniimo có thể đảm nhận các công việc phù hợp kỹ năng và cấp độ. Bốn cặp tính cách gồm: Bản năng / Năng động (I/E), Nhanh nhẹn / Thực tế (N/S), Trung thành / Kiên định (F/T), Nghịch ngợm / Sáng suốt (P/J). Các cơ sở có công nhân thường trú (Lâu đài cát, Nhà sương mai...) cần 1 công nhân riêng, tương tự với Lò nhiệt (Hỏa), Cơ sở làm mát (Băng) và Đèn mặt trời (Quang).</p>
+                                        <p>Kế hoạch sản xuất luôn ưu tiên tối đa các <strong>Aniimo Cấp 4 (Prismana - Tier SS)</strong> và <strong>Cấp 3 (Cơ bản - Tier S)</strong> có tính cách tương thích (+20% tốc độ). Nhấn vào nút <strong>Bảng xếp hạng Aniimo</strong> để tra cứu toàn bộ danh sách Aniimo tối ưu cho từng kỹ năng.</p>
                                     </details>
                                     <div id="aniimo-summary"></div>
                                 </div>
@@ -526,6 +514,22 @@
         </div>
     </div>
 
+    <!-- Aniimo Worker Tier List Modal -->
+    <div id="aniimoTierModal" class="modal" onclick="closeAniimoTierOnBackdrop(event)">
+        <div class="modal-content modal-wide aniimo-tier-modal-content">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <h2 data-i18n="modal_tier_title">🏆 Bảng xếp hạng công nhân Aniimo Homeland</h2>
+                    <p class="modal-subtitle" data-i18n="modal_tier_subtitle">Danh sách xếp hạng các Aniimo Cấp 4 (Prismana - Tier SS) và Cấp 3 (Cơ bản / Tự nhiên - Tier S) tối ưu nhất theo từng kỹ năng. Hoàn toàn không đề xuất Cấp 1 và Cấp 2.</p>
+                </div>
+                <button class="close-button" onclick="closeAniimoTier()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="aniimo-tier-container"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.toggleTheme = function () {
             const body = document.body;
@@ -537,6 +541,23 @@
                 button.innerHTML = `<span class="btn-sym">${isLight ? '🌙' : '☀️'}</span> <span>${themeLabel}</span>`;
             }
         }
+
+        window.showAniimoTierList = function () {
+            document.getElementById('aniimoTierModal').classList.add('show');
+            if (window.renderAniimoTierModalContent) {
+                window.renderAniimoTierModalContent();
+            }
+        };
+
+        window.closeAniimoTier = function () {
+            document.getElementById('aniimoTierModal').classList.remove('show');
+        };
+
+        window.closeAniimoTierOnBackdrop = function (event) {
+            if (event.target.id === 'aniimoTierModal') {
+                closeAniimoTier();
+            }
+        };
 
         window.showHelp = function () {
             document.getElementById('helpModal').classList.add('show');
@@ -573,14 +594,15 @@
         // Close modal on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                closeAniimoTier();
                 closeHelp();
                 closeMath();
                 closeFacilities();
             }
         });
     </script>
-    <script src="i18n.js?v=aniimolab_v11"></script>
-    <script type="module" src="app.js?v=aniimolab_v11"></script>
+    <script src="i18n.js?v=aniimolab_v17"></script>
+    <script type="module" src="app.js?v=aniimolab_v17"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

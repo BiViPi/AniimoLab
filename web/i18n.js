@@ -10,11 +10,15 @@ const TRANSLATIONS = {
         // App header
         app_tagline: "Trình mô phỏng sản xuất & Tối ưu hóa Homeland",
         disclaimer: "Một số công thức, cấp độ và số lượng cơ sở chưa được xác nhận chính thức trong game; các mục này được đánh dấu rõ nơi sử dụng.",
+        nav_aniimo_tier: "BXH Aniimo",
         nav_facilities: "Công thức",
         nav_math: "Thuật toán",
         nav_guide: "Hướng dẫn",
         nav_theme: "Giao diện",
         nav_lang: "Tiếng Việt",
+        btn_aniimo_tierlist: "Bảng xếp hạng Aniimo (Tier SS / S)",
+        modal_tier_title: "🏆 Bảng xếp hạng công nhân Aniimo Homeland",
+        modal_tier_subtitle: "Danh sách xếp hạng các Aniimo Cấp 4 (Prismana - Tier SS) và Cấp 3 (Cơ bản / Tự nhiên - Tier S) tối ưu nhất theo từng kỹ năng. Hoàn toàn không đề xuất Cấp 1 và Cấp 2.",
 
         // Card 1: Homeland & Power Grid
         homeland_title: "Homeland của bạn",
@@ -157,11 +161,15 @@ const TRANSLATIONS = {
         // App header
         app_tagline: "Cyber Homeland Production Simulator & Multi-Hub Optimizer",
         disclaimer: "A few recipes, facility levels and counts haven't been confirmed in game yet; they're marked where they're used.",
+        nav_aniimo_tier: "Aniimo Tiers",
         nav_facilities: "Facilities",
         nav_math: "Math",
         nav_guide: "Guide",
         nav_theme: "Theme",
         nav_lang: "English",
+        btn_aniimo_tierlist: "Aniimo Tier List (Tier SS / S)",
+        modal_tier_title: "🏆 Homeland Aniimo Worker Tier List",
+        modal_tier_subtitle: "Ranked list of Level 4 (Prismana - Tier SS) and Level 3 (Base / Natural - Tier S) Aniimo per ability. Level 1 & 2 are strictly excluded.",
 
         // Card 1: Homeland & Power Grid
         homeland_title: "Your Homeland",

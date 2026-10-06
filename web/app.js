@@ -6,6 +6,8 @@ import {
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
 } from './facility-config.js?v=aniimolab_v8';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel } from './aniimo-data.js?v=aniimolab_v17';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v13';
 
 let wasmReady = false;
 
@@ -908,6 +910,7 @@ async function initWasm() {
         initWorker();
         const version = await callWorker('get_version');
         wasmReady = true;
+        window.wasmReady = true;
 
         const verEl = document.getElementById('version'); if (verEl) { verEl.textContent = version; }
         loadRecipeIndex();
@@ -2277,6 +2280,7 @@ function rosterLabel(aniimo, i) {
 
 function renderRoster() {
     const editor = document.getElementById('roster-editor');
+    if (!editor) return;
     const cards = roster.map((aniimo, i) => {
         const abilities = Object.entries(aniimo.abilities).map(([ability, level]) => `
             <span class="roster-ability">${abilityTag(ability)}<span class="tabs level-picker">${[1, 2, 3, 4].map(l =>
@@ -2338,6 +2342,7 @@ function rosterChanged(rerender = true) {
 
 function attachRosterHandlers() {
     const editor = document.getElementById('roster-editor');
+    if (!editor) return;
     editor.addEventListener('click', (e) => {
         const button = e.target.closest('button');
         if (!button) return;
@@ -2638,7 +2643,11 @@ function levelPicker(group, chosen, ability, label) {
     return `<span class="tabs level-picker" role="radiogroup" aria-label="${label}">${[1, 2, 3, 4]
         .map(level => {
             const unheardOf = level > usual;
-            const mark = unheardOf ? ` class="unheard-of" title="No level-${level} ${ability} Aniimo is known in the game yet"` : '';
+            const w = getWorkerForLevel(ability, level);
+            const wName = w ? ` · ${w.name}${w.is_prismana && level >= 4 ? ' (Prismana)' : ''}` : '';
+            const mark = unheardOf 
+                ? ` class="unheard-of" title="Chưa có Aniimo ${ability} cấp ${level} trong dữ liệu game"` 
+                : ` title="Cấp ${level}${wName}"`;
             const confirm = unheardOf ? ` data-confirm="${ability}"` : '';
             return `<label${mark}><input type="radio" name="${group}" value="${level}"${chosen === level ? ' checked' : ''}${confirm}> ${level}</label>`;
         })
@@ -2650,7 +2659,22 @@ function renderAbilityLevels() {
     const list = document.getElementById('ability-levels');
     if (!list) return;
     list.innerHTML = levelledAbilities().map(ability => {
-        return `<div class="ability-level">${abilityTag(ability)}${levelPicker(`level-${ability}`, bestAniimoLevel(ability), ability, `${ability} level`)}</div>`;
+        const chosen = bestAniimoLevel(ability);
+        const w = getWorkerForLevel(ability, chosen);
+        const isPrismana = w && w.is_prismana && chosen >= 4;
+        const avatarHtml = w ? `
+            <span class="ability-chosen-avatar ${isPrismana ? 'is-prismana' : ''}" title="${w.name} · Cấp ${chosen}${isPrismana ? ' (Prismana)' : ''}">
+                <img class="chosen-avatar-img" src="${w.img_url}" alt="${w.name}" loading="lazy" onerror="this.src='https://aniimoguide.com/images/aniimo/head_round/${w.number || '10011'}.webp'">
+                <span class="chosen-worker-name">${w.name}</span>
+            </span>` : '';
+        return `
+            <div class="ability-level">
+                <div class="ability-level-info">
+                    ${abilityTag(ability)}
+                    ${avatarHtml}
+                </div>
+                ${levelPicker(`level-${ability}`, chosen, ability, `${ability} level`)}
+            </div>`;
     }).join('');
 }
 
@@ -2658,14 +2682,16 @@ function renderAbilityLevels() {
 function showAniimoSetup() {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const tab = selectedSetupTab();
-    document.getElementById('aniimo-setup-panel').hidden = tab === 'minimum';
-    document.getElementById('ability-levels').hidden = tab !== 'best';
-    document.getElementById('roster-editor').hidden = tab !== 'custom';
-    document.getElementById('aniimo-setup-hint').textContent = tab === 'custom'
-        ? (isVi ? 'Danh sách Aniimo bạn hiện có. Kế hoạch sẽ phân bổ giờ làm việc tối ưu theo năng lực.' : 'The Aniimo you have. The plan shares their hours out, so it only counts on what they can do.')
-        : (isVi ? 'Cấp độ Aniimo tốt nhất bạn sở hữu cho mỗi kỹ năng.' : 'The best Aniimo you have of each ability.');
-    if (tab === 'best') renderAbilityLevels();
-    if (tab === 'custom') renderRoster();
+    const panel = document.getElementById('aniimo-setup-panel');
+    if (panel) panel.hidden = true;
+    const levels = document.getElementById('ability-levels');
+    if (levels) levels.hidden = true;
+    const editor = document.getElementById('roster-editor');
+    if (editor) editor.hidden = true;
+    const hint = document.getElementById('aniimo-setup-hint');
+    if (hint) {
+        hint.textContent = isVi ? 'Tổ đội công nhân luôn được tối ưu tự động theo các Aniimo cấp cao nhất.' : 'Workers automatically optimized with best Aniimos.';
+    }
     switchAniimoSetup();
 }
 
@@ -3444,7 +3470,7 @@ function aniimoLabel(step) {
         // Crops and trees: the abilities their planting and harvesting jobs need.
         const tasks = step.aniimo_tasks || [];
         if (tasks.length === 0) return '-';
-        return `<span class="ability-dots">${tasks.map(t => abilityDot(t.ability, t.level)).join('')}</span>`;
+        return renderAniimoTasksCluster(tasks, step.facility);
     }
     let note = '';
     if (a.personality_bonus) {
@@ -3453,7 +3479,7 @@ function aniimoLabel(step) {
             ? `${personality ? `Tính cách ${personality}` : 'tính cách tương thích'} (+20% tốc độ)`
             : `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
     }
-    return `<span class="ability-dots">${abilityDot(a.ability, a.level, note)}</span>`;
+    return renderAniimoWorkerCard(a.ability, a.level, note);
 }
 
 // "Fire Lv.4 · Practical": one kind of Aniimo, with the facility's personality when the plan
@@ -3501,9 +3527,20 @@ function planRows(rows) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     return rows.map(step => `
                     <tr class="status-${step.status}">
-                        <td data-label="Facility">${getFacilityDisplayName(step.facility)}</td>
+                        <td data-label="Facility">
+                            <div class="facility-cell">
+                                ${renderFacilityIcon(step.facility)}
+                                <span class="facility-name-text">${getFacilityDisplayName(step.facility)}</span>
+                            </div>
+                        </td>
                         <td data-label="Count">${step.facility_count}</td>
-                        <td data-label="Producing">${step.item_name ? prettyItem(step.item_name) : '-'}${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}${step.item_name && step.status === 'producing' ? `<button type="button" class="skip-row" data-skip="${step.item_name}" title="Can't make this? Skip it and plan again" aria-label="Skip ${prettyItem(step.item_name)} and plan again">✕</button>` : ''}</td>
+                        <td data-label="Producing">
+                            <div class="item-cell">
+                                ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
+                                ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                                ${step.item_name && step.status === 'producing' ? `<button type="button" class="skip-row" data-skip="${step.item_name}" title="Can't make this? Skip it and plan again" aria-label="Skip ${prettyItem(step.item_name)} and plan again">✕</button>` : ''}
+                            </div>
+                        </td>
                         <td data-label="Aniimo">${aniimoLabel(step)}</td>
                         <td data-label="Why">${prettyReason(step.reason)}</td>
                     </tr>
@@ -3702,18 +3739,11 @@ function renderAniimoSummary(plan) {
     // How many of each ability the plan needs, in the game's order, like its Abilities screen.
     const needed = new Map(ABILITIES.map(a => [a.name, 0]));
     kept.forEach(g => needed.set(g.ability, (needed.get(g.ability) || 0) + g.count));
-    // Under each count, one circle per kind of Aniimo (with "×N" when several are the same): its
-    // level inside (a dot for any level), a ring for the personality bonus, and what it's for in
-    // the tooltip.
-    const dot = (ability, text, bonus, tip) => {
-        const a = ABILITY_BY_NAME.get(ability);
-        return `<span class="ability-dot small${a && a.dark ? ' dark' : ''}${bonus ? ' bonus' : ''}" style="--ability:${a ? a.color : '#888888'}" title="${tip}" aria-label="${tip}">${text}</span>`;
-    };
+    // Under each count, render Aniimo worker avatar badges with level badge and count multiplier
     const teamDots = g => {
         const where = whereText(g);
-        const tip = `${g.count > 1 ? `${g.count}× ` : ''}${g.label}${g.bonus ? ' (+20% speed)' : ''} · ${where}`;
-        const times = g.count > 1 ? `<span class="ability-times">×${g.count}</span>` : '';
-        return `<span class="ability-kind">${dot(g.ability, g.environment ? '·' : g.level, g.bonus, tip)}${times}</span>`;
+        const tip = `${g.count > 1 ? `${g.count}× ` : ''}${g.label}${g.bonus ? ' (+20% tốc độ)' : ''} · ${where}`;
+        return renderRosterWorkerBadge(g.ability, g.environment ? '·' : g.level, g.count, tip, g.bonus);
     };
     document.getElementById('aniimo-abilities').innerHTML = ABILITIES.map(a => {
         const n = a.name === 'Hauling' ? `${needed.get(a.name) + 1}+` : needed.get(a.name);
@@ -3723,7 +3753,7 @@ function renderAniimoSummary(plan) {
             .sort((x, y) => y.level - x.level || Number(y.bonus) - Number(x.bonus))
             .map(teamDots);
         if (a.name === 'Hauling') {
-            dots.push(`<span class="ability-kind">${dot('Hauling', '·', false, 'Hauling, any level · carries produce to storage; add more if produce piles up')}</span>`);
+            dots.push(renderRosterWorkerBadge('Hauling', '·', 1, 'Vận chuyển hàng hóa vào kho', false));
         }
         const stack = dots.length ? `<div class="ability-stack">${dots.join('')}</div>` : '';
         const isVi = window.i18n && window.i18n.getLang() === 'vi';
@@ -4963,35 +4993,39 @@ document.addEventListener('DOMContentLoaded', () => {
         rateUnitChosen = true;
         updateRateUnitDisplays();
     });
-    ['aniimo-best', 'aniimo-minimum', 'aniimo-custom'].forEach(id =>
-        document.getElementById(id).addEventListener('change', showAniimoSetup));
-    document.getElementById('aniimo-toggle').addEventListener('click', () => {
+    ['aniimo-best', 'aniimo-minimum', 'aniimo-custom'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', showAniimoSetup);
+    });
+    document.getElementById('aniimo-toggle')?.addEventListener('click', () => {
         const toggle = document.getElementById('aniimo-toggle');
         const expanded = toggle.getAttribute('aria-expanded') !== 'true';
         toggle.setAttribute('aria-expanded', String(expanded));
         document.getElementById('aniimo-body').hidden = !expanded;
     });
-    // Best's level buttons are named `level-<ability>`; the roster editor handles its own.
-    document.getElementById('aniimo-setup-panel').addEventListener('change', event => {
-        const { name, value, checked } = event.target;
-        const unheardOf = event.target.dataset?.confirm;
-        if (unheardOf && checked) {
-            const ok = window.confirm(
-                `No level-${value} ${unheardOf} Aniimo is known in the game yet. Plan as though you have one?`
-            );
-            if (!ok) {
-                showAniimoSetup();
+    const setupPanel = document.getElementById('aniimo-setup-panel');
+    if (setupPanel) {
+        setupPanel.addEventListener('change', event => {
+            const { name, value, checked } = event.target;
+            const unheardOf = event.target.dataset?.confirm;
+            if (unheardOf && checked) {
+                const ok = window.confirm(
+                    `No level-${value} ${unheardOf} Aniimo is known in the game yet. Plan as though you have one?`
+                );
+                if (!ok) {
+                    showAniimoSetup();
+                    return;
+                }
+            }
+            if (name?.startsWith('level-')) {
+                aniimoLevels[name.slice('level-'.length)] = Number(value);
+            } else {
                 return;
             }
-        }
-        if (name?.startsWith('level-')) {
-            aniimoLevels[name.slice('level-'.length)] = Number(value);
-        } else {
-            return;
-        }
-        saveInputsToStorage();
-        switchAniimoSetup();
-    });
+            saveInputsToStorage();
+            switchAniimoSetup();
+        });
+    }
 
     // Goal fields update live; no need to re-run the facility-allocation solve just because the
     // goal amount changed.

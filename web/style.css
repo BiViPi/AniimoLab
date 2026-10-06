@@ -3555,3 +3555,688 @@ tr:hover .skip-row,
 .su-count-select {
     cursor: pointer;
 }
+
+/* ==========================================================================
+   Visual Enhancements: Facility Icons, Item Thumbnails & Aniimo Worker Cards
+   ========================================================================== */
+
+/* Facility cell layout */
+.facility-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.facility-icon-img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1px;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+    transition: transform 0.2s ease;
+}
+
+.facility-cell:hover .facility-icon-img {
+    transform: scale(1.1);
+}
+
+.facility-name-text {
+    font-weight: 500;
+}
+
+/* Item / Producing cell layout */
+.item-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.item-icon-img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transition: transform 0.2s ease;
+}
+
+.item-cell:hover .item-icon-img {
+    transform: scale(1.12);
+}
+
+.item-name-text {
+    font-weight: 500;
+}
+
+/* Aniimo Worker Card */
+.aniimo-worker-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.2rem 0.55rem 0.2rem 0.2rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    user-select: none;
+    max-width: 100%;
+}
+
+.aniimo-worker-card:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.aniimo-worker-card.is-prismana {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(59, 130, 246, 0.08));
+    border-color: rgba(236, 72, 153, 0.3);
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.15);
+}
+
+.aniimo-worker-card.is-prismana:hover {
+    border-color: rgba(236, 72, 153, 0.55);
+    box-shadow: 0 0 16px rgba(236, 72, 153, 0.35);
+}
+
+/* Avatar Wrap */
+.aniimo-avatar-wrap {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.aniimo-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--ability-color, #64748b);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.is-prismana .aniimo-avatar-img {
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6, #3b82f6) border-box;
+    box-shadow: 0 0 8px rgba(236, 72, 153, 0.45);
+}
+
+/* Worker level badge */
+.aniimo-level-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: var(--ability-color, #475569);
+    border: 1.5px solid #0f1412;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.prismana-badge {
+    background: linear-gradient(135deg, #ff4b2b, #ff416c, #8a2387);
+    color: #fff;
+    font-weight: 900;
+    box-shadow: 0 0 8px rgba(255, 65, 108, 0.7);
+}
+
+/* Worker Name */
+.aniimo-worker-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+/* Compact mode (for multi-task cluster) */
+.aniimo-worker-card.compact {
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+.aniimo-worker-card.compact:hover {
+    transform: scale(1.12);
+}
+
+.aniimo-worker-card.compact .aniimo-avatar-wrap {
+    width: 29px;
+    height: 29px;
+}
+
+.aniimo-worker-card.compact .aniimo-level-badge {
+    min-width: 15px;
+    height: 15px;
+    font-size: 9px;
+    right: -3px;
+    bottom: -2px;
+}
+
+/* Cluster container */
+.aniimo-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+/* Roster Worker Badges (under each ability column in capacity summary) */
+.roster-worker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.16s ease;
+}
+
+.roster-worker-item:hover {
+    transform: scale(1.15);
+    z-index: 5;
+}
+
+.roster-avatar-wrap {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.roster-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid var(--ability-color, #64748b);
+}
+
+.is-prismana .roster-avatar-img {
+    border: 1.5px solid transparent;
+    background: linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6, #3b82f6) border-box;
+    box-shadow: 0 0 6px rgba(236, 72, 153, 0.5);
+}
+
+.roster-level-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -3px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 2px;
+    border-radius: 999px;
+    font-size: 8.5px;
+    font-weight: 800;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: var(--ability-color, #475569);
+    border: 1px solid #0f1412;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Ability Level Picker Info & Chosen Worker Preview */
+.ability-level-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.ability-chosen-avatar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 1px 6px 1px 2px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+.ability-chosen-avatar.is-prismana {
+    border-color: rgba(236, 72, 153, 0.35);
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(59, 130, 246, 0.1));
+}
+
+.chosen-avatar-img {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.chosen-worker-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary, #94a3b8);
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   Aniimo Worker Tier List Modal & Trigger
+   ========================================================================== */
+
+.btn-tierlist-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.18) 0%, rgba(249, 115, 22, 0.18) 100%);
+    border: 1px solid rgba(234, 179, 8, 0.5);
+    color: #fef08a;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 10px rgba(234, 179, 8, 0.15);
+}
+
+.btn-tierlist-trigger:hover {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.35) 0%, rgba(249, 115, 22, 0.35) 100%);
+    border-color: rgba(234, 179, 8, 0.85);
+    color: #ffffff;
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 18px rgba(234, 179, 8, 0.35);
+}
+
+.tier-trigger-icon {
+    font-size: 1.05rem;
+    filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.6));
+}
+
+/* Modal Wide Customization */
+.aniimo-tier-modal-content {
+    max-width: 1180px;
+    width: 95vw;
+    background: linear-gradient(180deg, #16181d 0%, #0f1115 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.aniimo-tier-modal-content .modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.25rem 1.75rem;
+}
+
+.modal-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.modal-title-wrap h2 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+}
+
+.modal-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Filter Chips */
+.tier-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding-bottom: 1rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: -1.5rem;
+    background: #16181d;
+    z-index: 10;
+    padding-top: 0.5rem;
+}
+
+.tier-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tier-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.tier-chip.active {
+    background: var(--chip-color, var(--accent));
+    color: #0f1412;
+    border-color: transparent;
+    font-weight: 800;
+    box-shadow: 0 0 12px var(--chip-color, rgba(0, 245, 160, 0.5));
+}
+
+/* Sections */
+.tier-sections-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.tier-ability-section {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 4px solid var(--ability-theme, var(--accent));
+    border-radius: var(--radius);
+    padding: 1.25rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tier-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 0.75rem;
+}
+
+.tier-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tier-group-icon {
+    font-size: 1.4rem;
+}
+
+.tier-group-title h3 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.tier-group-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.tier-group-counts {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.badge-count {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.count-ss {
+    background: rgba(234, 179, 8, 0.15);
+    color: #fef08a;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.count-s {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+/* Blocks */
+.tier-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tier-ss-block {
+    border-left: 3px solid #f59e0b;
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.06) 0%, rgba(0, 0, 0, 0.25) 100%);
+}
+
+.tier-s-block {
+    border-left: 3px solid #38bdf8;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.05) 0%, rgba(0, 0, 0, 0.25) 100%);
+}
+
+.tier-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tier-block-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+}
+
+.tier-ss-badge {
+    background: linear-gradient(135deg, #f59e0b, #ec4899);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.tier-s-badge {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.tier-block-hint {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Cards Grid */
+.tier-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.65rem;
+}
+
+.tier-aniimo-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(22, 24, 29, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.75rem;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tier-aniimo-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--item-color, var(--accent));
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.tier-aniimo-card.is-prismana-card {
+    border-color: rgba(234, 179, 8, 0.35);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(22, 24, 29, 0.95) 100%);
+}
+
+.tier-aniimo-card.is-prismana-card:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.25);
+}
+
+.tier-card-avatar-wrap {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.tier-card-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--item-color, #64748b);
+}
+
+.is-prismana-card .tier-card-avatar {
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6, #3b82f6) border-box;
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.45);
+}
+
+.tier-level-tag {
+    position: absolute;
+    bottom: -2px;
+    right: -3px;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 0 3px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--item-color, #475569);
+    color: #ffffff;
+    border: 1.5px solid #0f1412;
+}
+
+.tier-level-tag.prismana-tag {
+    background: linear-gradient(135deg, #ff4b2b, #ff416c, #8a2387);
+    box-shadow: 0 0 6px rgba(255, 65, 108, 0.7);
+}
+
+.tier-card-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    gap: 0.15rem;
+}
+
+.tier-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.tier-card-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tier-card-num {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.tier-card-badge-row {
+    display: flex;
+    align-items: center;
+}
+
+.tier-type-pill {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+}
+
+.pill-ss {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fef08a;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.pill-s {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.tier-card-secondary {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.tier-empty-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}

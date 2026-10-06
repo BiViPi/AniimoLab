@@ -1,0 +1,172 @@
+[
+  {
+    "name": "Scorchhowl",
+    "number": "003",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Glacy",
+    "number": "015",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Ice",
+        "ability_vi": "Băng",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Somniwing",
+    "number": "030",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 4,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Wind",
+        "ability_vi": "Phong",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 4,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Thornblade",
+    "number": "034",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Ignitis",
+    "number": "041",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Dark",
+        "ability_vi": "Ám",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Sherro",
+    "number": "055",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Water",
+        "ability_vi": "Thủy",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Magmarex",
+    "number": "072",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Fire",
+        "ability_vi": "Hỏa",
+        "base_level": 3,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Earth",
+        "ability_vi": "Thổ",
+        "base_level": 2,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Hauling",
+        "ability_vi": "Vận Chuyển / Mang Theo",
+        "base_level": 3,
+        "prismana_level": 4
+      }
+    ]
+  },
+  {
+    "name": "Irisalis",
+    "number": "10001",
+    "is_prismana": true,
+    "abilities": [
+      {
+        "ability_en": "Thảo",
+        "ability_vi": "Thảo",
+        "base_level": 4,
+        "prismana_level": 4
+      },
+      {
+        "ability_en": "Leisure",
+        "ability_vi": "Giải Trí",
+        "base_level": 4,
+        "prismana_level": 4
+      }
+    ]
+  }
+]
