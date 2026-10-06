@@ -3482,6 +3482,33 @@ tr:hover .skip-row,
     color: var(--text, #f8fafc);
 }
 
+.insight-item.insight-selected {
+    border-left: 3px solid #10b981;
+}
+
+.insight-item.insight-rejected {
+    border-left: 3px solid #f59e0b;
+}
+
+.insight-item.insight-rejected .insight-label {
+    color: #fbbf24;
+}
+
+.insight-bullets {
+    margin: 0.35rem 0 0 1.1rem;
+    padding: 0;
+    list-style-type: disc;
+}
+
+.insight-bullets li {
+    margin-bottom: 0.35rem;
+    line-height: 1.45;
+}
+
+.insight-bullets li:last-child {
+    margin-bottom: 0;
+}
+
 /* Multi-Storage Unit Styling in SVG */
 .layout-storage-unit.su-central .layout-storage {
     fill: #eab308 !important;

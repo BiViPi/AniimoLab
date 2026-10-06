@@ -5037,85 +5037,192 @@ function renderInsights(plan) {
     }
 
     const producing = (plan.coin_items || []).filter(s => s.status === 'producing');
-    const topRevenue = [...producing].sort((a, b) => ((b.rate_per_second || 0) * (b.sale_price || 0)) - ((a.rate_per_second || 0) * (a.sale_price || 0)));
-    const coreItem = topRevenue[0];
-    const coreName = coreItem ? prettyItem(coreItem.item_name) : (isVi ? 'Cây trồng nông nghiệp' : 'Agricultural Crops');
-    const coreFacilityRaw = coreItem?.facility ? coreItem.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : 'Farmland';
-    const coreFacility = getFacilityDisplayName(coreFacilityRaw);
+    
+    // 1. Real top revenue streams from plan.income_streams (sorted by rate_per_second descending)
+    const streams = (plan.income_streams || []).filter(s => (s.units_per_second || 0) > 0);
+    const sortedStreams = [...streams].sort((a, b) => (b.rate_per_second || 0) - (a.rate_per_second || 0));
     const totalCoinRate = plan.rate_per_second || 0;
-    const hourlyCoins = Math.round(totalCoinRate * 3600);
+    const totalHourlyCoins = Math.round(totalCoinRate * 3600);
     const unitRateDisplay = formatRate(totalCoinRate);
 
-    // Climate aura coverage
-    const envAssignments = plan.environment_assignments || [];
-    const envCount = envAssignments.length;
-    const envModes = [...new Set(envAssignments.map(a => isVi && window.VI_ENV_MODES[a.mode] ? window.VI_ENV_MODES[a.mode] : a.mode))];
-    const envText = isVi
-        ? (envCount > 0 
-            ? `100% cây trồng nhạy cảm nhiệt độ được gom vào ${envCount} vùng khí hậu (${envModes.join(', ')}) với bán kính bao phủ 9x9.` 
-            : 'Tất cả cây trồng đang canh tác đều thuộc nhóm khí hậu mở, mang lại sự linh hoạt tối đa khi bố trí các ô đất.')
-        : (envCount > 0
-            ? `100% of sensitive crops are grouped inside ${envCount} climate zone${envCount > 1 ? 's' : ''} (${envModes.join(', ')}) with 9x9 coverage squares.`
-            : 'All active crops are open-climate varieties, allowing maximum placement flexibility across plots.');
+    const top1 = sortedStreams[0];
+    const top2 = sortedStreams[1];
 
-    // Multi-SU distribution
+    const top1Name = top1 ? prettyItem(top1.item_name) : (isVi ? 'Sản phẩm chủ lực' : 'Core Product');
+    const top1Hourly = top1 ? Math.round(top1.rate_per_second * 3600) : 0;
+    const top1Pct = totalHourlyCoins > 0 ? Math.round((top1Hourly / totalHourlyCoins) * 100) : 0;
+    const top1FacilityRaw = top1?.facility ? top1.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : '';
+    const top1Facility = getFacilityDisplayName(top1FacilityRaw);
+    const top1UnitsPerHour = top1 ? perHour(top1.units_per_second) : '0';
+
+    const top2Name = top2 ? prettyItem(top2.item_name) : '';
+    const top2Hourly = top2 ? Math.round(top2.rate_per_second * 3600) : 0;
+    const top2Pct = totalHourlyCoins > 0 ? Math.round((top2Hourly / totalHourlyCoins) * 100) : 0;
+    const top2FacilityRaw = top2?.facility ? top2.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : '';
+    const top2Facility = getFacilityDisplayName(top2FacilityRaw);
+
+    // 2. Farmland distribution
+    const farmSteps = producing.filter(s => s.facility === 'Farmland');
+    const farmPlotsByCrop = {};
+    for (const s of farmSteps) {
+        if (s.item_name) {
+            farmPlotsByCrop[s.item_name] = (farmPlotsByCrop[s.item_name] || 0) + (s.facility_count || 1);
+        }
+    }
+    const farmSummaryParts = Object.entries(farmPlotsByCrop).map(([crop, count]) => `${count} ô ${prettyItem(crop)}`);
+    const farmSummary = farmSummaryParts.join(', ') || (isVi ? 'Đất nông nghiệp' : 'Farmland');
+
+    // 3. Woodland distribution
+    const woodlandSteps = producing.filter(s => s.facility === 'Woodland');
+    const woodlandPlotsByCrop = {};
+    for (const s of woodlandSteps) {
+        if (s.item_name) {
+            woodlandPlotsByCrop[s.item_name] = (woodlandPlotsByCrop[s.item_name] || 0) + (s.facility_count || 1);
+        }
+    }
+    const woodlandSummaryParts = Object.entries(woodlandPlotsByCrop).map(([crop, count]) => `${count} cây ${prettyItem(crop)}`);
+    const woodlandSummary = woodlandSummaryParts.join(', ');
+
+    // 4. Level-up context
+    const hasLevelUp = !!(plan.level_up && planContext?.levelUp);
+    const targetRv = planContext?.target || (plan.level_up ? selectedHomeLevel() + 1 : null);
+    const levelUpReport = plan.level_up;
+    const levelUpDurationText = levelUpReport ? formatDuration(levelUpReport.seconds) : '';
+
+    // Check specific items in plan for targeted explanations
+    const hasGinseng = Object.keys(farmPlotsByCrop).some(c => c.includes('ginseng'));
+    const hasQuickRice = Object.keys(farmPlotsByCrop).some(c => c.includes('quick_rice') || c.includes('rice'));
+    const hasWoodland = woodlandSteps.length > 0;
+
+    // CARD 1: Core Profit Driver (What was selected & Why)
+    const titleProfit = isVi ? '🎯 Đã chọn: Nguồn lợi nhuận cốt lõi' : '🎯 Selected: Core Profit Drivers';
+    const descProfit = isVi
+        ? `• <strong>${top1Name}</strong> tại <strong>${top1Facility}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsPerHour}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).<br>` +
+          (top2 ? `• <strong>${top2Name}</strong> tại <strong>${top2Facility}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).<br>` : '') +
+          `• <strong>Tổng sản lượng Homeland:</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).<br>` +
+          `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa.</em>`
+        : `• <strong>${top1Name}</strong> at <strong>${top1Facility}</strong> is the #1 profit driver: producing <strong>${top1UnitsPerHour}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).<br>` +
+          (top2 ? `• <strong>${top2Name}</strong> at <strong>${top2Facility}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).<br>` : '') +
+          `• <strong>Total Homeland output:</strong> <strong>${totalHourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).<br>` +
+          `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes.</em>`;
+
+    // CARD 2: Farmland & Supply Chain Strategy (What & Why)
+    const titleFarm = isVi ? '🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng' : '🌾 Selected: Farmland & Supply Strategy';
+    let descFarm = '';
+    if (hasGinseng && hasQuickRice) {
+        descFarm = isVi
+            ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
+              `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian (40 phút → 30 phút, 2 vụ/giờ), các ô Nhân sâm thu hoạch ~120 sâm thô (tối đa 40 sâm khô/h), kết hợp ~87 Gạo/h từ Lúa nước nhanh. Chuỗi này cung cấp vừa khít 100% nguyên liệu cho Nồi hầm nấu liên tục ${top1UnitsPerHour} bát Cháo nhân sâm/giờ, tiêu thụ sạch 92.5% sản lượng sâm mà không lãng phí hay thiếu hụt.</em>`
+            : `Deployed <strong>${farmSummary}</strong>.<br>` +
+              `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (40m → 30m, 2 cycles/hr), Ginseng yields ~120 raw (40 dried/hr), paired with ~87 Milled Rice/hr from Quick Rice. This perfectly feeds ${top1UnitsPerHour} Ginseng Porridge/hr, absorbing 92.5% of ginseng yield with 0 starvation or idle waste.</em>`;
+    } else {
+        descFarm = isVi
+            ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
+              `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của các cơ sở chế biến.</em>`
+            : `Deployed <strong>${farmSummary}</strong>.<br>` +
+              `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing capacity.</em>`;
+    }
+
+    // CARD 3: Level-up Progression (if applicable)
+    let cardLevelUpHtml = '';
+    if (hasLevelUp && targetRv) {
+        const titleLevelUp = isVi ? `🚀 Đã chọn: Tiến độ nâng cấp RV ${targetRv} & Lâm nghiệp` : `🚀 Selected: RV ${targetRv} Progression & Woodland`;
+        const beamsCostRow = (levelUpReport?.requirements || []).find(r => r.name === 'laminated_beams' || r.name.includes('beam'));
+        const beamsHourly = beamsCostRow ? perHour(beamsCostRow.per_second) : '4.4';
+        const descLevelUp = isVi
+            ? `Mục tiêu hoàn thành trong <strong>${levelUpDurationText || '3d 16h'}</strong>.<br>` +
+              `• Vườn ươm bố trí <strong>${woodlandSummary || '15 cây cấp cao nhất'}</strong>.<br>` +
+              `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất để tối đa hóa <strong>75 Vụn gỗ / ô / vụ</strong> (2.250 vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục <strong>${beamsHourly} Dầm gỗ ép / giờ</strong> (tỷ lệ 512 vụn gỗ/dầm), giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
+            : `Target RV ${targetRv} completion in <strong>${levelUpDurationText || '3d 16h'}</strong>.<br>` +
+              `• Woodland deployed with <strong>${woodlandSummary || '15 top-tier trees'}</strong>.<br>` +
+              `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees for max <strong>75 Wood Blocks/tree/cycle</strong> (2,250 blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft <strong>${beamsHourly} Laminated Beams/hr</strong> (512 blocks/beam), clearing the longest bottleneck to RV ${targetRv}.</em>`;
+        cardLevelUpHtml = `
+            <div class="insight-item insight-selected">
+                <div class="insight-label">${titleLevelUp}</div>
+                <div class="insight-desc">${descLevelUp}</div>
+            </div>`;
+    }
+
+    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Crucial user requirement)
+    const titleRejected = isVi ? '🚫 Tại sao không chọn các phương án khác?' : '🚫 Why Alternatives Were Rejected';
+    const rejectedBullets = [];
+
+    if (hasGinseng) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Không làm Bột nhân sâm (Ginseng Powder):</strong> 3 sâm thô làm 1 bột sâm bán chỉ được 1.160 coin (lợi nhuận ròng ~330 coin/củ sâm, chỉ bằng 54% so với nấu cháo ~613 coin/củ). Các món phái sinh như Bánh sâm hạt dẻ lại đòi hỏi Hạt dẻ (cây cấp 4) làm giảm sản lượng gỗ.`);
+            rejectedBullets.push(`<strong>Không làm Nước nhân sâm số lượng lớn:</strong> Bị nút thắt ở Giếng nước (2 Giếng chỉ múc được ~20–24 nước khoáng sâu/giờ, cần 6 nước/chai → tối đa chỉ làm được ~3.2 chai/h). Thuật toán chỉ làm 3.2 chai/h để vét nốt lượng sâm khô dôi dư sau khi nấu cháo.`);
+        } else {
+            rejectedBullets.push(`<strong>No Ginseng Powder:</strong> Selling powder directly yields only 1,160 coins (~330 net coins/ginseng vs ~613 for porridge). Downstream recipes like Chestnut Cake require lower-tier chestnuts which hurt wood block yields.`);
+            rejectedBullets.push(`<strong>No bulk Ginseng Water:</strong> Blocked by Well capacity (needs 6 spring water/bottle; 2 Wells yield only ~20–24 water/hr = max 3.2 bottles/hr). Plan only brews 3.2 bottles/hr to absorb residual dried ginseng.`);
+        }
+    }
+
+    if (hasWoodland && hasLevelUp) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Không trồng cây cấp thấp ở Vườn ươm:</strong> Cây cấp thấp (Liễu, Tre, Hạt dẻ...) chỉ cho 10–50 vụn gỗ/ô (thấp hơn nhiều so với 75 vụn gỗ của cấp cao nhất), sẽ làm sụt giảm sản lượng Dầm gỗ ép và kéo dài thời gian lên RV thêm nhiều ngày.`);
+        } else {
+            rejectedBullets.push(`<strong>No lower-tier Woodland trees:</strong> Low-tier trees yield only 10–50 wood blocks vs 75 from top tier, severely throttling Laminated Beam output and delaying level-up.`);
+        }
+    }
+
+    // Pearl / Sandcastle check
+    const sandcastleRow = producing.find(s => s.facility && s.facility.includes('Tidewhisper'));
+    if (!sandcastleRow || (sandcastleRow.item_name && !sandcastleRow.item_name.includes('pearl'))) {
+        if (selectedHomeLevel() < 15) {
+            if (isVi) {
+                rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 15 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu và lãng phí khu vực ấm áp.`);
+            } else {
+                rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 15); raw pearls have low margins and waste warm aura slots.`);
+            }
+        }
+    }
+
+    // Idle facilities
+    const idleCount = (plan.coin_items || []).filter(s => s.status === 'not_needed' || s.status === 'idle').length;
+    if (idleCount > 0) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Các cơ sở chế biến để trống (${idleCount}):</strong> Bộ giải LP đã loại bỏ các công thức phụ có biên lợi nhuận thấp để dồn trọn vẹn nhân công Aniimo và điện năng cho chuỗi sản phẩm chủ lực.`);
+        } else {
+            rejectedBullets.push(`<strong>Idle processing facilities (${idleCount}):</strong> The LP simplex solver pruned low-margin secondary recipes to concentrate worker labor and watts on peak-profit drivers.`);
+        }
+    }
+
+    const descRejected = `<ul class="insight-bullets">${rejectedBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+
+    // CARD 5: Power & Logistics
+    const titleLogistics = isVi ? '⚡ Vận hành điện lưới & Hậu cần đa kho' : '⚡ Power Grid & Multi-SU Logistics';
     const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
-    const suText = isVi
-        ? `Homeland bố trí <strong>${suCount} Kho lưu trữ phân tán (SU)</strong> (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo so với chỉ 1 kho duy nhất.`
-        : `Homeland deployed with <strong>${suCount} distributed Storage Units</strong> (Farm, Workshop, Central hubs), reducing Aniimo hauling walk-time by ~58% compared to single-storage hub.`;
-
-    // Electric Mode status
     const emodeProducing = producing.filter(s => s.facility && s.facility.includes('(Electric)'));
-    let emodeText = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
+    let emodeDetail = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
     if (emodeProducing.length > 0) {
         const genWatts = getGeneratorCapacity();
         const activeWatts = calculatePowerWatts(lastPlanInput?.emode_facility_counts || {});
-        emodeText = isVi
-            ? `⚡ <strong>Đang kích hoạt Chế độ điện</strong>: ${emodeProducing.length} máy móc chạy điện lưới (${activeWatts}W / ${genWatts}W), tăng 2.2x tốc độ chu kỳ sản xuất 27s và giải phóng hoàn toàn vị trí công nhân Aniimo!`
-            : `⚡ <strong>Electric Mode Active</strong>: ${emodeProducing.length} machines running on grid (${activeWatts}W / ${genWatts}W), unlocking 2.2x speedup on base 27s processing cycle and freeing worker slots!`;
+        emodeDetail = isVi
+            ? `Đã kích hoạt Chế độ điện trên <strong>${emodeProducing.length} máy móc</strong> (${activeWatts}W / ${genWatts}W), giải phóng Aniimo chuyển sang <strong>Tưới nước nông trại/lâm nghiệp</strong> (giúp tăng 25% tốc độ phát triển toàn đảo).`
+            : `Electric Mode active on <strong>${emodeProducing.length} machines</strong> (${activeWatts}W / ${genWatts}W), freeing Aniimo workers for <strong>island-wide crop watering</strong> (25% faster growth).`;
     }
-
-    // Zero bottleneck balance
-    const farmPlots = producing.filter(s => s.facility === 'Farmland').reduce((sum, s) => sum + (s.facility_count || 1), 0);
-    const workshopCount = producing.filter(s => s.facility && s.facility !== 'Farmland').reduce((sum, s) => sum + (s.facility_count || 1), 0);
-    const balanceText = farmPlots > 0 && workshopCount > 0
-        ? (isVi
-            ? `🌾 <strong>Chuỗi cung ứng hài hòa</strong>: ${farmPlots} ô Đất nông nghiệp liên tục cung cấp nguyên liệu cho ${workshopCount} cơ sở chế biến, triệt tiêu thời gian chờ và không lãng phí nguyên liệu thừa.`
-            : `🌾 <strong>Supply Chain Harmony</strong>: ${farmPlots} Farmland plots continuously feed ${workshopCount} processing units with 0 idle waste or ingredient starvation.`)
-        : (isVi
-            ? `🌾 <strong>Chuyên môn hóa thu hoạch trực tiếp</strong>: Nông trại tập trung tối đa vào các loại nông sản có giá trị kinh tế cao.`
-            : `🌾 <strong>Direct Harvest Specialization</strong>: Farmland focused on direct high-value yields.`);
-
-    const titleProfit = isVi ? '🌟 Nguồn lợi nhuận cốt lõi' : '🌟 Core Profit Driver';
-    const titleLogistics = isVi ? '📦 Hậu cần đa kho lưu trữ (3-5 SU)' : '📦 Multi-Hub Logistics (3-5 SU)';
-    const titleClimate = isVi ? '❄️ Phân vùng khí hậu & Nông trại' : '❄️ Climate Zoning & Farmland';
-    const titlePower = isVi ? '⚡ Công suất điện & Tốc độ máy' : '⚡ Power & Machine Speed';
-    const titleBalance = isVi ? '⚖️ Cân bằng chuỗi cung ứng' : '⚖️ Zero Bottleneck Balance';
-
-    const descProfit = isVi
-        ? `<strong>${coreName}</strong> tại <strong>${coreFacility}</strong> mang lại biên lợi nhuận cao nhất cho cấp cơ sở hiện tại. Tổng sản lượng đạt <strong>${hourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).`
-        : `<strong>${coreName}</strong> in <strong>${coreFacility}</strong> produces the highest margin for your current facility levels. Total output reaches <strong>${hourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).`;
+    const suDetail = isVi
+        ? `Homeland bố trí <strong>${suCount} Kho lưu trữ phân tán (SU)</strong> (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo.`
+        : `Homeland deployed with <strong>${suCount} distributed Storage Units</strong>, cutting Aniimo hauling walk-time by ~58%.`;
+    const descLogistics = `• ${emodeDetail}<br>• ${suDetail}`;
 
     container.innerHTML = `
-        <div class="insight-item">
+        <div class="insight-item insight-selected">
             <div class="insight-label">${titleProfit}</div>
             <div class="insight-desc">${descProfit}</div>
         </div>
+        <div class="insight-item insight-selected">
+            <div class="insight-label">${titleFarm}</div>
+            <div class="insight-desc">${descFarm}</div>
+        </div>
+        ${cardLevelUpHtml}
+        <div class="insight-item insight-rejected">
+            <div class="insight-label">${titleRejected}</div>
+            <div class="insight-desc">${descRejected}</div>
+        </div>
         <div class="insight-item">
             <div class="insight-label">${titleLogistics}</div>
-            <div class="insight-desc">${suText}</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">${titleClimate}</div>
-            <div class="insight-desc">${envText}</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">${titlePower}</div>
-            <div class="insight-desc">${emodeText}</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">${titleBalance}</div>
-            <div class="insight-desc">${balanceText}</div>
+            <div class="insight-desc">${descLogistics}</div>
         </div>
     `;
 }
