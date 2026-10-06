@@ -8,14 +8,14 @@ export const FACILITY_ICONS = {
   "Woodland": "aniimo-woodland-lv1-2-homeland.webp",
   "Mine": "aniimo-mine-lv1-3-homeland.webp",
   "Well": "aniimo-well-homeland.webp",
-  "Blazing Stove": "aniimo-stove-homeland.webp",
-  "Claw Game Cooker": "aniimo-claw-game-cooker-homeland.webp",
+  "Blazing Stove": "aniimo-blazing-stove-homeland.webp",
+  "Claw Game Cooker": "aniimo-claw-game-cooker-lv1-4-homeland.webp",
   "Simmering Pot": "aniimo-simmering-pot-homeland.webp",
-  "Bouncy Brew Keg": "aniimo-bouncy-brew-keg-homeland.webp",
-  "Carousel Mill": "aniimo-carousel-mill-homeland.webp",
-  "Joy Wheel Loom": "aniimo-joy-wheel-loom-homeland.webp",
-  "Jukebox Dryer": "aniimo-jukebox-dryer-homeland.webp",
-  "Crafting Table": "aniimo-crafting-table-homeland.webp",
+  "Bouncy Brew Keg": "aniimo-bouncy-brew-keg-lv1-2-homeland.webp",
+  "Carousel Mill": "aniimo-carousel-mill-lv1-3-homeland.webp",
+  "Joy Wheel Loom": "aniimo-joy-wheel-loom-lv1-homeland.webp",
+  "Jukebox Dryer": "aniimo-jukebox-dryer-lv1-3-homeland.webp",
+  "Crafting Table": "aniimo-crafting-table-lv1-4-homeland.webp",
   "Woodworking Bench": "aniimo-woodworking-bench-homeland.webp",
   "Chimney Kiln": "aniimo-chimney-kiln-homeland.webp",
   "Dewy House": "aniimo-dewy-house-homeland.webp",
@@ -24,7 +24,7 @@ export const FACILITY_ICONS = {
   "Floral Windmill": "aniimo-floral-windmill-homeland.webp",
   "Starfall Hammock": "aniimo-starfall-hammock-homeland.webp",
   "Dance Pad Polisher": "aniimo-dance-pad-polisher-homeland.webp",
-  "Phonolfactory Table": "aniimo-phonolfactory-table-homeland.webp",
+  "Phonolfactory Table": "aniimo-phonolfactory-table-lv1-2-homeland.webp",
   "Aniipod Maker": "aniimo-aniipod-maker-homeland.webp",
   "Heat Furnace": "aniimo-heat-furnace-homeland.webp",
   "Cooling Unit": "aniimo-cooling-unit-homeland.webp",
@@ -66,9 +66,10 @@ export function itemToSlug(itemName) {
         'quick-milled-rice': 'milled-rice',
         'copper-ore': 'copper-ore',
         'quick-copper-ore': 'copper-ore',
-        'quick-fragrant-jelly': 'fragrant-jelly',
+        'quick-fragrant-jelly': 'aromathyst',
+        'fragrant-jelly': 'aromathyst',
         'quick-sea-salt': 'sea-salt',
-        'quick-lambswool': 'lambswool',
+        'quick-lambswool': 'wool',
         'quick-scales': 'scales',
         'quick-aromathyst': 'aromathyst'
     };
@@ -88,14 +89,52 @@ export function itemToSlug(itemName) {
 
 /**
  * Get facility icon URL.
+ * Supports Vietnamese names, Electric/Manual suffixes, and standard English names.
  * @param {string} facilityName
  * @returns {string}
  */
 export function getFacilityIconUrl(facilityName) {
-    const file = FACILITY_ICONS[facilityName];
+    if (!facilityName) return '';
+    let name = facilityName.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+
+    const VI_TO_EN = {
+        "Đất nông nghiệp": "Farmland",
+        "Lâm nghiệp": "Woodland",
+        "Mỏ khoáng": "Mine",
+        "Giếng nước": "Well",
+        "Bếp lửa Blazing": "Blazing Stove",
+        "Nồi gắp kẹo": "Claw Game Cooker",
+        "Nồi hầm": "Simmering Pot",
+        "Thùng ủ lên men": "Bouncy Brew Keg",
+        "Cối xay Carousel": "Carousel Mill",
+        "Khung dệt bánh xe": "Joy Wheel Loom",
+        "Máy sấy Jukebox": "Jukebox Dryer",
+        "Bàn chế tạo": "Crafting Table",
+        "Bàn mộc": "Woodworking Bench",
+        "Lò nung ống khói": "Chimney Kiln",
+        "Nhà sương mai": "Dewy House",
+        "Giường mây Nimbus": "Nimbus Bed",
+        "Lâu đài cát Tidewhisper": "Tidewhisper Sandcastle",
+        "Cối xay gió Floral": "Floral Windmill",
+        "Võng sao Starfall": "Starfall Hammock",
+        "Bàn chà thảm nhảy": "Dance Pad Polisher",
+        "Bàn điều hương Phonolfactory": "Phonolfactory Table",
+        "Máy làm Aniipod": "Aniipod Maker",
+        "Lò sưởi ấm": "Heat Furnace",
+        "Thiết bị làm mát": "Cooling Unit",
+        "Đèn mặt trời": "Sunlamp",
+        "Hũ muối chua": "Pickling Jar"
+    };
+
+    if (VI_TO_EN[name]) {
+        name = VI_TO_EN[name];
+    }
+
+    const file = FACILITY_ICONS[name];
     if (file) return `${CDN_BASE}${file}`;
+
     // Fallback: slugify facility name
-    const slug = facilityName.toLowerCase().replace(/\s+/g, '-');
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
     return `${CDN_BASE}aniimo-${slug}-homeland.webp`;
 }
 

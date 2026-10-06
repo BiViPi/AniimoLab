@@ -7,7 +7,7 @@ import {
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
 } from './facility-config.js?v=aniimolab_v8';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel } from './aniimo-data.js?v=aniimolab_v17';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v13';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v14';
 
 let wasmReady = false;
 
@@ -3146,8 +3146,18 @@ function renderProfitBreakdown(plan) {
     const rows = [...streams]
         .sort((a, b) => b.rate_per_second - a.rate_per_second)
         .map(s => `<tr>
-            <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">${prettyItem(s.item_name)}</td>
-            <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">${getFacilityDisplayName(s.facility)}</td>
+            <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">
+                <div class="item-cell">
+                    ${renderItemIcon(s.item_name)}
+                    <span class="item-name-text">${prettyItem(s.item_name)}</span>
+                </div>
+            </td>
+            <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">
+                <div class="facility-cell">
+                    ${renderFacilityIcon(s.facility)}
+                    <span class="facility-name-text">${getFacilityDisplayName(s.facility)}</span>
+                </div>
+            </td>
             <td data-label="${isVi ? 'Bán / giờ' : 'Sold per hour'}">${perHour(s.units_per_second)}</td>
             <td data-label="${isVi ? 'Lợi nhuận / giờ' : 'Profit per hour'}">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
             <td data-label="${isVi ? 'Tỷ lệ' : 'Share'}">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
@@ -3538,7 +3548,6 @@ function planRows(rows) {
                             <div class="item-cell">
                                 ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
                                 ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
-                                ${step.item_name && step.status === 'producing' ? `<button type="button" class="skip-row" data-skip="${step.item_name}" title="Can't make this? Skip it and plan again" aria-label="Skip ${prettyItem(step.item_name)} and plan again">✕</button>` : ''}
                             </div>
                         </td>
                         <td data-label="Aniimo">${aniimoLabel(step)}</td>
