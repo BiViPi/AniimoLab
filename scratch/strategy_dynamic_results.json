@@ -1,0 +1,46 @@
+{
+  "rv12": [
+    {
+      "label": "🎯 Đã chọn: Nguồn lợi nhuận cốt lõi",
+      "desc": "• Nhân sâm sấy khô tại Máy sấy Jukebox là trụ cột lợi nhuận số 1: sản xuất 40/giờ, đem về 42,560 coin / giờ (chiếm 36% tổng doanh thu).• Các loại hạt tại Máy sấy Jukebox là nguồn thu lớn thứ 2: đem về 22,632 coin / giờ (19%).• Tổng sản lượng Homeland: đạt 118,876 coin / giờ (33).Tại sao chọn: Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV 12."
+    },
+    {
+      "label": "🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng",
+      "desc": "Bố trí 20 ô Nhân sâm, 4 ô Mía, 1 ô Nho, 1 ô Lúa nước nhanh.Tại sao chọn: Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của Máy sấy Jukebox (40 Nhân sâm sấy khô/giờ) cùng các cơ sở chế biến trên đảo."
+    },
+    {
+      "label": "🚀 Đã chọn: Tiến độ nâng cấp RV 13 & Lâm nghiệp",
+      "desc": "Mục tiêu hoàn thành trong 2d 16h.• Vườn ươm bố trí 7 cây Hạt dẻ, 6 cây Quả óc chó.Tại sao chọn: Khóa Vườn ươm ở cây cấp cao nhất (Cấp 4) để tối đa hóa 47 Vụn gỗ / cây / vụ (~1,222 vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục 19 Ván gỗ tiêu chuẩn / giờ, giải quyết nút thắt chậm nhất để cán đích RV 13 sớm nhất."
+    },
+    {
+      "label": "🚫 Tại sao không chọn các phương án khác?",
+      "desc": "Không trồng cây cấp thấp ở Vườn ươm: Cây cấp thấp (Liễu, Tre, Anh đào, Táo...) chỉ cho từ 1 đến 21 vụn gỗ/ô (thấp hơn nhiều so với 47 vụn gỗ của cây Cấp 4 cao nhất), sẽ làm sụt giảm sản lượng Ván gỗ tiêu chuẩn và kéo dài thời gian lên RV 13.Không làm Bột nhân sâm (Ginseng Powder): 3 sâm thô làm 1 bột sâm bán có lợi nhuận ròng thấp hơn nhiều so với nấu Cháo nhân sâm. Các món chế biến sâu từ bột sâm như Bánh sâm hạt dẻ lại đòi hỏi cây cấp thấp làm giảm sản lượng gỗ.Không làm Nước nhân sâm số lượng lớn: Tiêu tốn thêm tài nguyên nước từ Giếng và có tỷ suất lợi nhuận trên thời gian chế biến thấp hơn so với Cháo nhân sâm.Các cơ sở chế biến để trống (2): Bộ giải LP đã loại bỏ các công thức phụ có biên lợi nhuận thấp để dồn trọn vẹn nhân công Aniimo và điện năng cho chuỗi sản phẩm chủ lực."
+    },
+    {
+      "label": "⚡ Vận hành điện lưới & Hậu cần đa kho",
+      "desc": "• Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.• Homeland bố trí 3 Kho lưu trữ phân tán (SU) (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo."
+    }
+  ],
+  "rv14": [
+    {
+      "label": "🎯 Đã chọn: Nguồn lợi nhuận cốt lõi",
+      "desc": "• Nho khô tại Máy sấy Jukebox là trụ cột lợi nhuận số 1: sản xuất 56/giờ, đem về 64,624 coin / giờ (chiếm 41% tổng doanh thu).• Cơm dừa sấy tại Máy sấy Jukebox là nguồn thu lớn thứ 2: đem về 41,850 coin / giờ (27%).• Tổng sản lượng Homeland: đạt 156,279 coin / giờ (43).Tại sao chọn: Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV 14."
+    },
+    {
+      "label": "🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng",
+      "desc": "Bố trí 28 ô Nho, 2 ô Lúa nước nhanh.Tại sao chọn: Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của Máy sấy Jukebox (56 Nho khô/giờ) cùng các cơ sở chế biến trên đảo."
+    },
+    {
+      "label": "🚀 Đã chọn: Tiến độ nâng cấp RV 15 & Lâm nghiệp",
+      "desc": "Mục tiêu hoàn thành trong 3d 16h.• Vườn ươm bố trí 15 cây Dừa.Tại sao chọn: Khóa Vườn ươm ở cây cấp cao nhất (Cấp 5) để tối đa hóa 75 Vụn gỗ / cây / vụ (~2,250 vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục 4.4 Dầm gỗ ép / giờ, giải quyết nút thắt chậm nhất để cán đích RV 15 sớm nhất."
+    },
+    {
+      "label": "🚫 Tại sao không chọn các phương án khác?",
+      "desc": "Không trồng cây cấp thấp ở Vườn ươm: Cây cấp thấp (Liễu, Tre, Hạt dẻ, Quả óc chó...) chỉ cho từ 1 đến 47 vụn gỗ/ô (thấp hơn nhiều so với 75 vụn gỗ của cây Cấp 5 cao nhất), sẽ làm sụt giảm sản lượng Dầm gỗ ép và kéo dài thời gian lên RV 15.Không chế ngọc trai (Lâu đài cát): Chưa mở khóa Bàn chế tạo Lv.6 ở RV 15 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu (45 phút) và lãng phí khu vực ấm áp.Các cơ sở chế biến để trống (2): Bộ giải LP đã loại bỏ các công thức phụ có biên lợi nhuận thấp để dồn trọn vẹn nhân công Aniimo và điện năng cho chuỗi sản phẩm chủ lực."
+    },
+    {
+      "label": "⚡ Vận hành điện lưới & Hậu cần đa kho",
+      "desc": "• Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.• Homeland bố trí 3 Kho lưu trữ phân tán (SU) (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo."
+    }
+  ]
+}

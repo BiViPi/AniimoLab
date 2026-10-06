@@ -5578,6 +5578,32 @@ function renderInsights(plan) {
     const top2FacilityRaw = top2?.facility ? top2.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : '';
     const top2Facility = getFacilityDisplayName(top2FacilityRaw);
 
+    const homeLevel = selectedHomeLevel();
+    const { facilities: setupFacilities } = simpleSetup(homeLevel);
+    const woodlandTier = setupFacilities['Woodland']?.[0]?.level || 1;
+
+    // Wood block yield by Woodland facility tier (from data/woodland.csv byproduct_yield)
+    const WOOD_YIELDS_BY_TIER = { 1: 1, 2: 8, 3: 21, 4: 47, 5: 75, 6: 122 };
+    const maxYieldPerTree = WOOD_YIELDS_BY_TIER[woodlandTier] || 47;
+    const lowerTierMaxYield = WOOD_YIELDS_BY_TIER[woodlandTier - 1] || 1;
+
+    // Lower tier tree examples by current woodland tier
+    const lowerTierTreesExampleVi = {
+        2: 'Liễu',
+        3: 'Liễu, Tre, Chanh',
+        4: 'Liễu, Tre, Anh đào, Táo',
+        5: 'Liễu, Tre, Hạt dẻ, Quả óc chó',
+        6: 'Liễu, Tre, Cao su, Cây dừa'
+    }[woodlandTier] || 'Liễu, Tre';
+
+    const lowerTierTreesExampleEn = {
+        2: 'Willow',
+        3: 'Willow, Bamboo, Lemon',
+        4: 'Willow, Bamboo, Cherry Blossom, Apple',
+        5: 'Willow, Bamboo, Chestnut, Walnut',
+        6: 'Willow, Bamboo, Rubber, Coconut'
+    }[woodlandTier] || 'Willow, Bamboo';
+
     // 2. Farmland distribution
     const farmSteps = producing.filter(s => s.facility === 'Farmland');
     const farmPlotsByCrop = {};
@@ -5599,12 +5625,24 @@ function renderInsights(plan) {
     }
     const woodlandSummaryParts = Object.entries(woodlandPlotsByCrop).map(([crop, count]) => `${count} cây ${prettyItem(crop)}`);
     const woodlandSummary = woodlandSummaryParts.join(', ');
+    const totalTrees = Object.values(woodlandPlotsByCrop).reduce((sum, n) => sum + n, 0);
+    const totalHourlyWood = totalTrees * maxYieldPerTree * 2; // 2 harvests/hr with watering
 
     // 4. Level-up context
     const hasLevelUp = !!(plan.level_up && planContext?.levelUp);
-    const targetRv = planContext?.target || (plan.level_up ? selectedHomeLevel() + 1 : null);
+    const targetRv = planContext?.target || (plan.level_up ? homeLevel + 1 : null);
     const levelUpReport = plan.level_up;
     const levelUpDurationText = levelUpReport ? formatDuration(levelUpReport.seconds) : '';
+
+    // Identify target RV wood material requirement
+    const targetRvReqs = LEVEL_UP_COSTS[targetRv]?.items || [];
+    const targetWoodItemEntry = targetRvReqs.find(([name]) => 
+        ['wood_block', 'rough_lumber', 'standard_planks', 'laminated_beams', 'densified_timber_component'].includes(name)
+    );
+    const targetWoodItemKey = targetWoodItemEntry ? targetWoodItemEntry[0] : (targetRv <= 6 ? 'wood_block' : targetRv <= 10 ? 'rough_lumber' : targetRv <= 14 ? 'standard_planks' : targetRv <= 18 ? 'laminated_beams' : 'densified_timber_component');
+    const targetWoodItemName = prettyItem(targetWoodItemKey);
+    const woodCostRow = (levelUpReport?.requirements || []).find(r => r.name === targetWoodItemKey || r.name.includes(targetWoodItemKey));
+    const woodItemHourly = woodCostRow ? perHour(woodCostRow.per_second) : '';
 
     // Check specific items in plan for targeted explanations
     const hasGinseng = Object.keys(farmPlotsByCrop).some(c => c.includes('ginseng'));
@@ -5617,42 +5655,44 @@ function renderInsights(plan) {
         ? `• <strong>${top1Name}</strong> tại <strong>${top1Facility}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsPerHour}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).<br>` +
           (top2 ? `• <strong>${top2Name}</strong> tại <strong>${top2Facility}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).<br>` : '') +
           `• <strong>Tổng sản lượng Homeland:</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).<br>` +
-          `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa.</em>`
+          `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.</em>`
         : `• <strong>${top1Name}</strong> at <strong>${top1Facility}</strong> is the #1 profit driver: producing <strong>${top1UnitsPerHour}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).<br>` +
           (top2 ? `• <strong>${top2Name}</strong> at <strong>${top2Facility}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).<br>` : '') +
           `• <strong>Total Homeland output:</strong> <strong>${totalHourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).<br>` +
-          `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes.</em>`;
+          `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.</em>`;
 
     // CARD 2: Farmland & Supply Chain Strategy (What & Why)
     const titleFarm = isVi ? '🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng' : '🌾 Selected: Farmland & Supply Strategy';
     let descFarm = '';
-    if (hasGinseng && hasQuickRice) {
+    const isGinsengPorridgeCore = (top1Name.toLowerCase().includes('cháo') || top1Name.toLowerCase().includes('porridge')) && (top1FacilityRaw.includes('Pot') || top1FacilityRaw.includes('hầm'));
+    if (hasGinseng && isGinsengPorridgeCore) {
+        const ginsengPlots = farmPlotsByCrop['ginseng'] || farmPlotsByCrop['quick_ginseng'] || 0;
+        const ricePlots = farmPlotsByCrop['rice'] || farmPlotsByCrop['quick_rice'] || 0;
         descFarm = isVi
             ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian (40 phút → 30 phút, 2 vụ/giờ), các ô Nhân sâm thu hoạch ~120 sâm thô (tối đa 40 sâm khô/h), kết hợp ~87 Gạo/h từ Lúa nước nhanh. Chuỗi này cung cấp vừa khít 100% nguyên liệu cho Nồi hầm nấu liên tục ${top1UnitsPerHour} bát Cháo nhân sâm/giờ, tiêu thụ sạch 92.5% sản lượng sâm mà không lãng phí hay thiếu hụt.</em>`
+              `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), các ô Nhân sâm (${ginsengPlots} ô) và Lúa nước (${ricePlots} ô) cung cấp vừa khít nguồn nguyên liệu sạch cho Nồi hầm nấu liên tục <strong>${top1UnitsPerHour} ${top1Name}/giờ</strong>, đồng bộ 100% giữa khâu trồng trọt và khâu chế biến mà không gây ùn ứ hay thiếu hụt nguyên liệu.</em>`
             : `Deployed <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (40m → 30m, 2 cycles/hr), Ginseng yields ~120 raw (40 dried/hr), paired with ~87 Milled Rice/hr from Quick Rice. This perfectly feeds ${top1UnitsPerHour} Ginseng Porridge/hr, absorbing 92.5% of ginseng yield with 0 starvation or idle waste.</em>`;
+              `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), Ginseng plots (${ginsengPlots}) and Rice plots (${ricePlots}) provide perfectly synchronized inputs to keep Simmering Pot crafting <strong>${top1UnitsPerHour} ${top1Name}/hr</strong> with zero idle waste.</em>`;
     } else {
         descFarm = isVi
             ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của các cơ sở chế biến.</em>`
+              `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/giờ) cùng các cơ sở chế biến trên đảo.</em>`
             : `Deployed <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing capacity.</em>`;
+              `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing throughput at <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/hr).</em>`;
     }
 
     // CARD 3: Level-up Progression (if applicable)
     let cardLevelUpHtml = '';
     if (hasLevelUp && targetRv) {
         const titleLevelUp = isVi ? `🚀 Đã chọn: Tiến độ nâng cấp RV ${targetRv} & Lâm nghiệp` : `🚀 Selected: RV ${targetRv} Progression & Woodland`;
-        const beamsCostRow = (levelUpReport?.requirements || []).find(r => r.name === 'laminated_beams' || r.name.includes('beam'));
-        const beamsHourly = beamsCostRow ? perHour(beamsCostRow.per_second) : '4.4';
+        const woodRateText = woodItemHourly ? `<strong>${woodItemHourly} ${targetWoodItemName} / giờ</strong>` : `<strong>${targetWoodItemName}</strong>`;
         const descLevelUp = isVi
-            ? `Mục tiêu hoàn thành trong <strong>${levelUpDurationText || '3d 16h'}</strong>.<br>` +
-              `• Vườn ươm bố trí <strong>${woodlandSummary || '15 cây cấp cao nhất'}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất để tối đa hóa <strong>75 Vụn gỗ / ô / vụ</strong> (2.250 vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục <strong>${beamsHourly} Dầm gỗ ép / giờ</strong> (tỷ lệ 512 vụn gỗ/dầm), giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
-            : `Target RV ${targetRv} completion in <strong>${levelUpDurationText || '3d 16h'}</strong>.<br>` +
-              `• Woodland deployed with <strong>${woodlandSummary || '15 top-tier trees'}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees for max <strong>75 Wood Blocks/tree/cycle</strong> (2,250 blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft <strong>${beamsHourly} Laminated Beams/hr</strong> (512 blocks/beam), clearing the longest bottleneck to RV ${targetRv}.</em>`;
+            ? `Mục tiêu hoàn thành trong <strong>${levelUpDurationText || 'kế hoạch tối ưu'}</strong>.<br>` +
+              `• Vườn ươm bố trí <strong>${woodlandSummary || `${totalTrees} cây cấp cao nhất`}</strong>.<br>` +
+              `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất (Cấp ${woodlandTier}) để tối đa hóa <strong>${maxYieldPerTree} Vụn gỗ / cây / vụ</strong> (~${totalHourlyWood.toLocaleString()} vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục ${woodRateText}, giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
+            : `Target RV ${targetRv} completion in <strong>${levelUpDurationText || 'optimal time'}</strong>.<br>` +
+              `• Woodland deployed with <strong>${woodlandSummary || `${totalTrees} top-tier trees`}</strong>.<br>` +
+              `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees (Tier ${woodlandTier}) for max <strong>${maxYieldPerTree} Wood Blocks/tree/cycle</strong> (~${totalHourlyWood.toLocaleString()} blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft ${woodRateText}, clearing the longest bottleneck to RV ${targetRv}.</em>`;
         cardLevelUpHtml = `
             <div class="insight-item insight-selected">
                 <div class="insight-label">${titleLevelUp}</div>
@@ -5660,41 +5700,49 @@ function renderInsights(plan) {
             </div>`;
     }
 
-    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Crucial user requirement)
+    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Tailored strictly to current RV)
     const titleRejected = isVi ? '🚫 Tại sao không chọn các phương án khác?' : '🚫 Why Alternatives Were Rejected';
     const rejectedBullets = [];
 
-    if (hasGinseng) {
+    // 1. Woodland lower tier rejection (only when woodland is available, level-up is active, and there are lower tiers)
+    if (hasWoodland && hasLevelUp && woodlandTier > 1) {
         if (isVi) {
-            rejectedBullets.push(`<strong>Không làm Bột nhân sâm (Ginseng Powder):</strong> 3 sâm thô làm 1 bột sâm bán chỉ được 1.160 coin (lợi nhuận ròng ~330 coin/củ sâm, chỉ bằng 54% so với nấu cháo ~613 coin/củ). Các món phái sinh như Bánh sâm hạt dẻ lại đòi hỏi Hạt dẻ (cây cấp 4) làm giảm sản lượng gỗ.`);
-            rejectedBullets.push(`<strong>Không làm Nước nhân sâm số lượng lớn:</strong> Bị nút thắt ở Giếng nước (2 Giếng chỉ múc được ~20–24 nước khoáng sâu/giờ, cần 6 nước/chai → tối đa chỉ làm được ~3.2 chai/h). Thuật toán chỉ làm 3.2 chai/h để vét nốt lượng sâm khô dôi dư sau khi nấu cháo.`);
+            rejectedBullets.push(`<strong>Không trồng cây cấp thấp ở Vườn ươm:</strong> Cây cấp thấp (${lowerTierTreesExampleVi}...) chỉ cho từ 1 đến ${lowerTierMaxYield} vụn gỗ/ô (thấp hơn nhiều so với ${maxYieldPerTree} vụn gỗ của cây Cấp ${woodlandTier} cao nhất), sẽ làm sụt giảm sản lượng ${targetWoodItemName} và kéo dài thời gian lên RV ${targetRv}.`);
         } else {
-            rejectedBullets.push(`<strong>No Ginseng Powder:</strong> Selling powder directly yields only 1,160 coins (~330 net coins/ginseng vs ~613 for porridge). Downstream recipes like Chestnut Cake require lower-tier chestnuts which hurt wood block yields.`);
-            rejectedBullets.push(`<strong>No bulk Ginseng Water:</strong> Blocked by Well capacity (needs 6 spring water/bottle; 2 Wells yield only ~20–24 water/hr = max 3.2 bottles/hr). Plan only brews 3.2 bottles/hr to absorb residual dried ginseng.`);
+            rejectedBullets.push(`<strong>No lower-tier Woodland trees:</strong> Lower-tier trees (${lowerTierTreesExampleEn}...) yield only 1–${lowerTierMaxYield} wood blocks vs ${maxYieldPerTree} from top Tier ${woodlandTier}, severely throttling ${targetWoodItemName} output and delaying RV ${targetRv}.`);
         }
     }
 
-    if (hasWoodland && hasLevelUp) {
+    // 2. Ginseng alternatives (only at RV >= 12 where Ginseng exists, and Ginseng is part of the plan)
+    if (homeLevel >= 12 && hasGinseng) {
         if (isVi) {
-            rejectedBullets.push(`<strong>Không trồng cây cấp thấp ở Vườn ươm:</strong> Cây cấp thấp (Liễu, Tre, Hạt dẻ...) chỉ cho 10–50 vụn gỗ/ô (thấp hơn nhiều so với 75 vụn gỗ của cấp cao nhất), sẽ làm sụt giảm sản lượng Dầm gỗ ép và kéo dài thời gian lên RV thêm nhiều ngày.`);
+            rejectedBullets.push(`<strong>Không làm Bột nhân sâm (Ginseng Powder):</strong> 3 sâm thô làm 1 bột sâm bán có lợi nhuận ròng thấp hơn nhiều so với nấu Cháo nhân sâm. Các món chế biến sâu từ bột sâm như Bánh sâm hạt dẻ lại đòi hỏi cây cấp thấp làm giảm sản lượng gỗ.`);
+            rejectedBullets.push(`<strong>Không làm Nước nhân sâm số lượng lớn:</strong> Tiêu tốn thêm tài nguyên nước từ Giếng và có tỷ suất lợi nhuận trên thời gian chế biến thấp hơn so với Cháo nhân sâm.`);
         } else {
-            rejectedBullets.push(`<strong>No lower-tier Woodland trees:</strong> Low-tier trees yield only 10–50 wood blocks vs 75 from top tier, severely throttling Laminated Beam output and delaying level-up.`);
+            rejectedBullets.push(`<strong>No Ginseng Powder:</strong> Selling powder directly yields lower net profit than Porridge, and downstream products like Chestnut Cake require lower-tier trees that hurt wood block yields.`);
+            rejectedBullets.push(`<strong>No bulk Ginseng Water:</strong> Consumes scarce well water and has lower coin yield per worker second than Porridge.`);
         }
     }
 
-    // Pearl / Sandcastle check
-    const sandcastleRow = producing.find(s => s.facility && s.facility.includes('Tidewhisper'));
-    if (!sandcastleRow || (sandcastleRow.item_name && !sandcastleRow.item_name.includes('pearl'))) {
-        if (selectedHomeLevel() < 15) {
-            if (isVi) {
-                rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 15 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu và lãng phí khu vực ấm áp.`);
-            } else {
-                rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 15); raw pearls have low margins and waste warm aura slots.`);
-            }
+    // 3. Pearl check: Only applies when Sandcastle Lv.3 (Pearl) is unlocked (RV 13-14) but Crafting Table Lv.6 (Pearl Necklace) is not yet unlocked (RV 15)
+    if (homeLevel >= 13 && homeLevel < 15) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 15 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu (45 phút) và lãng phí khu vực ấm áp.`);
+        } else {
+            rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 15); raw pearls have low margins and waste warm aura slots.`);
         }
     }
 
-    // Idle facilities
+    // 4. Harvest Moon event dish prioritization (if festival active)
+    if (seasonActive() && selectedSeasonDishes.size > 0) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Ưu tiên công thức Lễ hội Trung thu:</strong> Khóa các ô nông trại chuyên dụng cho Củ cải và Ớt sự kiện để gom nguyên liệu đổi thưởng mùa vụ, chủ động chấp nhận điều chỉnh nhẹ doanh thu coin thuần túy để hoàn thành nhiệm vụ sự kiện.`);
+        } else {
+            rejectedBullets.push(`<strong>Prioritizing Harvest Moon dishes:</strong> Dedicated plots reserved for festival crops to farm event rewards, intentionally trading off pure coin optimization for season progression.`);
+        }
+    }
+
+    // 5. Idle facilities
     const idleCount = (plan.coin_items || []).filter(s => s.status === 'not_needed' || s.status === 'idle').length;
     if (idleCount > 0) {
         if (isVi) {
