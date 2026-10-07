@@ -343,13 +343,13 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     const emodeCounts = {};
     let usedWatts = 0;
 
-    // Chiến lược 1: Cấp điện cho Nồi hầm (Simmering Pot - 60W)
+    // Chiến lược 1: Cấp điện cho Nồi hầm (Simmering Pot - 75W)
     // Cấp điện ở 120% tốn 90s/cháo (so với 45s của Aniimo Lửa cấp 4), vừa giải phóng 1 Aniimo Lửa,
     // vừa khớp hoàn hảo với nhịp thu hoạch 2 vụ sâm/giờ mà không ngốn cạn nhân sâm và lúa mì.
     const potSeasonUsage = typeof getSeasonFacilityUsage === 'function' && seasonActive() ? (getSeasonFacilityUsage(basePlan.rate_per_second)['Simmering Pot'] || 0) : 0;
     const availablePots = Math.max(0, (ownedCounts['Simmering Pot'] || 0) - potSeasonUsage);
     const activePots = activeCounts['Simmering Pot'] || 0;
-    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 60;
+    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 75;
     if (availablePots >= 1 && activePots >= 1 && usedWatts + potWatts <= maxWatts) {
         emodeCounts['Simmering Pot'] = 1;
         usedWatts += potWatts;
