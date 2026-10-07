@@ -5,9 +5,9 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v23';
-import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v23';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v23';
+} from './facility-config.js?v=aniimolab_v24';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v24';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v24';
 
 let wasmReady = false;
 
@@ -21,7 +21,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?v=aniimolab_v23&load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v24&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -189,7 +189,9 @@ function showSelectedPlan() {
     pending.style.display = 'none';
     lastPlan = plan;
     displayPlan(plan);
-    if (plan.success) {
+    const isLevelUpRequested = planContext ? planContext.levelUp : isLevelUpStrategy();
+    const planViable = plan.success && (!isLevelUpRequested || Boolean(plan.level_up));
+    if (planViable) {
         runTimeToGoal();
         rankImprovementsFor(setup);
     } else {
@@ -289,7 +291,7 @@ export function attachProductionAniimoCapHandlers() {
             if (val > max) val = max;
             capInput.value = String(val);
             localStorage.setItem('aniimax_production_aniimo_cap', String(val));
-            renderAniimoTeam();
+            if (lastPlan) renderAniimoSummary(lastPlan);
         });
         capInput.addEventListener('input', () => {
             const val = parseInt(capInput.value, 10);
@@ -338,7 +340,35 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         }
     }
 
-    // 2. Rank by facility revenue from income streams
+    const emodeCounts = {};
+    let usedWatts = 0;
+
+    // Chiến lược 1: Cấp điện cho Nồi hầm (Simmering Pot - 60W)
+    // Cấp điện ở 120% tốn 90s/cháo (so với 45s của Aniimo Lửa cấp 4), vừa giải phóng 1 Aniimo Lửa,
+    // vừa khớp hoàn hảo với nhịp thu hoạch 2 vụ sâm/giờ mà không ngốn cạn nhân sâm và lúa mì.
+    const potSeasonUsage = typeof getSeasonFacilityUsage === 'function' && seasonActive() ? (getSeasonFacilityUsage(basePlan.rate_per_second)['Simmering Pot'] || 0) : 0;
+    const availablePots = Math.max(0, (ownedCounts['Simmering Pot'] || 0) - potSeasonUsage);
+    const activePots = activeCounts['Simmering Pot'] || 0;
+    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 60;
+    if (availablePots >= 1 && activePots >= 1 && usedWatts + potWatts <= maxWatts) {
+        emodeCounts['Simmering Pot'] = 1;
+        usedWatts += potWatts;
+    }
+
+    // Chiến lược 2: Cấp điện cho Giếng nước (Well - 120W mỗi giếng)
+    // Mỗi giếng nước cấp điện giải phóng 1 Aniimo Thủy quý giá chuyển sang tưới nước cho nông trại/lâm nghiệp (+33.3% tốc độ sinh trưởng).
+    const activeWells = activeCounts['Well'] || 0;
+    const wellWatts = FACILITY_POWER_WATTS['Well'] || 120;
+    if (activeWells > 0) {
+        for (let w = 0; w < activeWells; w++) {
+            if (usedWatts + wellWatts <= maxWatts) {
+                emodeCounts['Well'] = (emodeCounts['Well'] || 0) + 1;
+                usedWatts += wellWatts;
+            }
+        }
+    }
+
+    // Rank remaining active processors by revenue from income streams
     const facRevenue = {};
     for (const s of basePlan.income_streams || []) {
         if (s.facility) {
@@ -347,28 +377,13 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         }
     }
 
-    const emodeCounts = {};
-    let usedWatts = 0;
-
-    // Special rule for Simmering Pot:
-    // Only electrify Simmering Pot if at least 2 pots are available and not already occupied by festival dishes
-    // or if manual ginseng congee is not starving plots.
-    const potSeasonUsage = typeof getSeasonFacilityUsage === 'function' ? (getSeasonFacilityUsage(basePlan.rate_per_second)['Simmering Pot'] || 0) : 0;
-    const availablePots = Math.max(0, (ownedCounts['Simmering Pot'] || 0) - potSeasonUsage);
-    const hasGinsengCongee = (basePlan.coin_items || []).some(s => s.item_name === 'ginseng_congee');
-    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 60;
-    if (availablePots >= 2 && !hasGinsengCongee && usedWatts + potWatts <= maxWatts) {
-        emodeCounts['Simmering Pot'] = 1;
-        usedWatts += potWatts;
-    }
-
-    // 3. Sort other facilities by revenue descending
-    const sortedFacs = Object.keys(activeCounts)
-        .filter(f => f !== 'Simmering Pot')
+    // Ưu tiên các cơ sở chế biến chính (Bàn chế tạo, Máy sấy, Cối xay, Khung dệt)
+    // Tránh điện hóa Phonolfactory Table do bị nghẽn đầu vào aromathyst từ Dewy House
+    const otherFacs = Object.keys(activeCounts)
+        .filter(f => f !== 'Simmering Pot' && f !== 'Well' && f !== 'Phonolfactory Table')
         .sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
 
-    // 4. Greedily allocate remaining watts to other active processors (Fruit Dryer, Millstone, etc.)
-    for (const fac of sortedFacs) {
+    for (const fac of otherFacs) {
         const w = FACILITY_POWER_WATTS[fac] || 0;
         if (w <= 0) continue;
         const totalUnits = activeCounts[fac];
@@ -3319,7 +3334,29 @@ export const SEASON_DISH_DATA = {
         pepper: 8,
         sellValue: 5290,
         points: 8,
-        cycleTime: 203
+        cycleTime: 203,
+        // Chuỗi cơ sở bắt buộc trong game: Bàn chế tạo làm mâm cỗ + Bếp lửa lớn làm củ cải lát + Bếp gắp thú nướng ớt
+        facilityUsage: {
+            'Crafting Table': 1,
+            'Blazing Stove': 1,
+            'Claw Game Cooker': 1
+        },
+        prepChain: [
+            {
+                facility: 'Blazing Stove',
+                item_name: 'moondew_radish_slices',
+                cycleTime: 203,
+                reasonVi: 'Sơ chế Củ cải sấy lát cho Mâm cỗ trung thu',
+                reasonEn: 'Prep Radish Slices for Harvest Platter'
+            },
+            {
+                facility: 'Claw Game Cooker',
+                item_name: 'roasted_waxing_moon_pepper',
+                cycleTime: 162,
+                reasonVi: 'Sơ chế Ớt nướng trăng cho Mâm cỗ trung thu',
+                reasonEn: 'Prep Roasted Pepper for Harvest Platter'
+            }
+        ]
     },
     umbral_sweet_and_spicy_sauce: {
         name: 'umbral_sweet_and_spicy_sauce',
@@ -3328,7 +3365,8 @@ export const SEASON_DISH_DATA = {
         pepper: 8,
         sellValue: 2390,
         points: 8,
-        cycleTime: 203
+        cycleTime: 203,
+        facilityUsage: { 'Simmering Pot': 1 }
     },
     umbral_pickle: {
         name: 'umbral_pickle',
@@ -3337,7 +3375,8 @@ export const SEASON_DISH_DATA = {
         pepper: 8,
         sellValue: 2290,
         points: 8,
-        cycleTime: 203
+        cycleTime: 203,
+        facilityUsage: { 'Pickling Jar': 1 }
     },
     umbral_hot_pot: {
         name: 'umbral_hot_pot',
@@ -3346,7 +3385,8 @@ export const SEASON_DISH_DATA = {
         pepper: 8,
         sellValue: 2150,
         points: 8,
-        cycleTime: 203
+        cycleTime: 203,
+        facilityUsage: { 'Blazing Stove': 1 }
     },
     moondew_radish_slices: {
         name: 'moondew_radish_slices',
@@ -3355,7 +3395,8 @@ export const SEASON_DISH_DATA = {
         pepper: 0,
         sellValue: 2370,
         points: 4,
-        cycleTime: 203
+        cycleTime: 203,
+        facilityUsage: { 'Blazing Stove': 1 }
     },
     roasted_waxing_moon_pepper: {
         name: 'roasted_waxing_moon_pepper',
@@ -3364,16 +3405,17 @@ export const SEASON_DISH_DATA = {
         pepper: 8,
         sellValue: 1520,
         points: 4,
-        cycleTime: 162
+        cycleTime: 162,
+        facilityUsage: { 'Claw Game Cooker': 1 }
     }
 };
 
 /**
- * Lựa chọn các món ăn sự kiện tối ưu theo 5 quy tắc của anh Phú:
+ * Lựa chọn các món ăn sự kiện tối ưu theo các quy tắc:
  * 1. Không món ăn nào giúp tăng doanh thu hoặc share < 2% -> bỏ qua, không chọn tất cả.
- * 2. Chỉ 1 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chỉ chọn 1 để sản xuất, bỏ qua còn lại.
- * 3. 2 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chọn 2 để sản xuất, bỏ qua còn lại.
- * 4. Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện.
+ * 2. Chỉ 1 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chỉ chọn 1 để sản xuất.
+ * 3. 2 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chọn 2 để sản xuất.
+ * 4. Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện (phải sở hữu đủ cơ sở trong chuỗi).
  */
 export function selectOptimalSeasonDishes(planRateEstimate = 40) {
     if (!seasonActive()) return [];
@@ -3389,31 +3431,45 @@ export function selectOptimalSeasonDishes(planRateEstimate = 40) {
     const userChecked = SEASON_RECIPES.filter(r => selectedSeasonDishes.has(r.name));
     if (userChecked.length === 0) return [];
 
+    // Kiểm tra số lượng cơ sở người chơi sở hữu ở cấp RV hiện tại
+    const currentSetup = simpleSetup(selectedHomeLevel()).facilities;
+    function hasSufficientFacilities(dish) {
+        const usage = dish.facilityUsage || { [dish.facility]: 1 };
+        for (const [fac, reqCount] of Object.entries(usage)) {
+            const owned = currentSetup[fac]?.[0]?.count || 0;
+            if (owned < reqCount) return false;
+        }
+        return true;
+    }
+
     const evaluated = [];
     const baselineRate = Math.max(15, planRateEstimate || 40);
 
     for (const r of userChecked) {
         const info = SEASON_DISH_DATA[r.name];
         if (!info) continue;
+        if (!hasSufficientFacilities(info)) continue;
 
-        let maxRate = 0;
+        // Công suất trần của 1 cơ sở:
+        const maxFacCapacity = 1 / (info.cycleTime || 203);
+
+        let availUnits = 0;
         let rawRate = 0;
-        let maxUnits = 0;
 
         if (info.radish > 0 && info.pepper > 0) {
-            maxUnits = Math.min(radishPerSec / info.radish, pepperPerSec / info.pepper);
-            maxRate = maxUnits * info.sellValue;
-            rawRate = maxUnits * (info.radish * 74 + info.pepper * 74);
+            availUnits = Math.min(radishPerSec / info.radish, pepperPerSec / info.pepper);
+            rawRate = Math.min(availUnits, maxFacCapacity) * (info.radish * 74 + info.pepper * 74);
         } else if (info.radish > 0) {
-            maxUnits = radishPerSec / info.radish;
-            maxRate = maxUnits * info.sellValue;
-            rawRate = maxUnits * (info.radish * 74);
+            availUnits = radishPerSec / info.radish;
+            rawRate = Math.min(availUnits, maxFacCapacity) * (info.radish * 74);
         } else if (info.pepper > 0) {
-            maxUnits = pepperPerSec / info.pepper;
-            maxRate = maxUnits * info.sellValue;
-            rawRate = maxUnits * (info.pepper * 74);
+            availUnits = pepperPerSec / info.pepper;
+            rawRate = Math.min(availUnits, maxFacCapacity) * (info.pepper * 74);
         }
 
+        // Bị chặn trên bởi công suất tối đa của cơ sở chế biến (tránh kế hoạch ảo)
+        const maxUnits = Math.min(availUnits, maxFacCapacity);
+        const maxRate = maxUnits * info.sellValue;
         const extraGain = maxRate - rawRate;
         const share = maxRate / (baselineRate + maxRate);
 
@@ -3443,11 +3499,20 @@ export function selectOptimalSeasonDishes(planRateEstimate = 40) {
     const top1 = evaluated[0];
     const top2 = evaluated[1];
 
+    function hasFacilityConflict(dishA, dishB) {
+        const usageA = dishA.facilityUsage || { [dishA.facility]: 1 };
+        const usageB = dishB.facilityUsage || { [dishB.facility]: 1 };
+        for (const fac of Object.keys(usageA)) {
+            if (usageB[fac]) return true;
+        }
+        return false;
+    }
+
     // Quy tắc 3: Kiểm tra xem có thể chọn 2 món bổ trợ không
-    // 3a. Hai món đơn không trùng nguyên liệu và cơ sở (1 món củ cải, 1 món ớt)
+    // 3a. Hai món đơn không trùng nguyên liệu và không trùng bất kỳ cơ sở nào
     if ((top1.radish > 0 && top1.pepper === 0 && top2.pepper > 0 && top2.radish === 0) ||
         (top1.pepper > 0 && top1.radish === 0 && top2.radish > 0 && top2.pepper === 0)) {
-        if (top1.facility !== top2.facility) {
+        if (!hasFacilityConflict(top1, top2)) {
             return [top1, top2];
         }
     }
@@ -3455,30 +3520,33 @@ export function selectOptimalSeasonDishes(planRateEstimate = 40) {
     // 3b. Top 1 là món combo nhưng thừa nguyên liệu và có món đơn tận dụng phần thừa (khác cơ sở)
     if (top1.radish > 0 && top1.pepper > 0) {
         if (radishPlots > pepperPlots) {
-            const singleRadish = evaluated.find(d => d.radish > 0 && d.pepper === 0);
-            if (singleRadish && singleRadish.share >= 0.02 && singleRadish.facility !== top1.facility) {
+            const singleRadish = evaluated.find(d => d.radish > 0 && d.pepper === 0 && !hasFacilityConflict(top1, d));
+            if (singleRadish && singleRadish.share >= 0.02) {
                 return [top1, singleRadish];
             }
         } else if (pepperPlots > radishPlots) {
-            const singlePepper = evaluated.find(d => d.pepper > 0 && d.radish === 0);
-            if (singlePepper && singlePepper.share >= 0.02 && singlePepper.facility !== top1.facility) {
+            const singlePepper = evaluated.find(d => d.pepper > 0 && d.radish === 0 && !hasFacilityConflict(top1, d));
+            if (singlePepper && singlePepper.share >= 0.02) {
                 return [top1, singlePepper];
             }
         }
     }
 
-    // Quy tắc 2: Các trường hợp còn lại (2 món combo cạnh tranh nguyên liệu, trùng cơ sở, hoặc tốn thêm cơ sở không đáng kể) -> chỉ chọn 1 món tốt nhất
+    // Quy tắc 2: Các trường hợp còn lại (2 món combo cạnh tranh nguyên liệu hoặc trùng cơ sở) -> chỉ chọn 1 món tốt nhất
     return [top1];
 }
 
 /**
- * Trả về số lượng cơ sở mà các món ăn sự kiện được chọn sẽ chiếm dụng
+ * Trả về số lượng cơ sở mà các món ăn sự kiện được chọn sẽ chiếm dụng (tính cả chuỗi sơ chế)
  */
 export function getSeasonFacilityUsage(planRateEstimate = 40) {
     const dishes = selectOptimalSeasonDishes(planRateEstimate);
     const usage = {};
     for (const d of dishes) {
-        usage[d.facility] = (usage[d.facility] || 0) + 1;
+        const facUsage = d.facilityUsage || { [d.facility]: 1 };
+        for (const [fac, count] of Object.entries(facUsage)) {
+            usage[fac] = (usage[fac] || 0) + count;
+        }
     }
     return usage;
 }
@@ -3532,7 +3600,7 @@ function getPlanInputValues() {
             facilities['Farmland'][0].count = Math.max(0, totalFarmland - dedicated);
         }
 
-        // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn
+        // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn (bao gồm cả chuỗi sơ chế)
         const eventFacUsage = getSeasonFacilityUsage();
         for (const [fac, count] of Object.entries(eventFacUsage)) {
             if (facilities[fac] && facilities[fac][0]) {
@@ -3602,22 +3670,26 @@ function integrateSeasonPlan(plan) {
         });
     }
 
-    // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo 5 quy tắc
+    // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo các quy tắc
     const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
 
     for (const dish of optimalDishes) {
-        let units = 0;
+        const maxFacCapacity = 1 / (dish.cycleTime || 203);
+        let availUnits = 0;
+
         if (dish.radish > 0 && dish.pepper > 0) {
-            units = Math.min(radishPerSec / dish.radish, pepperPerSec / dish.pepper);
-            radishPerSec = Math.max(0, radishPerSec - units * dish.radish);
-            pepperPerSec = Math.max(0, pepperPerSec - units * dish.pepper);
+            availUnits = Math.min(radishPerSec / dish.radish, pepperPerSec / dish.pepper);
         } else if (dish.radish > 0) {
-            units = radishPerSec / dish.radish;
-            radishPerSec = 0;
+            availUnits = radishPerSec / dish.radish;
         } else if (dish.pepper > 0) {
-            units = pepperPerSec / dish.pepper;
-            pepperPerSec = 0;
+            availUnits = pepperPerSec / dish.pepper;
         }
+
+        // Bị chặn trên bởi công suất tối đa của cơ sở chế biến
+        const units = Math.min(availUnits, maxFacCapacity);
+
+        if (dish.radish > 0) radishPerSec = Math.max(0, radishPerSec - units * dish.radish);
+        if (dish.pepper > 0) pepperPerSec = Math.max(0, pepperPerSec - units * dish.pepper);
 
         if (units > 1e-7) {
             const coinsPerSec = units * dish.sellValue;
@@ -3625,7 +3697,23 @@ function integrateSeasonPlan(plan) {
             extraCoinsRate += coinsPerSec;
             seasonPointsRate += ptsPerSec;
 
-            // Quy tắc 4: Món sự kiện được phân bổ chính xác 1 cơ sở (đã được trừ trước từ ownedCounts)
+            // 1. Nếu món có chuỗi sơ chế (ví dụ Mâm cỗ trung thu cần Củ cải sấy lát và Ớt nướng trăng):
+            if (dish.prepChain) {
+                for (const prep of dish.prepChain) {
+                    newSteps.push({
+                        facility: prep.facility,
+                        item_name: prep.item_name,
+                        facility_count: 1,
+                        status: 'producing',
+                        cycle_time: prep.cycleTime,
+                        is_grower: false,
+                        reason: isVi ? prep.reasonVi : prep.reasonEn,
+                        environment: null
+                    });
+                }
+            }
+
+            // 2. Thêm cơ sở chính hoàn thiện món
             newSteps.push({
                 facility: dish.facility,
                 item_name: dish.name,
@@ -3637,6 +3725,7 @@ function integrateSeasonPlan(plan) {
                 environment: null
             });
 
+            // 3. Dòng tiền bán món ăn ra thị trường
             newStreams.push({
                 item_name: dish.name,
                 facility: dish.facility,
@@ -3651,7 +3740,7 @@ function integrateSeasonPlan(plan) {
         }
     }
 
-    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm
+    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm (giá 74 coin)
     if (radishPerSec > 1e-7) {
         const coinsPerSec = radishPerSec * 74;
         const ptsPerSec = radishPerSec * 1;
@@ -3714,6 +3803,170 @@ function integrateSeasonPlan(plan) {
         level_up: updatedLevelUp
     };
 }
+
+/**
+ * Tính toán số lượng ô đất Củ cải và Ớt tối ưu (Sweet Spot) để đạt năng suất cao nhất:
+ * Cân bằng chính xác giữa năng lực tiêu thụ của cơ sở chế biến và diện tích đất Farmland dành cho cây trồng giá trị cao (Nhân sâm).
+ */
+export function calculateOptimalSeasonPlots(dishes, homeLevel) {
+    if (!dishes || dishes.length === 0) {
+        return { radish: 0, pepper: 0, dishNames: [] };
+    }
+
+    let reqRadishPerSec = 0;
+    let reqPepperPerSec = 0;
+    const dishNames = [];
+
+    for (const d of dishes) {
+        dishNames.push(prettyItem(d.name));
+        const maxFacUnits = 1 / (d.cycleTime || 203);
+        if (d.radish > 0) reqRadishPerSec += d.radish * maxFacUnits;
+        if (d.pepper > 0) reqPepperPerSec += d.pepper * maxFacUnits;
+    }
+
+    // 1 ô Farmland tưới nước chu kỳ 1200s, sản lượng 8 quả -> 8 / 1200 = 1 / 150 quả/s (24 quả/giờ)
+    const yieldPerSecPerPlot = 8 / 1200;
+
+    let optRadish = reqRadishPerSec > 0 ? Math.round(reqRadishPerSec / yieldPerSecPerPlot) : 0;
+    let optPepper = reqPepperPerSec > 0 ? Math.round(reqPepperPerSec / yieldPerSecPerPlot) : 0;
+
+    // Điểm cân bằng ngọt ngào (Sweet spot) cho các món combo (Mâm cỗ trung thu, Sốt cay ngọt, Lẩu hắc ám):
+    // Với cycleTime ~203s, 8 / 203 * 150 = 5.91 ô. Mức 5 ô Củ cải + 5 ô Ớt (tổng 10 ô) là điểm cân bằng lý tưởng nhất,
+    // giữ lại đúng 10+ ô Farmland cho Nhân sâm để tối đa hóa tổng doanh thu toàn nông trại.
+    if (optRadish >= 5 && optRadish <= 6) optRadish = 5;
+    if (optPepper >= 5 && optPepper <= 6) optPepper = 5;
+
+    // Giới hạn trong khoảng [0, 10]
+    optRadish = Math.max(0, Math.min(10, optRadish));
+    optPepper = Math.max(0, Math.min(10, optPepper));
+
+    return {
+        radish: optRadish,
+        pepper: optPepper,
+        dishNames
+    };
+}
+
+/**
+ * Đánh giá và hiển thị Banner Đề xuất Tối ưu hóa Ô đất (Plots Optimization Advisory Banner)
+ */
+export function evaluatePlotsOptimization(plan) {
+    const bannerEl = document.getElementById('plots-optimization-banner');
+    if (!bannerEl) return;
+
+    if (!seasonActive() || !plan || !plan.success) {
+        bannerEl.style.display = 'none';
+        return;
+    }
+
+    const curR = seasonRadishPlots;
+    const curP = seasonPepperPlots;
+    const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+
+    // Trường hợp A: Người chơi đặt ô đất nhưng không có món sự kiện nào được chọn để chế biến
+    if (optimalDishes.length === 0) {
+        if (curR > 0 || curP > 0) {
+            bannerEl.innerHTML = `
+                <div class="plots-opt-content">
+                    <div class="plots-opt-icon">⚠️</div>
+                    <div class="plots-opt-text">
+                        <h4>${isVi ? 'Chưa chọn món chế biến Lễ hội' : 'No Festival Recipe Selected'}</h4>
+                        <p>
+                            ${isVi 
+                                ? `Hiện tại anh đang đặt <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
+                                : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
+                            }
+                        </p>
+                    </div>
+                </div>
+                <button class="btn-apply-plots-opt" onclick="window.applyOptimalPlots(0, 0)">
+                    ⚡ ${isVi ? 'Chuyển về 0 ô đất' : 'Reset to 0 plots'}
+                </button>
+            `;
+            bannerEl.style.display = 'flex';
+            return;
+        }
+        bannerEl.style.display = 'none';
+        return;
+    }
+
+    // Trường hợp B: Có món ăn sự kiện được chọn
+    const opt = calculateOptimalSeasonPlots(optimalDishes, selectedHomeLevel());
+    const optR = opt.radish;
+    const optP = opt.pepper;
+
+    // Nếu đã ở đúng mức tối ưu -> Ẩn banner
+    if (curR === optR && curP === optP) {
+        bannerEl.style.display = 'none';
+        return;
+    }
+
+    const diffR = curR - optR;
+    const diffP = curP - optP;
+    const overPlots = Math.max(0, diffR) + Math.max(0, diffP);
+    const underPlots = Math.max(0, -diffR) + Math.max(0, -diffP);
+
+    // Chỉ kích hoạt nhắc nhở nếu sai lệch đáng kể (>= 2 ô)
+    if (overPlots < 2 && underPlots < 2) {
+        bannerEl.style.display = 'none';
+        return;
+    }
+
+    const curRatePerHour = Math.round(plan.rate_per_second * 3600);
+    const dishListStr = opt.dishNames.join(', ');
+
+    let explanation = '';
+    let gainPerHour = 0;
+
+    if (overPlots >= 2) {
+        // Chọn quá nhiều ô đất -> Cơ sở bị nghẽn (bottleneck), chiếm dụng đất của Nhân sâm
+        gainPerHour = Math.round(overPlots * 3500);
+        const estOptRate = curRatePerHour + gainPerHour;
+        explanation = isVi
+            ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đã chạm trần công suất. Số ô nông sản dư thừa phải bán thô giá rẻ (74 coin), đồng thời chiếm dụng mất diện tích Farmland quý giá của Nhân sâm.<br>
+               👉 Mức cân bằng tối ưu nhất: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
+            : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Processing facilities for <em>${dishListStr}</em> are at maximum capacity. Excess harvest is sold raw at a discount (74 coins) while occupying valuable Farmland needed for Ginseng.<br>
+               👉 Optimal sweet spot: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
+    } else {
+        // Chọn quá ít ô đất -> Cơ sở bị đói nguyên liệu
+        gainPerHour = Math.round(underPlots * 2200);
+        const estOptRate = curRatePerHour + gainPerHour;
+        explanation = isVi
+            ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đang bị thiếu nguyên liệu, hoạt động dưới công suất tối đa.<br>
+               👉 Đề xuất nâng lên: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
+            : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Facilities for <em>${dishListStr}</em> are starved of ingredients and running below capacity.<br>
+               👉 Recommended setup: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
+    }
+
+    bannerEl.innerHTML = `
+        <div class="plots-opt-content">
+            <div class="plots-opt-icon">⚡</div>
+            <div class="plots-opt-text">
+                <h4>${isVi ? 'Đề xuất Cân bằng Ô đất Tối ưu (Optimal Plot Balancer)' : 'Optimal Plot Balance Recommendation'}</h4>
+                <p>${explanation}</p>
+            </div>
+        </div>
+        <button class="btn-apply-plots-opt" onclick="window.applyOptimalPlots(${optR}, ${optP})">
+            ⚡ ${isVi ? `Áp dụng ngay: ${optR} Củ cải & ${optP} Ớt` : `Apply: ${optR} Radish & ${optP} Pepper`}
+        </button>
+    `;
+    bannerEl.style.display = 'flex';
+}
+
+// Hàm tương tác 1-chạm cập nhật ô đất và tự động tính lại ngay lập tức
+window.applyOptimalPlots = function(radish, pepper) {
+    const radishInput = document.getElementById('season-radish-plots');
+    const pepperInput = document.getElementById('season-pepper-plots');
+    if (radishInput) radishInput.value = radish;
+    if (pepperInput) pepperInput.value = pepper;
+    seasonRadishPlots = radish;
+    seasonPepperPlots = pepper;
+    saveInputsToStorage();
+    if (typeof runFindPlan === 'function') {
+        runFindPlan();
+    }
+};
 
 // parseInt/parseFloat that fall back to `fallback` only when the input doesn't parse to a number
 // at all (blank/invalid); unlike `value || fallback`, these correctly keep a legitimate 0 (e.g.
@@ -3804,8 +4057,9 @@ export function renderInfeasibleExplanation(plan = null) {
     // 1. Phân tích nguyên nhân cụ thể
     const causes = [];
 
-    const wantsSauce = selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce');
-    const wantsHotpot = selectedSeasonDishes.has('umbral_hot_pot');
+    const isSeason = seasonActive();
+    const wantsSauce = isSeason && selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce');
+    const wantsHotpot = isSeason && selectedSeasonDishes.has('umbral_hot_pot');
     const hasSpecialGinseng = unlockedSpecial.has('ginseng_congee');
 
     if (wantsSauce && hasSpecialGinseng) {
@@ -3828,16 +4082,16 @@ export function renderInfeasibleExplanation(plan = null) {
         });
     }
 
-    // Nguyên nhân đất canh tác Farmland
-    const eventPlots = seasonRadishPlots + seasonPepperPlots;
+    // Nguyên nhân đất canh tác Farmland (chỉ khi sự kiện Trung Thu đang bật)
+    const eventPlots = isSeason ? (seasonRadishPlots + seasonPepperPlots) : 0;
     const totalFarmland = ownedCounts['Farmland'] || 30;
-    if (seasonActive() && eventPlots >= 4) {
+    if (isSeason && eventPlots >= 4) {
         causes.push({
             icons: [renderFacilityIcon('Farmland'), renderItemIcon('moondew_radish'), renderItemIcon('waxing_moon_pepper')],
             title: isVi ? 'Diện tích đất canh tác Farmland bị thu hẹp' : 'Farmland Crop Saturation',
             desc: isVi
-                ? `Đã dành <strong>${eventPlots}/${totalFarmland} ô đất</strong> cho Củ cải và Ớt sự kiện. Số ô đất còn lại (${totalFarmland - eventPlots} ô) không đủ để trồng nguyên liệu cho các sản phẩm chính và mục tiêu nâng cấp.`
-                : `Allocated <strong>${eventPlots}/${totalFarmland} plots</strong> to festival crops, leaving insufficient plots for core production.`
+                ? `Đã dành <strong>${eventPlots}/${totalFarmland} ô đất</strong> (${seasonRadishPlots} ô Củ cải & ${seasonPepperPlots} ô Ớt) cho nông sản sự kiện. Số ô đất còn lại (${totalFarmland - eventPlots} ô) không đủ để trồng nguyên liệu cho các sản phẩm chính và mục tiêu nâng cấp.${eventPlots > 10 ? ' Mức tối ưu khuyến nghị cho các cơ sở chế biến là 5 Củ cải & 5 Ớt (tổng 10 ô); việc chọn từ 6 Củ cải & 6 Ớt trở lên (12 ô) sẽ làm tắc nghẽn chuỗi cung ứng và bóp nghẹt diện tích nâng cấp.' : ''}`
+                : `Allocated <strong>${eventPlots}/${totalFarmland} plots</strong> (${seasonRadishPlots} Radish & ${seasonPepperPlots} Pepper) to festival crops, leaving insufficient plots (${totalFarmland - eventPlots}) for core production and level-up.${eventPlots > 10 ? ' The sweet spot capacity is 5 Radish & 5 Pepper (10 plots); picking 6+ each (12+ plots) causes supply saturation and starves level-up materials.' : ''}`
         });
     }
 
@@ -3847,8 +4101,8 @@ export function renderInfeasibleExplanation(plan = null) {
             icons: [renderFacilityIcon('Woodworking Bench'), renderFacilityIcon('Chimney Kiln')],
             title: isVi ? `Xung đột mục tiêu Nâng cấp RV ${targetRv}` : `Conflict with RV ${targetRv} Level-Up Goal`,
             desc: isVi
-                ? `Chiến lược nâng cấp RV yêu cầu tập trung toàn bộ công nhân và tài nguyên vào Xưởng gỗ và Lò luyện quặng để sản xuất vật liệu nâng cấp. Sự cạnh tranh nhân lực và công suất từ các món ăn sự kiện khiến solver không thể lập lộ trình hoàn thành cấp độ.`
-                : `RV level-up demands full capacity on Woodworking Bench and Chimney Kiln, conflicting with chosen festival dishes.`
+                ? `Chiến lược nâng cấp RV yêu cầu tập trung toàn bộ công nhân và tài nguyên vào Xưởng gỗ và Lò luyện quặng để sản xuất vật liệu nâng cấp. Sự cạnh tranh nhân lực và công suất khiến solver không thể lập lộ trình hoàn thành cấp độ với thiết lập hiện tại.`
+                : `RV level-up demands full capacity on Woodworking Bench and Chimney Kiln, conflicting with other active resource demands.`
         });
     }
 
@@ -3865,29 +4119,49 @@ export function renderInfeasibleExplanation(plan = null) {
 
     // 2. Đề xuất giải pháp thông minh
     const recommendations = [];
-    recommendations.push(`
-        <li class="infeasible-rec-item">
-            <span>💡</span>
-            <span>${isVi ? 'Đổi sang món sự kiện tối ưu nhất:' : 'Switch to the highest-yield event dish:'} <strong>${isVi ? 'Đĩa tiệc mùa màng' : 'Harvest Platter'}</strong> ${renderItemIcon('harvest_platter')} (${isVi ? 'chế biến tại Bàn chế tạo' : 'at Crafting Table'} ${renderFacilityIcon('Crafting Table')}), giá bán cao nhất (5.290 coin/đĩa) và không tranh chấp Nồi hầm hay Bếp lửa lớn.</span>
-        </li>
-    `);
 
-    if (wantsHotpot || wantsSauce) {
-        const dishToDrop = wantsHotpot ? 'umbral_hot_pot' : 'umbral_sweet_and_spicy_sauce';
-        const dishName = wantsHotpot ? (isVi ? 'Lẩu hắc ám' : 'Umbral Hot Pot') : (isVi ? 'Sốt cay ngọt hắc ám' : 'Umbral Sweet and Spicy Sauce');
+    if (isSeason) {
         recommendations.push(`
             <li class="infeasible-rec-item">
                 <span>💡</span>
-                <span>${isVi ? 'Bỏ chọn món đang gây tắc nghẽn:' : 'Uncheck the conflicting dish:'} <strong>${dishName}</strong> ${renderItemIcon(dishToDrop)} ${isVi ? 'để giải phóng cơ sở cho sản xuất chính hoặc nâng cấp RV.' : 'to release the facility for core production.'}</span>
+                <span>${isVi ? 'Đổi sang món sự kiện tối ưu nhất:' : 'Switch to the highest-yield event dish:'} <strong>${isVi ? 'Đĩa tiệc mùa màng' : 'Harvest Platter'}</strong> ${renderItemIcon('harvest_platter')} (${isVi ? 'chế biến tại Bàn chế tạo' : 'at Crafting Table'} ${renderFacilityIcon('Crafting Table')}), giá bán cao nhất (5.290 coin/đĩa) và không tranh chấp Nồi hầm hay Bếp lửa lớn.</span>
             </li>
         `);
-    }
 
-    if (eventPlots > 4) {
+        if (wantsHotpot || wantsSauce) {
+            const dishToDrop = wantsHotpot ? 'umbral_hot_pot' : 'umbral_sweet_and_spicy_sauce';
+            const dishName = wantsHotpot ? (isVi ? 'Lẩu hắc ám' : 'Umbral Hot Pot') : (isVi ? 'Sốt cay ngọt hắc ám' : 'Umbral Sweet and Spicy Sauce');
+            recommendations.push(`
+                <li class="infeasible-rec-item">
+                    <span>💡</span>
+                    <span>${isVi ? 'Bỏ chọn món đang gây tắc nghẽn:' : 'Uncheck the conflicting dish:'} <strong>${dishName}</strong> ${renderItemIcon(dishToDrop)} ${isVi ? 'để giải phóng cơ sở cho sản xuất chính hoặc nâng cấp RV.' : 'to release the facility for core production.'}</span>
+                </li>
+            `);
+        }
+
+        if (eventPlots > 4) {
+            recommendations.push(`
+                <li class="infeasible-rec-item">
+                    <span>💡</span>
+                    <span>${isVi ? 'Cân bằng lại số ô đất sự kiện:' : 'Rebalance festival plots:'} ${isVi ? `Hạ số ô Củ cải (${seasonRadishPlots}) và Ớt (${seasonPepperPlots}) xuống mức cân bằng lý tưởng (<strong>5 ô Củ cải & 5 ô Ớt</strong>, hoặc 4 & 4) để giải phóng thêm diện tích Farmland cho chuỗi nguyên liệu nâng cấp RV.` : `Lower Radish and Pepper plots to the optimal sweet spot (<strong>5 Radish & 5 Pepper</strong>, or 4 & 4) to free farmland for level-up materials.`}</span>
+                </li>
+            `);
+        }
+    } else {
+        const currentAniimoCap = getProductionAniimoCap();
+        const maxAniimo = ANIIMO_MAX[currentRv - 1] || 38;
+        if (currentAniimoCap < maxAniimo) {
+            recommendations.push(`
+                <li class="infeasible-rec-item">
+                    <span>💡</span>
+                    <span>${isVi ? 'Tăng giới hạn công nhân Aniimo:' : 'Increase Aniimo worker cap:'} ${isVi ? `Hiện tại anh đang giới hạn <strong>${currentAniimoCap}/${maxAniimo}</strong> công nhân. Hãy nâng lên tối đa (${maxAniimo}) để giải phóng đủ nhân lực cho cả khâu trồng trọt và chế biến nâng cấp RV.` : `Currently capped at <strong>${currentAniimoCap}/${maxAniimo}</strong> workers. Increase to max (${maxAniimo}) to provide enough staffing for level-up.`}</span>
+                </li>
+            `);
+        }
         recommendations.push(`
             <li class="infeasible-rec-item">
                 <span>💡</span>
-                <span>${isVi ? 'Giảm số ô đất sự kiện:' : 'Reduce festival plots:'} ${isVi ? 'Hạ số ô Củ cải và Ớt xuống 2–4 ô để trả lại đất nông nghiệp cho nhân sâm và lúa mì.' : 'Lower Radish and Pepper plots to 2–4 to free farmland.'}</span>
+                <span>${isVi ? 'Điều chỉnh Chế độ điện (E-mode):' : 'Adjust Electric Mode:'} ${isVi ? 'Nếu việc kích hoạt điện lưới trên quá nhiều cơ sở gây tắc nghẽn chuỗi cung ứng, hãy thử giảm bớt số máy dùng điện hoặc chuyển sang chế độ thủ công tiêu chuẩn.' : 'Try reducing electrified machines to keep supply chains balanced.'}</span>
             </li>
         `);
     }
@@ -5024,7 +5298,7 @@ function updateRateUnitDisplays() {
 // Render a successfully computed plan: rate summary + facility plan table. Goal-independent,
 // called once per Calculate click (or facility/currency/module change), not on every goal
 // keystroke.
-function displayPlan(plan) {
+export function displayPlan(plan) {
     const resultsSection = document.getElementById('results-section');
     const errorEl = document.getElementById('error-message');
     const resultsContent = document.getElementById('results-content');
@@ -5034,7 +5308,8 @@ function displayPlan(plan) {
 
     const infeasibleEl = document.getElementById('infeasible-explanation-section');
 
-    if (!plan.success) {
+    const isLevelUpRequested = planContext ? planContext.levelUp : isLevelUpStrategy();
+    if (!plan.success || (isLevelUpRequested && !plan.level_up)) {
         goalSection.style.display = 'none';
         resultsContent.style.display = 'none';
         if (errorEl) errorEl.style.display = 'none';
@@ -5053,6 +5328,7 @@ function displayPlan(plan) {
     renderGoalTargets(plan);
     renderHomelandLayout(plan);
     renderInsights(plan);
+    evaluatePlotsOptimization(plan);
 
     // Said only when the plan might not be the best: the solver ran out of time, or the backup
     // planner made it.
@@ -5221,10 +5497,12 @@ async function runFindPlan() {
                 if (runId !== planRunId) return;
 
                 const emodePlan = JSON.parse(emodeJson);
-                if (emodePlan && emodePlan.success) {
+                const emodeViable = emodePlan && emodePlan.success && (!planContext?.levelUp || Boolean(emodePlan.level_up));
+                if (emodeViable) {
                     bestPlan = emodePlan;
                     finalEmodeCounts = allocatedCounts;
                 } else {
+                    console.warn('Emode solve was not viable for level-up or failed; safely keeping basePlan.');
                     bestPlan = basePlan;
                     finalEmodeCounts = {};
                     input.emode_facilities = [];
@@ -5264,7 +5542,8 @@ async function runFindPlan() {
         showSelectedPlan();
         updatePowerGauge(finalEmodeCounts);
         // With no plan there's nothing to lay out or improve on.
-        if (!plansBySetup[bestSetup].success && progress) {
+        const effectiveSuccess = plansBySetup[bestSetup].success && (!planContext?.levelUp || plansBySetup[bestSetup].level_up);
+        if (!effectiveSuccess && progress) {
             progress.steps.forEach(s => { if ((s.key === 'layout' || s.key === 'improve') && s.state === 'pending') s.state = 'skipped'; });
             renderProgress();
         }

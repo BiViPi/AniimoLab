@@ -903,6 +903,89 @@ p {
     vertical-align: middle;
 }
 
+/* Plots Optimization Advisory Banner */
+.plots-opt-banner {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(8px);
+}
+
+.plots-opt-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1;
+}
+
+.plots-opt-icon {
+    font-size: 2rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.plots-opt-text h4 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f59e0b;
+    margin: 0 0 0.35rem 0;
+}
+
+.plots-opt-text p {
+    font-size: 0.875rem;
+    color: var(--text);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.plots-opt-text strong {
+    color: #10b981;
+}
+
+.btn-apply-plots-opt {
+    background: linear-gradient(135deg, #f59e0b 0%, #10b981 100%);
+    color: #0b0f19;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-apply-plots-opt:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+}
+
+.btn-apply-plots-opt:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .plots-opt-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .btn-apply-plots-opt {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 /* Results Summary */
 .result-summary {
     margin-bottom: 1.5rem;

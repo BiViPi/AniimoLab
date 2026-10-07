@@ -21,3 +21,4 @@ target
 #.idea/
 # WASM build output
 web/pkg/
+scratch/
