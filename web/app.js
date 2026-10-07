@@ -351,12 +351,13 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     let usedWatts = 0;
 
     // Special rule for Simmering Pot:
-    // At RV 14, player has 4 Fire Aniimo (3 allocated to Chimney Kilns, exactly 1 Lv.4 Fire Aniimo remaining).
-    // In manual basePlan, the 2nd Simmering Pot was idle because of staffing.
-    // By electrifying exactly 1 Simmering Pot (60W), the 2nd pot produces automatically in parallel
-    // with the Lv.4 Fire manual pot (45s speed), consuming 26 Ginseng plots!
+    // Only electrify Simmering Pot if at least 2 pots are available and not already occupied by festival dishes
+    // or if manual ginseng congee is not starving plots.
+    const potSeasonUsage = typeof getSeasonFacilityUsage === 'function' ? (getSeasonFacilityUsage(basePlan.rate_per_second)['Simmering Pot'] || 0) : 0;
+    const availablePots = Math.max(0, (ownedCounts['Simmering Pot'] || 0) - potSeasonUsage);
+    const hasGinsengCongee = (basePlan.coin_items || []).some(s => s.item_name === 'ginseng_congee');
     const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 60;
-    if ((ownedCounts['Simmering Pot'] || 0) >= 2 && usedWatts + potWatts <= maxWatts) {
+    if (availablePots >= 2 && !hasGinsengCongee && usedWatts + potWatts <= maxWatts) {
         emodeCounts['Simmering Pot'] = 1;
         usedWatts += potWatts;
     }
@@ -3309,6 +3310,179 @@ function renderProfitBreakdown(plan) {
         </div>`;
 }
 
+// Metadata for Harvest Moon festival dishes
+export const SEASON_DISH_DATA = {
+    harvest_platter: {
+        name: 'harvest_platter',
+        facility: 'Crafting Table',
+        radish: 8,
+        pepper: 8,
+        sellValue: 5290,
+        points: 8,
+        cycleTime: 203
+    },
+    umbral_sweet_and_spicy_sauce: {
+        name: 'umbral_sweet_and_spicy_sauce',
+        facility: 'Simmering Pot',
+        radish: 8,
+        pepper: 8,
+        sellValue: 2390,
+        points: 8,
+        cycleTime: 203
+    },
+    umbral_pickle: {
+        name: 'umbral_pickle',
+        facility: 'Pickling Jar',
+        radish: 8,
+        pepper: 8,
+        sellValue: 2290,
+        points: 8,
+        cycleTime: 203
+    },
+    umbral_hot_pot: {
+        name: 'umbral_hot_pot',
+        facility: 'Blazing Stove',
+        radish: 8,
+        pepper: 8,
+        sellValue: 2150,
+        points: 8,
+        cycleTime: 203
+    },
+    moondew_radish_slices: {
+        name: 'moondew_radish_slices',
+        facility: 'Blazing Stove',
+        radish: 8,
+        pepper: 0,
+        sellValue: 2370,
+        points: 4,
+        cycleTime: 203
+    },
+    roasted_waxing_moon_pepper: {
+        name: 'roasted_waxing_moon_pepper',
+        facility: 'Claw Game Cooker',
+        radish: 0,
+        pepper: 8,
+        sellValue: 1520,
+        points: 4,
+        cycleTime: 162
+    }
+};
+
+/**
+ * Lựa chọn các món ăn sự kiện tối ưu theo 5 quy tắc của anh Phú:
+ * 1. Không món ăn nào giúp tăng doanh thu hoặc share < 2% -> bỏ qua, không chọn tất cả.
+ * 2. Chỉ 1 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chỉ chọn 1 để sản xuất, bỏ qua còn lại.
+ * 3. 2 món ăn giúp tăng nhiều nhất, còn lại không đáng kể / tốn nhiều cơ sở / trùng cơ sở / share < 2% -> chọn 2 để sản xuất, bỏ qua còn lại.
+ * 4. Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện.
+ */
+export function selectOptimalSeasonDishes(planRateEstimate = 40) {
+    if (!seasonActive()) return [];
+    const radishPlots = seasonRadishPlots;
+    const pepperPlots = seasonPepperPlots;
+    if (radishPlots <= 0 && pepperPlots <= 0) return [];
+
+    const cycleTime = 1200;
+    const yieldPerHarvest = 8;
+    const radishPerSec = (radishPlots * yieldPerHarvest) / cycleTime;
+    const pepperPerSec = (pepperPlots * yieldPerHarvest) / cycleTime;
+
+    const userChecked = SEASON_RECIPES.filter(r => selectedSeasonDishes.has(r.name));
+    if (userChecked.length === 0) return [];
+
+    const evaluated = [];
+    const baselineRate = Math.max(15, planRateEstimate || 40);
+
+    for (const r of userChecked) {
+        const info = SEASON_DISH_DATA[r.name];
+        if (!info) continue;
+
+        let maxRate = 0;
+        let rawRate = 0;
+        let maxUnits = 0;
+
+        if (info.radish > 0 && info.pepper > 0) {
+            maxUnits = Math.min(radishPerSec / info.radish, pepperPerSec / info.pepper);
+            maxRate = maxUnits * info.sellValue;
+            rawRate = maxUnits * (info.radish * 74 + info.pepper * 74);
+        } else if (info.radish > 0) {
+            maxUnits = radishPerSec / info.radish;
+            maxRate = maxUnits * info.sellValue;
+            rawRate = maxUnits * (info.radish * 74);
+        } else if (info.pepper > 0) {
+            maxUnits = pepperPerSec / info.pepper;
+            maxRate = maxUnits * info.sellValue;
+            rawRate = maxUnits * (info.pepper * 74);
+        }
+
+        const extraGain = maxRate - rawRate;
+        const share = maxRate / (baselineRate + maxRate);
+
+        // Quy tắc 1: Nếu món không làm tăng doanh thu hoặc share < 2% -> loại bỏ
+        if (extraGain > 0 && share >= 0.02 && maxUnits > 1e-7) {
+            evaluated.push({
+                ...info,
+                maxUnits,
+                maxRate,
+                extraGain,
+                share
+            });
+        }
+    }
+
+    // Quy tắc 1: Không món nào đạt tiêu chuẩn -> bỏ qua tất cả
+    if (evaluated.length === 0) return [];
+
+    // Sắp xếp theo doanh thu tối đa giảm dần
+    evaluated.sort((a, b) => b.maxRate - a.maxRate || b.points - a.points);
+
+    // Nếu chỉ có 1 món đạt chuẩn -> chọn 1 món (Quy tắc 2)
+    if (evaluated.length === 1) {
+        return [evaluated[0]];
+    }
+
+    const top1 = evaluated[0];
+    const top2 = evaluated[1];
+
+    // Quy tắc 3: Kiểm tra xem có thể chọn 2 món bổ trợ không
+    // 3a. Hai món đơn không trùng nguyên liệu và cơ sở (1 món củ cải, 1 món ớt)
+    if ((top1.radish > 0 && top1.pepper === 0 && top2.pepper > 0 && top2.radish === 0) ||
+        (top1.pepper > 0 && top1.radish === 0 && top2.radish > 0 && top2.pepper === 0)) {
+        if (top1.facility !== top2.facility) {
+            return [top1, top2];
+        }
+    }
+
+    // 3b. Top 1 là món combo nhưng thừa nguyên liệu và có món đơn tận dụng phần thừa (khác cơ sở)
+    if (top1.radish > 0 && top1.pepper > 0) {
+        if (radishPlots > pepperPlots) {
+            const singleRadish = evaluated.find(d => d.radish > 0 && d.pepper === 0);
+            if (singleRadish && singleRadish.share >= 0.02 && singleRadish.facility !== top1.facility) {
+                return [top1, singleRadish];
+            }
+        } else if (pepperPlots > radishPlots) {
+            const singlePepper = evaluated.find(d => d.pepper > 0 && d.radish === 0);
+            if (singlePepper && singlePepper.share >= 0.02 && singlePepper.facility !== top1.facility) {
+                return [top1, singlePepper];
+            }
+        }
+    }
+
+    // Quy tắc 2: Các trường hợp còn lại (2 món combo cạnh tranh nguyên liệu, trùng cơ sở, hoặc tốn thêm cơ sở không đáng kể) -> chỉ chọn 1 món tốt nhất
+    return [top1];
+}
+
+/**
+ * Trả về số lượng cơ sở mà các món ăn sự kiện được chọn sẽ chiếm dụng
+ */
+export function getSeasonFacilityUsage(planRateEstimate = 40) {
+    const dishes = selectOptimalSeasonDishes(planRateEstimate);
+    const usage = {};
+    for (const d of dishes) {
+        usage[d.facility] = (usage[d.facility] || 0) + 1;
+    }
+    return usage;
+}
+
 // Get plan-level input values from the form (facilities/modules/prioritize-byproducts, nothing
 // goal-related, since find_plan doesn't need a target). Currency is always coins: the full
 // release removed Bud Tickets, the only other sellable currency.
@@ -3350,12 +3524,20 @@ function getPlanInputValues() {
         if (!excluded.includes('pearl')) excluded.push('pearl');
     }
 
-    // 3. Deduct dedicated event plots from Farmland sent to solver:
+    // 3. Deduct dedicated event plots from Farmland and reserve facilities for chosen season dishes
     if (seasonActive()) {
         const totalFarmland = facilities['Farmland']?.[0]?.count || 0;
         const dedicated = Math.min(totalFarmland, seasonRadishPlots + seasonPepperPlots);
         if (facilities['Farmland'] && facilities['Farmland'][0]) {
             facilities['Farmland'][0].count = Math.max(0, totalFarmland - dedicated);
+        }
+
+        // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn
+        const eventFacUsage = getSeasonFacilityUsage();
+        for (const [fac, count] of Object.entries(eventFacUsage)) {
+            if (facilities[fac] && facilities[fac][0]) {
+                facilities[fac][0].count = Math.max(0, facilities[fac][0].count - count);
+            }
         }
     }
 
@@ -3394,7 +3576,7 @@ function integrateSeasonPlan(plan) {
     let seasonPointsRate = 0;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
 
-    // Add dedicated Farmland steps
+    // Thêm các bước canh tác Farmland mùa vụ
     if (radishPlots > 0) {
         newSteps.push({
             facility: 'Farmland',
@@ -3420,123 +3602,56 @@ function integrateSeasonPlan(plan) {
         });
     }
 
-    // Process selected dishes in order of priority (higher points first)
-    const dishes = SEASON_RECIPES.filter(r => selectedSeasonDishes.has(r.name))
-        .sort((a, b) => b.points - a.points);
+    // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo 5 quy tắc
+    const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
 
-    // If dishes are selected, allocate crops to produce them
-    if (dishes.length > 0) {
-        // Find dishes that use both radish and pepper
-        const comboDishes = dishes.filter(d => ['harvest_platter', 'umbral_hot_pot', 'umbral_sweet_and_spicy_sauce', 'umbral_pickle'].includes(d.name));
-        if (comboDishes.length > 0) {
-            const maxCombos = Math.min(radishPerSec / 8, pepperPerSec / 8);
-            const perCombo = maxCombos / comboDishes.length;
-            for (const dish of comboDishes) {
-                if (perCombo > 1e-7) {
-                    const sellVal = dish.name === 'harvest_platter' ? 5290
-                        : dish.name === 'umbral_hot_pot' ? 2150
-                        : dish.name === 'umbral_sweet_and_spicy_sauce' ? 2390
-                        : 2290; // umbral_pickle
-                    const coinsPerSec = perCombo * sellVal;
-                    const ptsPerSec = perCombo * dish.points;
-                    extraCoinsRate += coinsPerSec;
-                    seasonPointsRate += ptsPerSec;
-                    radishPerSec -= perCombo * 8;
-                    pepperPerSec -= perCombo * 8;
-
-                    newSteps.push({
-                        facility: dish.facility,
-                        item_name: dish.name,
-                        facility_count: 1,
-                        status: 'producing',
-                        cycle_time: 203,
-                        is_grower: false,
-                        reason: isVi ? `Món ăn Lễ hội Trung Thu (+${dish.points} điểm)` : `Festival dish (+${dish.points} pts)`,
-                        environment: null
-                    });
-
-                    newStreams.push({
-                        item_name: dish.name,
-                        facility: dish.facility,
-                        sell_value: sellVal,
-                        rate_per_second: coinsPerSec,
-                        units_per_second: perCombo,
-                        lead_time_seconds: 0,
-                        total_units: 0,
-                        total_value: 0,
-                        points: dish.points
-                    });
-                }
-            }
-        }
-
-        // Dedicated single-crop dishes if any crop remains
-        if (selectedSeasonDishes.has('moondew_radish_slices') && radishPerSec > 1e-7) {
-            const slicesUnits = radishPerSec / 8;
+    for (const dish of optimalDishes) {
+        let units = 0;
+        if (dish.radish > 0 && dish.pepper > 0) {
+            units = Math.min(radishPerSec / dish.radish, pepperPerSec / dish.pepper);
+            radishPerSec = Math.max(0, radishPerSec - units * dish.radish);
+            pepperPerSec = Math.max(0, pepperPerSec - units * dish.pepper);
+        } else if (dish.radish > 0) {
+            units = radishPerSec / dish.radish;
             radishPerSec = 0;
-            const coinsPerSec = slicesUnits * 2370;
-            const ptsPerSec = slicesUnits * 4;
-            extraCoinsRate += coinsPerSec;
-            seasonPointsRate += ptsPerSec;
-
-            newSteps.push({
-                facility: 'Blazing Stove',
-                item_name: 'moondew_radish_slices',
-                facility_count: 1,
-                status: 'producing',
-                cycle_time: 203,
-                is_grower: false,
-                reason: isVi ? 'Món ăn Lễ hội Trung Thu (+4 điểm)' : 'Festival dish (+4 pts)',
-                environment: null
-            });
-
-            newStreams.push({
-                item_name: 'moondew_radish_slices',
-                facility: 'Blazing Stove',
-                sell_value: 2370,
-                rate_per_second: coinsPerSec,
-                units_per_second: slicesUnits,
-                lead_time_seconds: 0,
-                total_units: 0,
-                total_value: 0,
-                points: 4
-            });
+        } else if (dish.pepper > 0) {
+            units = pepperPerSec / dish.pepper;
+            pepperPerSec = 0;
         }
 
-        if (selectedSeasonDishes.has('roasted_waxing_moon_pepper') && pepperPerSec > 1e-7) {
-            const roastUnits = pepperPerSec / 8;
-            pepperPerSec = 0;
-            const coinsPerSec = roastUnits * 1520;
-            const ptsPerSec = roastUnits * 4;
+        if (units > 1e-7) {
+            const coinsPerSec = units * dish.sellValue;
+            const ptsPerSec = units * dish.points;
             extraCoinsRate += coinsPerSec;
             seasonPointsRate += ptsPerSec;
 
+            // Quy tắc 4: Món sự kiện được phân bổ chính xác 1 cơ sở (đã được trừ trước từ ownedCounts)
             newSteps.push({
-                facility: 'Claw Game Cooker',
-                item_name: 'roasted_waxing_moon_pepper',
+                facility: dish.facility,
+                item_name: dish.name,
                 facility_count: 1,
                 status: 'producing',
-                cycle_time: 162,
+                cycle_time: dish.cycleTime || 203,
                 is_grower: false,
-                reason: isVi ? 'Món ăn Lễ hội Trung Thu (+4 điểm)' : 'Festival dish (+4 pts)',
+                reason: isVi ? `Món ăn Lễ hội Trung Thu (+${dish.points} điểm)` : `Festival dish (+${dish.points} pts)`,
                 environment: null
             });
 
             newStreams.push({
-                item_name: 'roasted_waxing_moon_pepper',
-                facility: 'Claw Game Cooker',
-                sell_value: 1520,
+                item_name: dish.name,
+                facility: dish.facility,
+                sell_value: dish.sellValue,
                 rate_per_second: coinsPerSec,
-                units_per_second: roastUnits,
+                units_per_second: units,
                 lead_time_seconds: 0,
                 total_units: 0,
                 total_value: 0,
-                points: 4
+                points: dish.points
             });
         }
     }
 
-    // Any remaining raw crops sold directly for baseline festival points
+    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm
     if (radishPerSec > 1e-7) {
         const coinsPerSec = radishPerSec * 74;
         const ptsPerSec = radishPerSec * 1;
@@ -3670,17 +3785,171 @@ function formatRate(n) {
     return n >= 10 ? formatNumber(Math.round(n)) : String(Number(n.toPrecision(2)));
 }
 
+// Renders comprehensive explanation why a plan is infeasible according to Rule 5
+export function renderInfeasibleExplanation(plan = null) {
+    const container = document.getElementById('infeasible-explanation-section');
+    if (!container) return;
+
+    const currentRv = selectedHomeLevel();
+    const { facilities } = simpleSetup(currentRv);
+    const ownedCounts = {};
+    for (const [name, tiers] of Object.entries(facilities)) {
+        ownedCounts[name] = tiers.reduce((sum, t) => sum + t.count, 0);
+    }
+
+    const isVi = !window.i18n || window.i18n.getLang() === 'vi';
+    const isLevelUp = isLevelUpStrategy();
+    const targetRv = levelUpTarget();
+
+    // 1. Phân tích nguyên nhân cụ thể
+    const causes = [];
+
+    const wantsSauce = selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce');
+    const wantsHotpot = selectedSeasonDishes.has('umbral_hot_pot');
+    const hasSpecialGinseng = unlockedSpecial.has('ginseng_congee');
+
+    if (wantsSauce && hasSpecialGinseng) {
+        causes.push({
+            icons: [renderFacilityIcon('Simmering Pot'), renderItemIcon('ginseng_congee'), renderItemIcon('umbral_sweet_and_spicy_sauce')],
+            title: isVi ? 'Tranh chấp Nồi hầm (Simmering Pot)' : 'Simmering Pot Contention',
+            desc: isVi
+                ? `Bạn sở hữu <strong>${ownedCounts['Simmering Pot'] || 2} Nồi hầm</strong>, nhưng đang bị yêu cầu đồng thời bởi <strong>Cháo nhân sâm</strong> và <strong>Sốt cay ngọt hắc ám</strong>. Solver không thể đáp ứng cả hai món cùng lúc với tài nguyên hiện tại.`
+                : `You own <strong>${ownedCounts['Simmering Pot'] || 2} Simmering Pots</strong>, but they are requested by both <strong>Ginseng Porridge</strong> and <strong>Umbral Sweet and Spicy Sauce</strong> simultaneously.`
+        });
+    }
+
+    if (wantsHotpot) {
+        causes.push({
+            icons: [renderFacilityIcon('Blazing Stove'), renderItemIcon('umbral_hot_pot')],
+            title: isVi ? 'Chiếm dụng Bếp lửa lớn (Blazing Stove)' : 'Blazing Stove Fully Occupied',
+            desc: isVi
+                ? `Bạn chỉ sở hữu <strong>1 Bếp lửa lớn</strong>. Món sự kiện <strong>Lẩu hắc ám</strong> đã chiếm trọn cơ sở này, khiến các công thức sản xuất hoặc chuỗi cung ứng chính không thể hoạt động.`
+                : `You only have <strong>1 Blazing Stove</strong>. The event dish <strong>Umbral Hot Pot</strong> fully locks it down, starving standard recipes.`
+        });
+    }
+
+    // Nguyên nhân đất canh tác Farmland
+    const eventPlots = seasonRadishPlots + seasonPepperPlots;
+    const totalFarmland = ownedCounts['Farmland'] || 30;
+    if (seasonActive() && eventPlots >= 4) {
+        causes.push({
+            icons: [renderFacilityIcon('Farmland'), renderItemIcon('moondew_radish'), renderItemIcon('waxing_moon_pepper')],
+            title: isVi ? 'Diện tích đất canh tác Farmland bị thu hẹp' : 'Farmland Crop Saturation',
+            desc: isVi
+                ? `Đã dành <strong>${eventPlots}/${totalFarmland} ô đất</strong> cho Củ cải và Ớt sự kiện. Số ô đất còn lại (${totalFarmland - eventPlots} ô) không đủ để trồng nguyên liệu cho các sản phẩm chính và mục tiêu nâng cấp.`
+                : `Allocated <strong>${eventPlots}/${totalFarmland} plots</strong> to festival crops, leaving insufficient plots for core production.`
+        });
+    }
+
+    // Nguyên nhân nâng cấp RV
+    if (isLevelUp) {
+        causes.push({
+            icons: [renderFacilityIcon('Woodworking Bench'), renderFacilityIcon('Chimney Kiln')],
+            title: isVi ? `Xung đột mục tiêu Nâng cấp RV ${targetRv}` : `Conflict with RV ${targetRv} Level-Up Goal`,
+            desc: isVi
+                ? `Chiến lược nâng cấp RV yêu cầu tập trung toàn bộ công nhân và tài nguyên vào Xưởng gỗ và Lò luyện quặng để sản xuất vật liệu nâng cấp. Sự cạnh tranh nhân lực và công suất từ các món ăn sự kiện khiến solver không thể lập lộ trình hoàn thành cấp độ.`
+                : `RV level-up demands full capacity on Woodworking Bench and Chimney Kiln, conflicting with chosen festival dishes.`
+        });
+    }
+
+    // Nếu không khớp các trường hợp trên, đưa ra nguyên nhân tổng quát
+    if (causes.length === 0) {
+        causes.push({
+            icons: [renderFacilityIcon('Simmering Pot'), renderFacilityIcon('Blazing Stove')],
+            title: isVi ? 'Xung đột tài nguyên và công nhân Aniimo' : 'Resource & Aniimo Worker Bottleneck',
+            desc: isVi
+                ? `Sự kết hợp giữa các công thức đã chọn vượt quá giới hạn công nhân Aniimo, điện năng hoặc số lượng cơ sở hiện có.`
+                : `The combination of chosen recipes exceeds current Aniimo staffing, electrical capacity, or facility counts.`
+        });
+    }
+
+    // 2. Đề xuất giải pháp thông minh
+    const recommendations = [];
+    recommendations.push(`
+        <li class="infeasible-rec-item">
+            <span>💡</span>
+            <span>${isVi ? 'Đổi sang món sự kiện tối ưu nhất:' : 'Switch to the highest-yield event dish:'} <strong>${isVi ? 'Đĩa tiệc mùa màng' : 'Harvest Platter'}</strong> ${renderItemIcon('harvest_platter')} (${isVi ? 'chế biến tại Bàn chế tạo' : 'at Crafting Table'} ${renderFacilityIcon('Crafting Table')}), giá bán cao nhất (5.290 coin/đĩa) và không tranh chấp Nồi hầm hay Bếp lửa lớn.</span>
+        </li>
+    `);
+
+    if (wantsHotpot || wantsSauce) {
+        const dishToDrop = wantsHotpot ? 'umbral_hot_pot' : 'umbral_sweet_and_spicy_sauce';
+        const dishName = wantsHotpot ? (isVi ? 'Lẩu hắc ám' : 'Umbral Hot Pot') : (isVi ? 'Sốt cay ngọt hắc ám' : 'Umbral Sweet and Spicy Sauce');
+        recommendations.push(`
+            <li class="infeasible-rec-item">
+                <span>💡</span>
+                <span>${isVi ? 'Bỏ chọn món đang gây tắc nghẽn:' : 'Uncheck the conflicting dish:'} <strong>${dishName}</strong> ${renderItemIcon(dishToDrop)} ${isVi ? 'để giải phóng cơ sở cho sản xuất chính hoặc nâng cấp RV.' : 'to release the facility for core production.'}</span>
+            </li>
+        `);
+    }
+
+    if (eventPlots > 4) {
+        recommendations.push(`
+            <li class="infeasible-rec-item">
+                <span>💡</span>
+                <span>${isVi ? 'Giảm số ô đất sự kiện:' : 'Reduce festival plots:'} ${isVi ? 'Hạ số ô Củ cải và Ớt xuống 2–4 ô để trả lại đất nông nghiệp cho nhân sâm và lúa mì.' : 'Lower Radish and Pepper plots to 2–4 to free farmland.'}</span>
+            </li>
+        `);
+    }
+
+    // 3. Render HTML
+    container.innerHTML = `
+        <div class="infeasible-header">
+            <div class="infeasible-badge-icon">⚠️</div>
+            <div class="infeasible-title-box">
+                <h2>${isVi ? 'Tại sao kế hoạch này không khả thi?' : 'Why is this plan infeasible?'}</h2>
+                <p class="infeasible-subtitle">${isVi ? 'Bộ giải tối ưu không thể tìm thấy phương án đáp ứng đồng thời tất cả các ràng buộc đã chọn. Dưới đây là phân tích chi tiết các điểm nghẽn:' : 'The optimizer cannot satisfy all selected constraints at once. Here is the bottleneck analysis:'}</p>
+            </div>
+        </div>
+        <div class="infeasible-causes-container">
+            ${causes.map(c => `
+                <div class="infeasible-cause-item">
+                    <div class="infeasible-visual-icons">
+                        ${c.icons.join('')}
+                    </div>
+                    <div class="infeasible-cause-text">
+                        <strong>${c.title}</strong>: ${c.desc}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        <div class="infeasible-recommendations-box">
+            <div class="infeasible-rec-title">
+                <span>✨</span>
+                <span>${isVi ? 'Đề xuất hành động để giải quyết:' : 'Recommended Actions to Fix:'}</span>
+            </div>
+            <ul class="infeasible-rec-list">
+                ${recommendations.join('')}
+            </ul>
+        </div>
+    `;
+
+    container.style.display = 'block';
+}
+
 // Show an error in the results section (plan-level failures only; goal-level failures are rare
 // and shown inline in the goal section instead, since the plan above it is still valid).
 function showError(message) {
     const errorEl = document.getElementById('error-message');
     const resultsContent = document.getElementById('results-content');
     const resultsSection = document.getElementById('results-section');
+    const infeasibleEl = document.getElementById('infeasible-explanation-section');
 
-    errorEl.textContent = message;
-    errorEl.style.display = 'block';
-    resultsContent.style.display = 'none';
     resultsSection.style.display = 'block';
+    resultsContent.style.display = 'none';
+
+    // Rule 5: If it is an infeasibility error, show exclusively the infeasible explanation card
+    if (message.includes('No plan') || message.includes('failed') || message.includes('không thể') || message.includes('infeasible')) {
+        if (errorEl) errorEl.style.display = 'none';
+        renderInfeasibleExplanation({ success: false, error: message });
+        return;
+    }
+
+    if (infeasibleEl) infeasibleEl.style.display = 'none';
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+    }
 }
 
 // The goal card's choices: coins and every priority that's on, in the player's order. Keeps the
@@ -4763,18 +5032,18 @@ function displayPlan(plan) {
 
     resultsSection.style.display = 'block';
 
+    const infeasibleEl = document.getElementById('infeasible-explanation-section');
+
     if (!plan.success) {
         goalSection.style.display = 'none';
-        if (selectedSetupTab() === 'custom') {
-            showRosterShortfall();
-            return;
-        }
-        showError(plan.error || 'An unknown error occurred.');
-        showSetupOnly();
+        resultsContent.style.display = 'none';
+        if (errorEl) errorEl.style.display = 'none';
+        renderInfeasibleExplanation(plan);
         return;
     }
 
-    errorEl.style.display = 'none';
+    if (infeasibleEl) infeasibleEl.style.display = 'none';
+    if (errorEl) errorEl.style.display = 'none';
     resultsContent.style.display = 'block';
     resultsContent.classList.remove('setup-only');
     // A level-up plan's own card says how long it takes; the goal is for coin plans.
