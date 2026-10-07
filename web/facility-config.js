@@ -39,15 +39,15 @@ export const FACILITIES = [
         tooltip: "Lv.1: Rock&#10;Lv.2: Clay&#10;Lv.3: Shell&#10;Lv.4: Copper Ore&#10;Lv.5: Quartz Ore&#10;Lv.6: Gem&#10;Also yields Mineral Sand."
     },
     {
-        name: 'Well', slug: 'well', defaultCount: 0, category: 'Materials', hasWorker: true, ability: 'Water', personality: 'Faithful',
+        name: 'Well', slug: 'well', defaultCount: 0, category: 'Materials', hasWorker: true, ability: 'Water', personality: 'Faithful', supportsEmode: true, powerWatts: 120,
         unlocks: { 1: 4, 2: 8, 3: 11, 4: 13, 5: 17 },
-        counts: [0, 0, 0, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3],
         tooltip: "Lv.1: Well Water, Quick Well Water&#10;Lv.2: Fresh Water&#10;Lv.3: Quick Fresh Water&#10;Lv.4: Deep Rock Spring Water, Quick Deep Rock Spring Water&#10;Lv.5: Natural Mineral Spring Water, Quick Natural Mineral Spring Water"
     },
     {
         name: 'Tidewhisper Sandcastle', slug: 'tidewhisper-sandcastle', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Judicious',
         unlocks: { 1: 5, 2: 8, 3: 13 },
-        counts: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        counts: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2],
         tooltip: "Lv.1: Sea Salt&#10;Lv.2: Quick Sea Salt (Panpanta)&#10;Lv.3: Pearl (Sherro - cần Ấm áp)"
     },
     {
@@ -149,7 +149,7 @@ export const FACILITIES = [
     {
         name: 'Joy Wheel Loom', slug: 'joy-wheel-loom', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Wind', personality: 'Faithful', supportsEmode: true, powerWatts: 30,
         unlocks: { 1: 7, 2: 10, 3: 15, 4: 19 },
-        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2],
         tooltip: "Lv.1: Cotton Thread&#10;Lv.2: Woolen Yarn, Cotton Fabric&#10;Lv.3: Palm Rope, Wool Fabric&#10;Lv.4: Dyed Cotton Fabric"
     },
     {
@@ -193,6 +193,7 @@ export const FACILITY_POWER_WATTS = {
     'Crafting Table': 75,
     'Dance Pad Polisher': 90,
     'Aniipod Maker': 90,
+    'Well': 120,
 };
 
 export const DEFAULT_GENERATOR_WATTS = 600;

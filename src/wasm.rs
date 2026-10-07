@@ -2208,4 +2208,58 @@ only embedded: {only_embedded:#?}"
         // 4. Tidewhisper Sandcastle must NOT produce pearl in Warm
         assert_eq!(plan.units.get("pearl"), None, "Pearl should not be produced at RV 14");
     }
+
+    #[test]
+    fn test_rv14_emode_water() {
+        let json_str = r#"{
+            "currency": "coins",
+            "facilities": {
+                "Farmland": [{"count": 28, "level": 6}],
+                "Woodland": [{"count": 15, "level": 5}],
+                "Heat Furnace": [{"count": 2, "level": 1}],
+                "Cooling Unit": [{"count": 2, "level": 1}],
+                "Sunlamp": [{"count": 1, "level": 1}],
+                "Tidewhisper Sandcastle": [{"count": 1, "level": 3}],
+                "Starfall Hammock": [{"count": 1, "level": 1}],
+                "Jukebox Dryer": [{"count": 2, "level": 6}],
+                "Simmering Pot": [{"count": 2, "level": 5}],
+                "Carousel Mill": [{"count": 2, "level": 4}],
+                "Crafting Table": [{"count": 2, "level": 5}],
+                "Woodworking Bench": [{"count": 1, "level": 5}],
+                "Chimney Kiln": [{"count": 1, "level": 5}],
+                "Mine": [{"count": 7, "level": 4}],
+                "Well": [{"count": 2, "level": 4}]
+            },
+            "modules": {
+                "ecological_module": 6,
+                "kitchen_module": 5,
+                "resource_detector": 5,
+                "crafting_module": 4
+            },
+            "production_aniimo_cap": 26,
+            "emode_facilities": ["Well"],
+            "emode_facility_counts": {"Well": 1},
+            "power_grid_rate": 1.2
+        }"#;
+
+        let prepared = super::PreparedInput::from_json(json_str).expect("parse input");
+        let plan = crate::exact::solve_exact(
+            &prepared.items,
+            "coins",
+            &prepared.facility_counts,
+            &prepared.module_levels,
+            crate::exact::Goal::Earn { floors: &[] },
+            Some(std::time::Duration::from_secs(60)),
+            None,
+        ).expect("solve exact plan");
+
+        let prod_plan = crate::exact::to_production_plan(&plan, &prepared.items, "coins", &prepared.facility_counts);
+        let js_plan = prepared.to_js(prod_plan, None);
+        let emode_well = js_plan.coin_items.iter().any(|i| i.facility == "Well" && i.is_emode);
+        let manual_well = js_plan.coin_items.iter().any(|i| i.facility.contains("Well") && !i.is_emode);
+        assert!(emode_well, "Expected at least 1 Well unit in E-mode");
+        assert!(manual_well, "Expected 1 Well unit in manual mode");
+    }
 }
+
+

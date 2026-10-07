@@ -5,9 +5,9 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v20';
-import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v20';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v20';
+} from './facility-config.js?v=aniimolab_v23';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v23';
+import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v23';
 
 let wasmReady = false;
 
@@ -21,7 +21,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?v=aniimolab_v8&load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v23&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -240,6 +240,7 @@ export const EMODE_PRIORITY = [
     'Pickling Jar',
     'Bouncy Brew Keg',
     'Phonolfactory Table',
+    'Well',
     'Chimney Kiln',
     'Woodworking Bench',
     'Claw Game Cooker',
@@ -5763,14 +5764,18 @@ function renderInsights(plan) {
     // CARD 5: Power & Logistics
     const titleLogistics = isVi ? '⚡ Vận hành điện lưới & Hậu cần đa kho' : '⚡ Power Grid & Multi-SU Logistics';
     const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
-    const emodeProducing = producing.filter(s => s.facility && s.facility.includes('(Electric)'));
+    const emodeMachinesCount = producing
+        .filter(s => s.is_emode || (s.facility && s.facility.includes('(Electric)')))
+        .reduce((sum, s) => sum + (s.facility_count || 1), 0);
+    const emodeActive = emodeMachinesCount > 0 || (lastPlanInput?.emode_facility_counts && Object.values(lastPlanInput.emode_facility_counts).some(c => c > 0));
     let emodeDetail = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
-    if (emodeProducing.length > 0) {
+    if (emodeActive) {
         const genWatts = getGeneratorCapacity();
         const activeWatts = calculatePowerWatts(lastPlanInput?.emode_facility_counts || {});
+        const countDisplay = emodeMachinesCount > 0 ? emodeMachinesCount : Object.values(lastPlanInput?.emode_facility_counts || {}).reduce((a, b) => a + b, 0);
         emodeDetail = isVi
-            ? `Đã kích hoạt Chế độ điện trên <strong>${emodeProducing.length} máy móc</strong> (${activeWatts}W / ${genWatts}W), giải phóng Aniimo chuyển sang <strong>Tưới nước nông trại/lâm nghiệp</strong> (giúp tăng 25% tốc độ phát triển toàn đảo).`
-            : `Electric Mode active on <strong>${emodeProducing.length} machines</strong> (${activeWatts}W / ${genWatts}W), freeing Aniimo workers for <strong>island-wide crop watering</strong> (25% faster growth).`;
+            ? `Đã kích hoạt Chế độ điện trên <strong>${countDisplay} máy móc & cơ sở</strong> (${activeWatts}W / ${genWatts}W), giải phóng Aniimo chuyển sang <strong>Tưới nước nông trại/lâm nghiệp</strong> (giúp tăng 25% tốc độ phát triển toàn đảo).`
+            : `Electric Mode active on <strong>${countDisplay} machines & facilities</strong> (${activeWatts}W / ${genWatts}W), freeing Aniimo workers for <strong>island-wide crop watering</strong> (25% faster growth).`;
     }
     const suDetail = isVi
         ? `Homeland bố trí <strong>${suCount} Kho lưu trữ phân tán (SU)</strong> (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo.`
