@@ -321,7 +321,7 @@ export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), 
 
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
     if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
-    
+
     const { facilities } = simpleSetup(homeLevel);
     const ownedCounts = {};
     for (const [name, tiers] of Object.entries(facilities)) {
@@ -1003,7 +1003,7 @@ function renderSimpleSummary() {
     ].map(([name, level]) => chip('', getModuleDisplayName(name), level > 0 ? `Lv.${level}` : (isVi ? 'chưa mở' : 'not yet'))).join('');
     const kinds = FACILITIES.filter(f => facilities[f.name][0].count > 0).length;
     const titleEl = document.getElementById('simple-summary-title');
-    if (titleEl) titleEl.textContent = isVi 
+    if (titleEl) titleEl.textContent = isVi
         ? `${kinds} cơ sở và 4 mô-đun tại RV ${homeLevel}`
         : `${kinds} facilities and 4 modules at RV ${homeLevel}`;
     const sumEl = document.getElementById('simple-summary');
@@ -1421,8 +1421,8 @@ function renderImprovements() {
     const options = new Set(ranking.candidates.map((c, i) => c.group || `#${i}`)).size;
     const status = total === 0 ? `Nothing left to unlock or upgrade.${within}`
         : !ranking.done ? `Checking ${checked} of ${total}…${within}`
-        : rows.length === 0 ? `No improvements found (${options} checked).${within}`
-        : `Ranked by ${by}. ${rows.length} of ${options} help.${within}`;
+            : rows.length === 0 ? `No improvements found (${options} checked).${within}`
+                : `Ranked by ${by}. ${rows.length} of ${options} help.${within}`;
     // The status line opens what was checked. The card is rebuilt as each result comes in; keep
     // the list open if the player opened it.
     const open = !!document.querySelector('#improve-list .improve-checked')?.open;
@@ -1782,7 +1782,7 @@ function renderHomelandLayout(plan) {
             unplaced.length ? (isVi ? `Chưa đặt được, không rõ kích thước: ${unplaced.join(', ')}.` : `Not placed, size unknown: ${unplaced.join(', ')}.`) : '',
         ].filter(Boolean).join(' ');
         document.getElementById('layout-summary').textContent = `${trips > 0
-            ? (isVi 
+            ? (isVi
                 ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Kho lưu trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
                 : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
             : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Kho lưu trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
@@ -1795,7 +1795,7 @@ function renderHomelandLayout(plan) {
         if (runId !== layoutRunId) return;
         stopLayout();
         const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        document.getElementById('layout-summary').textContent = isVi 
+        document.getElementById('layout-summary').textContent = isVi
             ? 'Không thể tính toán được sơ đồ bố trí.'
             : 'The layout couldn\'t be worked out.';
         setStep('layout', 'fail');
@@ -2345,7 +2345,7 @@ function renderRoster() {
     const cards = roster.map((aniimo, i) => {
         const abilities = Object.entries(aniimo.abilities).map(([ability, level]) => `
             <span class="roster-ability">${abilityTag(ability)}<span class="tabs level-picker">${[1, 2, 3, 4].map(l =>
-                `<label><input type="radio" name="roster-${i}-${ability}" data-level="${i}|${ability}" value="${l}"${l === level ? ' checked' : ''}> ${l}</label>`).join('')}</span><button type="button" class="roster-x" data-drop="${i}|${ability}" aria-label="Remove ${ability}" title="Remove ${ability}">✕</button></span>`).join('');
+            `<label><input type="radio" name="roster-${i}-${ability}" data-level="${i}|${ability}" value="${l}"${l === level ? ' checked' : ''}> ${l}</label>`).join('')}</span><button type="button" class="roster-x" data-drop="${i}|${ability}" aria-label="Remove ${ability}" title="Remove ${ability}">✕</button></span>`).join('');
         const missing = ABILITIES.map(a => a.name).filter(name => !(name in aniimo.abilities));
         const add = missing.length
             ? `<select class="roster-add-ability" data-add="${i}" aria-label="Add an ability"><option value="">+ Ability</option>${missing.map(name => `<option>${name}</option>`).join('')}</select>`
@@ -2793,8 +2793,8 @@ function levelPicker(group, chosen, ability, label) {
             const unheardOf = level > usual;
             const w = getWorkerForLevel(ability, level);
             const wName = w ? ` · ${w.name}${w.is_prismana && level >= 4 ? ' (Prismana)' : ''}` : '';
-            const mark = unheardOf 
-                ? ` class="unheard-of" title="Chưa có Aniimo ${ability} cấp ${level} trong dữ liệu game"` 
+            const mark = unheardOf
+                ? ` class="unheard-of" title="Chưa có Aniimo ${ability} cấp ${level} trong dữ liệu game"`
                 : ` title="Cấp ${level}${wName}"`;
             const confirm = unheardOf ? ` data-confirm="${ability}"` : '';
             return `<label${mark}><input type="radio" name="${group}" value="${level}"${chosen === level ? ' checked' : ''}${confirm}> ${level}</label>`;
@@ -3074,7 +3074,7 @@ function renderStrategy() {
     if (!costEl || !stockDetails) return;
     const unavailable = levelUpUnavailable();
     if (unavailable) {
-        const noteText = window.i18n && window.i18n.getLang() === 'vi' 
+        const noteText = window.i18n && window.i18n.getLang() === 'vi'
             ? `${unavailable} Kế hoạch sẽ ưu tiên kiếm nhiều Home Coin nhất.`
             : `${unavailable} Plans will go for the most Home Coins.`;
         costEl.innerHTML = `<p class="level-up-note">${noteText}</p>`;
@@ -3192,10 +3192,10 @@ function renderLevelUp(plan) {
     const perUnit = perSecond => formatRate(perSecond * multiplier);
     const slowest = Math.max(...report.requirements.map(r => r.seconds ?? Infinity));
     const rows = report.requirements.map(r => {
-        const ready = r.seconds === null 
-            ? (isVi ? 'không thể' : 'never') 
-            : r.seconds === 0 
-                ? (isVi ? 'đã đủ' : 'have it') 
+        const ready = r.seconds === null
+            ? (isVi ? 'không thể' : 'never')
+            : r.seconds === 0
+                ? (isVi ? 'đã đủ' : 'have it')
                 : formatDuration(r.seconds);
         const isSlowest = r.seconds !== null && r.seconds > 0 && r.seconds >= slowest * (1 - 1e-6);
         return `<tr${isSlowest ? ' class="slowest"' : ''}>
@@ -3263,7 +3263,7 @@ function renderSeedTable(plan) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const per = levelUp
         ? (isVi ? `đến RV ${planContext.target}` : `until RV ${planContext.target}`)
-        : (isVi 
+        : (isVi
             ? ({ second: 'mỗi giây', minute: 'mỗi phút', hour: 'mỗi giờ', day: 'mỗi ngày' }[unit] || 'mỗi giây')
             : ({ second: 'per second', minute: 'per minute', hour: 'per hour', day: 'per day' }[unit] || 'per second'));
     document.getElementById('seed-card-unit').textContent = isVi
@@ -3998,10 +3998,10 @@ export function evaluatePlotsOptimization(plan) {
                     <div class="plots-opt-text">
                         <h4>${isVi ? 'Chưa chọn món chế biến Lễ hội' : 'No Festival Recipe Selected'}</h4>
                         <p>
-                            ${isVi 
-                                ? `Hiện tại anh đang đặt <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
-                                : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
-                            }
+                            ${isVi
+                    ? `Hiện tại anh đang đặt <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
+                    : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
+                }
                         </p>
                     </div>
                 </div>
@@ -4080,7 +4080,7 @@ export function evaluatePlotsOptimization(plan) {
 }
 
 // Hàm tương tác 1-chạm cập nhật ô đất và tự động tính lại ngay lập tức
-window.applyOptimalPlots = function(radish, pepper) {
+window.applyOptimalPlots = function (radish, pepper) {
     const radishInput = document.getElementById('season-radish-plots');
     const pepperInput = document.getElementById('season-pepper-plots');
     if (radishInput) radishInput.value = radish;
@@ -4782,7 +4782,7 @@ function renderAniimoSummary(plan) {
     // The count above says how many; this is only said when it's more than the production zone holds.
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const capNote = cap && total > cap
-        ? `<p class="hint small">${isVi 
+        ? `<p class="hint small">${isVi
             ? `Cần ${total} Aniimo, vượt quá giới hạn ${cap} của Vùng Sản Xuất (Homeland chứa tối đa ${homelandHolds}).`
             : `That's ${total} Aniimo, more than the production zone cap of ${cap} (Homeland holds ${homelandHolds}).`}</p>`
         : '';
@@ -4796,7 +4796,7 @@ function renderAniimoSummary(plan) {
         count.hidden = false;
         count.classList.toggle('over', !!cap && total > cap);
         count.title = cap
-            ? (isVi 
+            ? (isVi
                 ? `${total} Aniimo cho kế hoạch này; giới hạn Vùng Sản Xuất là ${cap} (tổng Homeland: ${homelandHolds})`
                 : `${total} Aniimo for this plan; production zone cap is ${cap} (Homeland holds ${homelandHolds})`)
             : `${total} Aniimo for this plan`;
@@ -5117,8 +5117,8 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
             : [
                 swatch(tintOf(modes[0]), `${getFacilityDisplayName(building)}: ${isVi && window.VI_ENV_MODES[modes[0]] ? window.VI_ENV_MODES[modes[0]] : modes[0]}`),
                 swatch(tintOf(modes[1]), `${getFacilityDisplayName(unit.partner[0])}: ${isVi && window.VI_ENV_MODES[modes[1]] ? window.VI_ENV_MODES[modes[1]] : modes[1]}`),
-                swatch(tint, zone === 1 
-                    ? (isVi ? `${window.VI_ENV_MODES[mode] || mode} nơi cả hai bao phủ` : `${mode} where both reach`) 
+                swatch(tint, zone === 1
+                    ? (isVi ? `${window.VI_ENV_MODES[mode] || mode} nơi cả hai bao phủ` : `${mode} where both reach`)
                     : (isVi ? `${window.VI_ENV_MODES[mode] || mode}, ô đất kế hoạch này` : `${mode}, this plan's plots`)),
             ])
         : [swatch(tint, isVi ? `Phạm vi ${window.VI_ENV_MODES[mode] || mode}` : `${mode} coverage`)];
@@ -5145,13 +5145,13 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
                       fill="${tintOf(modes[1])}" fill-opacity="${shadeOf(modes[1], 0.12)}" />` : ''}
                 ${rects}
                 ${(zones || [{ mode, zone }]).map(z => {
-                    const path = z.zone === null || z.zone === undefined
-                        ? box(coverageMin, coverageMin, coverageSize, coverageSize)
-                        : zonePath(z.zone);
-                    const zoneTint = tintOf(z.mode);
-                    return `<path class="env-coverage-top" d="${path}" fill-rule="evenodd"
+        const path = z.zone === null || z.zone === undefined
+            ? box(coverageMin, coverageMin, coverageSize, coverageSize)
+            : zonePath(z.zone);
+        const zoneTint = tintOf(z.mode);
+        return `<path class="env-coverage-top" d="${path}" fill-rule="evenodd"
                       fill="${zoneTint}" fill-opacity="${shadeOf(z.mode, 0.3)}" stroke="${zoneTint}" stroke-opacity="0.9" stroke-dasharray="0.35,0.25" stroke-width="0.1" />`;
-                }).join('')}
+    }).join('')}
                 ${modes ? `<rect x="${coverageMin}" y="${coverageMin}" width="${coverageSize}" height="${coverageSize}" fill="none"
                       stroke="${tintOf(modes[0])}" stroke-opacity="0.55" stroke-width="0.07" />
                     <rect x="${partnerMin.x}" y="${partnerMin.y}" width="${coverageSize}" height="${coverageSize}" fill="none"
@@ -5280,7 +5280,7 @@ function renderFacilityPlan(plan) {
     });
 
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    
+
     // Gộp Nguyên liệu & Nguyên liệu Aniimo thành "Sản xuất nguyên liệu" (chạy 24/7), tách riêng Gỗ & Gạch quặng và Cơ sở chế biến
     const PLAN_DISPLAY_CATEGORIES = [
         {
@@ -5489,7 +5489,7 @@ export function displayPlan(plan) {
     const skippedEl = document.getElementById('plan-skipped');
     const skipped = planContext?.skipped || [];
     skippedEl.style.display = skipped.length ? 'block' : 'none';
-    skippedEl.textContent = skipped.length 
+    skippedEl.textContent = skipped.length
         ? (isVi ? `Đang bỏ qua: ${skipped.map(prettyItem).join(', ')}.` : `Skipping ${skipped.map(prettyItem).join(', ')}.`)
         : '';
 
@@ -5658,10 +5658,11 @@ async function runFindPlan() {
             finalEmodeCounts = {};
         }
 
-        // STEP 4: Tự động loại bỏ các sản phẩm thô/phụ có tỷ lệ doanh thu <= 2% (như Muối biển, Ngôi sao)
+        // STEP 4: Tự động loại bỏ các nguyên liệu thô/phụ có tỷ lệ doanh thu <= 2% (như Thạch hương, Ngôi sao, Muối biển khi không dùng)
         // để giải phóng công nhân Aniimo và tránh đề xuất cơ sở sản xuất thô lãng phí nhân lực.
+        // Chạy multi-pass (tối đa 3 vòng) để triệt tiêu các nguyên liệu thô bị thừa sau khi chuỗi cấp cao bị cắt đứt.
+        // Ngoại lệ: Gạo xay/gạo xát (milled_rice) từ Cối xay Carousel là sản phẩm chế biến từ lúa nước dôi dư, đem bán là hợp lệ nên luôn giữ lại.
         if (bestPlan && bestPlan.success && bestPlan.income_streams && bestPlan.rate_per_second > 0) {
-            const totalRate = bestPlan.rate_per_second;
             const userPicks = new Set([
                 ...(unlockedSpecial || []),
                 ...(selectedSeasonDishes || []),
@@ -5687,33 +5688,67 @@ async function runFindPlan() {
                 }
             }
 
-            const lowShareItems = [];
-            for (const stream of bestPlan.income_streams) {
-                const baseName = stream.item_name.replace(/^quick_/, '');
-                if (userPicks.has(stream.item_name) || userPicks.has(baseName)) continue;
+            const RAW_ANIIMO_MATERIALS = new Set([
+                'aromathyst', 'quick_aromathyst',
+                'star', 'quick_star',
+                'sea_salt', 'quick_sea_salt', 'pearl',
+                'wool', 'quick_wool', 'petals',
+                'scales', 'quick_scales'
+            ]);
 
-                const share = stream.rate_per_second / totalRate;
-                if (share <= 0.02) {
-                    lowShareItems.push(stream.item_name);
-                    lowShareItems.push(baseName);
-                    lowShareItems.push(`quick_${baseName}`);
+            const shouldPruneItem = (itemName, share) => {
+                const baseName = itemName.replace(/^quick_/, '');
+                if (userPicks.has(itemName) || userPicks.has(baseName)) return false;
+
+                // Gạo xát (milled_rice) là sản phẩm chế biến từ lúa nước dư thừa của cối xay, giữ lại dù <= 2%
+                if (baseName === 'milled_rice') return false;
+
+                // Chỉ prune nguyên liệu thô từ cơ sở Aniimo Materials bán trực tiếp <= 2% (Thạch hương, Ngôi sao, Muối biển khi không dùng)
+                // để tránh đề xuất xây dựng cơ sở thô lãng phí nhân lực và đất.
+                if (RAW_ANIIMO_MATERIALS.has(itemName) || RAW_ANIIMO_MATERIALS.has(baseName)) {
+                    return share <= 0.02;
                 }
-            }
 
-            if (lowShareItems.length > 0) {
-                const newExclusions = [...new Set([...(input.exclude || []), ...lowShareItems])];
+                // Tuyệt đối KHÔNG prune bừa bãi các sản phẩm chế biến dôi dư (nhân sâm khô, bột nhân sâm...)
+                // vì chúng là mắt xích của các chuỗi chế biến cao cấp mà solver đang vận hành.
+                return false;
+            };
+
+            for (let pass = 1; pass <= 3; pass++) {
+                const totalRate = bestPlan.rate_per_second;
+                if (!totalRate || totalRate <= 0) break;
+
+                const lowShareItems = [];
+                for (const stream of (bestPlan.income_streams || [])) {
+                    const share = stream.rate_per_second / totalRate;
+                    if (shouldPruneItem(stream.item_name, share)) {
+                        const baseName = stream.item_name.replace(/^quick_/, '');
+                        lowShareItems.push(stream.item_name);
+                        lowShareItems.push(baseName);
+                        lowShareItems.push(`quick_${baseName}`);
+                    }
+                }
+
+                const uniqueToPrune = [...new Set(lowShareItems)].filter(x => !(input.exclude || []).includes(x));
+                if (uniqueToPrune.length === 0) break;
+
+                const newExclusions = [...new Set([...(input.exclude || []), ...uniqueToPrune])];
                 const prunedInput = { ...input, exclude: newExclusions };
 
                 const prunedJson = await callWorker('find_plan', JSON.stringify({ ...prunedInput, aniimo: bestSetup }));
                 if (runId !== planRunId) return;
 
                 const prunedPlan = JSON.parse(prunedJson);
-                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và giữ lại món chính nếu user có pick
-                const hasMainProduct = userPicks.size === 0 || (prunedPlan?.income_streams || []).some(s => userPicks.has(s.item_name) || userPicks.has(s.item_name.replace(/^quick_/, '')));
-                const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && hasMainProduct;
+                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào mà user đã tích chọn
+                const keepsUserSelections = [...(unlockedSpecial || [])].every(spec =>
+                    (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec)
+                );
+                const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && keepsUserSelections;
                 if (prunedViable) {
                     bestPlan = prunedPlan;
                     input.exclude = newExclusions;
+                } else {
+                    break;
                 }
             }
         }
@@ -5993,7 +6028,7 @@ function renderRecipeTables(recipes) {
     const thSell = isVi ? 'Giá bán' : 'Sell';
     const thModule = isVi ? 'Mô-đun' : 'Module';
     const thAniimo = isVi ? 'Aniimo' : 'Aniimo';
-    const tipTime = isVi 
+    const tipTime = isVi
         ? 'Thời gian phát triển của cây trồng và cây lấy gỗ (mỗi lần tưới nước giảm 1/8 thời gian còn lại, tối đa 2 lần). Với các xưởng chế biến và cơ sở thu thập, thời gian hiển thị khối lượng công việc (Workload): ở 100% Hiệu suất, máy hoàn thành 1 khối lượng công việc/giây. Với Chế độ điện (⚡ E-mode), máy tự vận hành theo thời gian cơ bản mà không cần Aniimo.'
         : 'Grow time for crops and trees, before watering takes an eighth off it twice. Everything else lists workload: at 100% Efficiency a processor gets through one workload a second, a gathering facility 1.25 on a level-2 recipe and 1.5 on a level-3 one. An Aniimo at the level a recipe needs works at 100%; higher levels are faster, up to level 4. E-mode runs without Aniimo workers.';
     const tipAniimo = isVi
@@ -6063,7 +6098,7 @@ function renderRecipeTables(recipes) {
     }).join('');
 }
 
-window.showFacilities = async function() {
+window.showFacilities = async function () {
     document.getElementById('facilitiesModal').classList.add('show');
     if (recipesRendered) return;
     if (!wasmReady) {
@@ -6082,11 +6117,11 @@ window.showFacilities = async function() {
     }
 }
 
-window.closeFacilities = function() {
+window.closeFacilities = function () {
     document.getElementById('facilitiesModal').classList.remove('show');
 }
 
-window.closeFacilitiesOnBackdrop = function(event) {
+window.closeFacilitiesOnBackdrop = function (event) {
     if (event.target.id === 'facilitiesModal') {
         closeFacilities();
     }
@@ -6294,7 +6329,7 @@ function renderInsights(plan) {
     }
 
     const producing = (plan.coin_items || []).filter(s => s.status === 'producing');
-    
+
     // 1. Real top revenue streams from plan.income_streams (sorted by rate_per_second descending)
     const streams = (plan.income_streams || []).filter(s => (s.units_per_second || 0) > 0);
     const sortedStreams = [...streams].sort((a, b) => (b.rate_per_second || 0) - (a.rate_per_second || 0));
@@ -6376,7 +6411,7 @@ function renderInsights(plan) {
 
     // Identify target RV wood material requirement
     const targetRvReqs = LEVEL_UP_COSTS[targetRv]?.items || [];
-    const targetWoodItemEntry = targetRvReqs.find(([name]) => 
+    const targetWoodItemEntry = targetRvReqs.find(([name]) =>
         ['wood_block', 'rough_lumber', 'standard_planks', 'laminated_beams', 'densified_timber_component'].includes(name)
     );
     const targetWoodItemKey = targetWoodItemEntry ? targetWoodItemEntry[0] : (targetRv <= 6 ? 'wood_block' : targetRv <= 10 ? 'rough_lumber' : targetRv <= 14 ? 'standard_planks' : targetRv <= 18 ? 'laminated_beams' : 'densified_timber_component');
@@ -6393,13 +6428,13 @@ function renderInsights(plan) {
     const titleProfit = isVi ? '🎯 Đã chọn: Nguồn lợi nhuận cốt lõi' : '🎯 Selected: Core Profit Drivers';
     const descProfit = isVi
         ? `• <strong>${top1Name}</strong> tại <strong>${top1Facility}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsPerHour}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).<br>` +
-          (top2 ? `• <strong>${top2Name}</strong> tại <strong>${top2Facility}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).<br>` : '') +
-          `• <strong>Tổng sản lượng Homeland:</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).<br>` +
-          `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.</em>`
+        (top2 ? `• <strong>${top2Name}</strong> tại <strong>${top2Facility}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).<br>` : '') +
+        `• <strong>Tổng sản lượng Homeland:</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).<br>` +
+        `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.</em>`
         : `• <strong>${top1Name}</strong> at <strong>${top1Facility}</strong> is the #1 profit driver: producing <strong>${top1UnitsPerHour}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).<br>` +
-          (top2 ? `• <strong>${top2Name}</strong> at <strong>${top2Facility}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).<br>` : '') +
-          `• <strong>Total Homeland output:</strong> <strong>${totalHourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).<br>` +
-          `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.</em>`;
+        (top2 ? `• <strong>${top2Name}</strong> at <strong>${top2Facility}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).<br>` : '') +
+        `• <strong>Total Homeland output:</strong> <strong>${totalHourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).<br>` +
+        `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.</em>`;
 
     // CARD 2: Farmland & Supply Chain Strategy (What & Why)
     const titleFarm = isVi ? '🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng' : '🌾 Selected: Farmland & Supply Strategy';
@@ -6410,15 +6445,15 @@ function renderInsights(plan) {
         const ricePlots = farmPlotsByCrop['rice'] || farmPlotsByCrop['quick_rice'] || 0;
         descFarm = isVi
             ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), các ô Nhân sâm (${ginsengPlots} ô) và Lúa nước (${ricePlots} ô) cung cấp vừa khít nguồn nguyên liệu sạch cho Nồi hầm nấu liên tục <strong>${top1UnitsPerHour} ${top1Name}/giờ</strong>, đồng bộ 100% giữa khâu trồng trọt và khâu chế biến mà không gây ùn ứ hay thiếu hụt nguyên liệu.</em>`
+            `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), các ô Nhân sâm (${ginsengPlots} ô) và Lúa nước (${ricePlots} ô) cung cấp vừa khít nguồn nguyên liệu sạch cho Nồi hầm nấu liên tục <strong>${top1UnitsPerHour} ${top1Name}/giờ</strong>, đồng bộ 100% giữa khâu trồng trọt và khâu chế biến mà không gây ùn ứ hay thiếu hụt nguyên liệu.</em>`
             : `Deployed <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), Ginseng plots (${ginsengPlots}) and Rice plots (${ricePlots}) provide perfectly synchronized inputs to keep Simmering Pot crafting <strong>${top1UnitsPerHour} ${top1Name}/hr</strong> with zero idle waste.</em>`;
+            `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), Ginseng plots (${ginsengPlots}) and Rice plots (${ricePlots}) provide perfectly synchronized inputs to keep Simmering Pot crafting <strong>${top1UnitsPerHour} ${top1Name}/hr</strong> with zero idle waste.</em>`;
     } else {
         descFarm = isVi
             ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/giờ) cùng các cơ sở chế biến trên đảo.</em>`
+            `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/giờ) cùng các cơ sở chế biến trên đảo.</em>`
             : `Deployed <strong>${farmSummary}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing throughput at <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/hr).</em>`;
+            `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing throughput at <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/hr).</em>`;
     }
 
     // CARD 3: Level-up Progression (if applicable)
@@ -6428,11 +6463,11 @@ function renderInsights(plan) {
         const woodRateText = woodItemHourly ? `<strong>${woodItemHourly} ${targetWoodItemName} / giờ</strong>` : `<strong>${targetWoodItemName}</strong>`;
         const descLevelUp = isVi
             ? `Mục tiêu hoàn thành trong <strong>${levelUpDurationText || 'kế hoạch tối ưu'}</strong>.<br>` +
-              `• Vườn ươm bố trí <strong>${woodlandSummary || `${totalTrees} cây cấp cao nhất`}</strong>.<br>` +
-              `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất (Cấp ${woodlandTier}) để tối đa hóa <strong>${maxYieldPerTree} Vụn gỗ / cây / vụ</strong> (~${totalHourlyWood.toLocaleString()} vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục ${woodRateText}, giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
+            `• Vườn ươm bố trí <strong>${woodlandSummary || `${totalTrees} cây cấp cao nhất`}</strong>.<br>` +
+            `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất (Cấp ${woodlandTier}) để tối đa hóa <strong>${maxYieldPerTree} Vụn gỗ / cây / vụ</strong> (~${totalHourlyWood.toLocaleString()} vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục ${woodRateText}, giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
             : `Target RV ${targetRv} completion in <strong>${levelUpDurationText || 'optimal time'}</strong>.<br>` +
-              `• Woodland deployed with <strong>${woodlandSummary || `${totalTrees} top-tier trees`}</strong>.<br>` +
-              `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees (Tier ${woodlandTier}) for max <strong>${maxYieldPerTree} Wood Blocks/tree/cycle</strong> (~${totalHourlyWood.toLocaleString()} blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft ${woodRateText}, clearing the longest bottleneck to RV ${targetRv}.</em>`;
+            `• Woodland deployed with <strong>${woodlandSummary || `${totalTrees} top-tier trees`}</strong>.<br>` +
+            `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees (Tier ${woodlandTier}) for max <strong>${maxYieldPerTree} Wood Blocks/tree/cycle</strong> (~${totalHourlyWood.toLocaleString()} blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft ${woodRateText}, clearing the longest bottleneck to RV ${targetRv}.</em>`;
         cardLevelUpHtml = `
             <div class="insight-item insight-selected">
                 <div class="insight-label">${titleLevelUp}</div>
