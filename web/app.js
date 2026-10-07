@@ -5402,6 +5402,12 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.setAttribute('aria-expanded', String(expanded));
         document.getElementById('aniimo-body').hidden = !expanded;
     });
+    document.getElementById('insights-toggle')?.addEventListener('click', () => {
+        const toggle = document.getElementById('insights-toggle');
+        const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+        toggle.setAttribute('aria-expanded', String(expanded));
+        document.getElementById('insights-content').hidden = !expanded;
+    });
     const setupPanel = document.getElementById('aniimo-setup-panel');
     if (setupPanel) {
         setupPanel.addEventListener('change', event => {
@@ -5781,13 +5787,13 @@ function renderInsights(plan) {
             <div class="insight-desc">${descFarm}</div>
         </div>
         ${cardLevelUpHtml}
+        <div class="insight-item insight-logistics">
+            <div class="insight-label">${titleLogistics}</div>
+            <div class="insight-desc">${descLogistics}</div>
+        </div>
         <div class="insight-item insight-rejected">
             <div class="insight-label">${titleRejected}</div>
             <div class="insight-desc">${descRejected}</div>
-        </div>
-        <div class="insight-item">
-            <div class="insight-label">${titleLogistics}</div>
-            <div class="insight-desc">${descLogistics}</div>
         </div>
     `;
 }

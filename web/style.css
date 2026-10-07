@@ -3372,40 +3372,17 @@ tr:hover .skip-row,
     }
 }
 
-.results-dashboard-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
-    gap: 1.5rem;
-    align-items: start;
-    margin-top: 0;
-}
-
 .results-main-col {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
     min-width: 0;
-}
-
-.results-sidebar-col {
-    position: sticky;
-    top: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-}
-
-@media (max-width: 1080px) {
-    .results-dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-    .results-sidebar-col {
-        position: static;
-    }
+    width: 100%;
 }
 
 /* Setup-only and Stale state handling */
-#results-content.setup-only .results-dashboard-grid {
+#results-content.setup-only .insights-card,
+#results-content.setup-only .results-main-col {
     display: none !important;
 }
 
@@ -3417,17 +3394,56 @@ tr:hover .skip-row,
     pointer-events: none;
 }
 
-/* Insights Card ("Why this Plan?") */
+/* Insights Card ("Why this Plan?") - Top-down Bento Grid */
 .insights-card {
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
     border: 1px solid rgba(16, 185, 129, 0.25);
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    margin-bottom: 1.25rem;
+    width: 100%;
 }
 
 .insights-card .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     padding-bottom: 0.75rem;
-    margin-bottom: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.insights-card .collapse-toggle {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-align: left;
+}
+
+.insights-card .collapse-toggle h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text, #f8fafc);
+}
+
+.insights-card .collapse-toggle .chevron {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid var(--text-muted, #94a3b8);
+    border-bottom: 2px solid var(--text-muted, #94a3b8);
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+}
+
+.insights-card .collapse-toggle[aria-expanded="false"] .chevron {
+    transform: rotate(-45deg);
 }
 
 .optimal-pill {
@@ -3436,46 +3452,56 @@ tr:hover .skip-row,
     border: 1px solid rgba(16, 185, 129, 0.35);
     font-size: 0.72rem;
     font-weight: 600;
-    padding: 0.2rem 0.6rem;
+    padding: 0.2rem 0.65rem;
     border-radius: 999px;
     letter-spacing: 0.03em;
+    white-space: nowrap;
 }
 
 .insights-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    transition: all 0.25s ease;
+}
+
+.insights-body[hidden] {
+    display: none;
 }
 
 .insight-item {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 8px;
-    padding: 0.65rem 0.85rem;
-    transition: background 0.2s, border-color 0.2s;
+    padding: 0.75rem 1rem;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
 }
 
 .insight-item:hover {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(16, 185, 129, 0.3);
+    transform: translateY(-1px);
 }
 
 .insight-label {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     color: #34d399;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.35rem;
     display: flex;
     align-items: center;
     gap: 0.4rem;
 }
 
 .insight-desc {
-    font-size: 0.82rem;
-    line-height: 1.45;
+    font-size: 0.84rem;
+    line-height: 1.5;
     color: var(--text-muted, #94a3b8);
+    flex-grow: 1;
 }
 
 .insight-desc strong {
@@ -3483,11 +3509,21 @@ tr:hover .skip-row,
 }
 
 .insight-item.insight-selected {
-    border-left: 3px solid #10b981;
+    border-left: 3.5px solid #10b981;
+}
+
+.insight-item.insight-logistics {
+    border-left: 3.5px solid #38bdf8;
+}
+
+.insight-item.insight-logistics .insight-label {
+    color: #38bdf8;
 }
 
 .insight-item.insight-rejected {
-    border-left: 3px solid #f59e0b;
+    grid-column: 1 / -1;
+    border-left: 3.5px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.04);
 }
 
 .insight-item.insight-rejected .insight-label {
@@ -3495,18 +3531,33 @@ tr:hover .skip-row,
 }
 
 .insight-bullets {
-    margin: 0.35rem 0 0 1.1rem;
-    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 0.45rem 1.75rem;
+    margin: 0.45rem 0 0 0;
+    padding-left: 1.15rem;
     list-style-type: disc;
 }
 
 .insight-bullets li {
-    margin-bottom: 0.35rem;
     line-height: 1.45;
+    font-size: 0.83rem;
 }
 
 .insight-bullets li:last-child {
     margin-bottom: 0;
+}
+
+@media (max-width: 900px) {
+    .insights-body {
+        grid-template-columns: 1fr;
+    }
+    .insight-item.insight-rejected {
+        grid-column: auto;
+    }
+    .insight-bullets {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Multi-Storage Unit Styling in SVG */

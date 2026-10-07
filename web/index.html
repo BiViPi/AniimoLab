@@ -301,140 +301,143 @@
                             </div>
                     </div>
 
-                    <div class="results-dashboard-grid">
-                        <div class="results-main-col">
-                            
-                            <div class="card production-steps">
-                                <h2 data-i18n="facility_plan_title">Nhiệm vụ từng cơ sở sản xuất</h2>
-                                <details class="explain">
-                                    <summary data-i18n="how_to_read">Cách đọc bảng này</summary>
-                                    <p>Mỗi dòng là một sản phẩm; nếu cơ sở sản xuất nhiều loại sản phẩm sẽ được chia thành nhiều dòng tương ứng. Các cây trồng cần điều kiện khí hậu được gom theo cụm Lò nhiệt, Cơ sở làm mát hoặc Đèn mặt trời tương ứng với sơ đồ bố trí. Các cơ sở còn lại được phân nhóm theo danh mục sản xuất.</p>
-                                    <p>Trong cột Aniimo, mỗi vòng tròn thể hiện kỹ năng theo mã màu trong game với cấp độ bên trong; viền sáng quanh vòng tròn biểu thị công nhân được hưởng thêm +20% tốc độ từ tính cách tương thích. Rê chuột vào vòng tròn để xem chi tiết.</p>
-                                </details>
-                                <!-- Populated by app.js's renderFacilityPlan(): one section per
-                             environment mode in use (Cool/Warm/Freeze/Scorching/Adequate) first,
-                             then one table per facility category (Materials / Environment /
-                             Materials Processing) for everything else. -->
-                                <div id="facility-plan-container" class="facilities-container"></div>
-                            </div>
-                            <div class="card production-steps" id="seed-card" style="display: none;">
-                                <h2 data-i18n="seeds_to_plant_title">Hạt giống cần gieo trồng</h2>
-                                <p class="hint" id="seed-card-unit"></p>
-                                <div class="seed-table" id="seed-table"></div>
-                            </div>
-                            <div class="card production-steps" id="profit-card" style="display: none;">
-                                <h2 data-i18n="profit_by_product_title">Lợi nhuận theo sản phẩm</h2>
-                                <p class="hint" data-i18n="profit_hint">Đã trừ chi phí mua hạt giống.</p>
-                                <div id="profit-breakdown"></div>
-                            </div>
-
-<div class="card production-steps" id="layout-card" style="display: none;">
-                                <h2 data-i18n="layout_title">Mô phỏng bố cục Homeland 2D</h2>
-                                <p class="hint" id="layout-summary"></p>
-                                <details class="explain">
-                                    <summary data-i18n="how_laid_out">Nguyên lý bố trí</summary>
-                                    <p>Mọi lô thành phẩm đều được vận chuyển về Kho lưu trữ (SU). Mỗi cơ sở được sắp xếp vị trí dựa trên tần suất vận chuyển mỗi giờ nhân với khoảng cách đường thẳng đến SU gần nhất: cơ sở bận rộn nhất đặt gần kho nhất, cơ sở ít hoạt động được đưa ra biên. Bố cục hỗ trợ từ 3 đến 5 kho lưu trữ phân tán (SU) nhằm tối thiểu hóa thời gian di chuyển của công nhân Aniimo.</p>
-                                </details>
-                                <div class="layout-controls">
-                                    <span class="layout-toggles">
-                                        <label class="layout-whole"><input type="checkbox" id="layout-whole"> <span data-i18n="show_whole_homeland">Hiện toàn bộ Homeland</span></label>
-                                        <label class="layout-whole"><input type="checkbox" id="layout-sim-on" checked>
-                                            <span data-i18n="simulate_label">Mô phỏng di chuyển</span></label>
-                                        <label class="layout-whole"
-                                            style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                                            <span data-i18n="storage_units_label">Kho lưu trữ (SU):</span>
-                                            <select id="layout-su-count" class="toggle-button small su-count-select">
-                                                <option value="3" selected data-i18n="su_opt_3">3 Kho lưu trữ (Nông trại, Xưởng, Trung tâm)</option>
-                                                <option value="4" data-i18n="su_opt_4">4 Kho lưu trữ (+ Lâm nghiệp)</option>
-                                                <option value="5" data-i18n="su_opt_5">5 Kho lưu trữ (+ Mở rộng)</option>
-                                            </select>
-                                        </label>
-                                    </span>
-                                    <span class="layout-sim" id="layout-sim" hidden><span id="layout-clock">0h 00m</span><button type="button" id="layout-replay" class="btn-reset-saved small" data-i18n="replay_btn">Phát lại</button></span>
-                                </div>
-                                <div class="layout-diagram" id="layout-diagram"></div>
-                            </div>
+                    <!-- TẦNG 1: CHIẾN LƯỢC TỐI ƯU & PHÂN TÍCH (Bento Grid) -->
+                    <div class="card insights-card" id="insights-card">
+                        <div class="card-head">
+                            <button type="button" class="collapse-toggle" id="insights-toggle"
+                                aria-expanded="true" aria-controls="insights-content">
+                                <span class="chevron" aria-hidden="true"></span>
+                                <h2 data-i18n="insights_title">Tại sao chọn kế hoạch này? & Phân tích</h2>
+                            </button>
+                            <span class="badge-pill optimal-pill" data-i18n="optimal_solved">Tối ưu chuẩn xác</span>
                         </div>
-                        <div class="results-sidebar-col">
-                            <div class="card insights-card" id="insights-card">
-                                <div class="card-head">
-                                    <h2 data-i18n="insights_title">Tại sao chọn kế hoạch này? & Phân tích</h2>
-                                    <span class="badge-pill optimal-pill" data-i18n="optimal_solved">Tối ưu chuẩn xác</span>
-                                </div>
-                                <div id="insights-content" class="insights-body">
-                                    <!-- Populated dynamically by app.js -->
+                        <div id="insights-content" class="insights-body">
+                            <!-- Populated dynamically by app.js -->
+                        </div>
+                    </div>
+
+                    <!-- TẦNG 2 & 3: THỰC THI NHIỆM VỤ CƠ SỞ & MỤC TIÊU TÍCH LŨY (Full-width) -->
+                    <div class="results-main-col">
+                        <div class="card production-steps">
+                            <h2 data-i18n="facility_plan_title">Nhiệm vụ từng cơ sở sản xuất</h2>
+                            <details class="explain">
+                                <summary data-i18n="how_to_read">Cách đọc bảng này</summary>
+                                <p>Mỗi dòng là một sản phẩm; nếu cơ sở sản xuất nhiều loại sản phẩm sẽ được chia thành nhiều dòng tương ứng. Các cây trồng cần điều kiện khí hậu được gom theo cụm Lò nhiệt, Cơ sở làm mát hoặc Đèn mặt trời tương ứng với sơ đồ bố trí. Các cơ sở còn lại được phân nhóm theo danh mục sản xuất.</p>
+                                <p>Trong cột Aniimo, mỗi vòng tròn thể hiện kỹ năng theo mã màu trong game với cấp độ bên trong; viền sáng quanh vòng tròn biểu thị công nhân được hưởng thêm +20% tốc độ từ tính cách tương thích. Rê chuột vào vòng tròn để xem chi tiết.</p>
+                            </details>
+                            <!-- Populated by app.js's renderFacilityPlan(): one section per
+                         environment mode in use (Cool/Warm/Freeze/Scorching/Adequate) first,
+                         then one table per facility category (Materials / Environment /
+                         Materials Processing) for everything else. -->
+                            <div id="facility-plan-container" class="facilities-container"></div>
+                        </div>
+                        <div class="card production-steps" id="seed-card" style="display: none;">
+                            <h2 data-i18n="seeds_to_plant_title">Hạt giống cần gieo trồng</h2>
+                            <p class="hint" id="seed-card-unit"></p>
+                            <div class="seed-table" id="seed-table"></div>
+                        </div>
+                        <div class="card production-steps" id="profit-card" style="display: none;">
+                            <h2 data-i18n="profit_by_product_title">Lợi nhuận theo sản phẩm</h2>
+                            <p class="hint" data-i18n="profit_hint">Đã trừ chi phí mua hạt giống.</p>
+                            <div id="profit-breakdown"></div>
+                        </div>
+
+                        <div class="card production-steps" id="layout-card" style="display: none;">
+                            <h2 data-i18n="layout_title">Mô phỏng bố cục Homeland 2D</h2>
+                            <p class="hint" id="layout-summary"></p>
+                            <details class="explain">
+                                <summary data-i18n="how_laid_out">Nguyên lý bố trí</summary>
+                                <p>Mọi lô thành phẩm đều được vận chuyển về Kho lưu trữ (SU). Mỗi cơ sở được sắp xếp vị trí dựa trên tần suất vận chuyển mỗi giờ nhân với khoảng cách đường thẳng đến SU gần nhất: cơ sở bận rộn nhất đặt gần kho nhất, cơ sở ít hoạt động được đưa ra biên. Bố cục hỗ trợ từ 3 đến 5 kho lưu trữ phân tán (SU) nhằm tối thiểu hóa thời gian di chuyển của công nhân Aniimo.</p>
+                            </details>
+                            <div class="layout-controls">
+                                <span class="layout-toggles">
+                                    <label class="layout-whole"><input type="checkbox" id="layout-whole"> <span data-i18n="show_whole_homeland">Hiện toàn bộ Homeland</span></label>
+                                    <label class="layout-whole"><input type="checkbox" id="layout-sim-on" checked>
+                                        <span data-i18n="simulate_label">Mô phỏng di chuyển</span></label>
+                                    <label class="layout-whole"
+                                        style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                        <span data-i18n="storage_units_label">Kho lưu trữ (SU):</span>
+                                        <select id="layout-su-count" class="toggle-button small su-count-select">
+                                            <option value="3" selected data-i18n="su_opt_3">3 Kho lưu trữ (Nông trại, Xưởng, Trung tâm)</option>
+                                            <option value="4" data-i18n="su_opt_4">4 Kho lưu trữ (+ Lâm nghiệp)</option>
+                                            <option value="5" data-i18n="su_opt_5">5 Kho lưu trữ (+ Mở rộng)</option>
+                                        </select>
+                                    </label>
+                                </span>
+                                <span class="layout-sim" id="layout-sim" hidden><span id="layout-clock">0h 00m</span><button type="button" id="layout-replay" class="btn-reset-saved small" data-i18n="replay_btn">Phát lại</button></span>
+                            </div>
+                            <div class="layout-diagram" id="layout-diagram"></div>
+                        </div>
+
+                        <div class="card production-steps" id="goal-section">
+                            <h2 data-i18n="set_goal_title">Đặt mục tiêu tích lũy</h2>
+                            <p class="hint" data-i18n="goal_hint">Cập nhật tức thì theo kế hoạch trên.</p>
+                            <div class="config-group">
+                                <div class="input-row">
+                                    <div class="input-field">
+                                        <label for="goal-target" data-i18n="goal_label">Mục tiêu</label>
+                                        <select id="goal-target"></select>
+                                    </div>
+                                    <div class="input-field">
+                                        <label for="target-amount" id="target-amount-label" data-i18n="target_coins_label">Home Coin mục tiêu</label>
+                                        <input type="number" id="target-amount" value="1000" min="0">
+                                    </div>
+                                    <div class="input-field">
+                                        <label for="current-amount" id="current-amount-label" data-i18n="current_coins_label">Home Coin hiện có</label>
+                                        <input type="number" id="current-amount" value="0" min="0">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="card production-steps" id="goal-section">
-                                <h2 data-i18n="set_goal_title">Đặt mục tiêu tích lũy</h2>
-                                <p class="hint" data-i18n="goal_hint">Cập nhật tức thì theo kế hoạch trên.</p>
-                                <div class="config-group">
-                                    <div class="input-row">
-                                        <div class="input-field">
-                                            <label for="goal-target" data-i18n="goal_label">Mục tiêu</label>
-                                            <select id="goal-target"></select>
-                                        </div>
-                                        <div class="input-field">
-                                            <label for="target-amount" id="target-amount-label" data-i18n="target_coins_label">Home Coin mục tiêu</label>
-                                            <input type="number" id="target-amount" value="1000" min="0">
-                                        </div>
-                                        <div class="input-field">
-                                            <label for="current-amount" id="current-amount-label" data-i18n="current_coins_label">Home Coin hiện có</label>
-                                            <input type="number" id="current-amount" value="0" min="0">
-                                        </div>
+
+                            <div class="result-summary">
+                                <div class="summary-grid">
+                                    <div class="summary-item">
+                                        <span class="summary-label" data-i18n="total_time_label">Tổng thời gian cần</span>
+                                        <span class="summary-value" id="total-time">-</span>
+                                    </div>
+                                    <div class="summary-item">
+                                        <span class="summary-label" id="amount-produced-label" data-i18n="amount_produced_label">Home Coin sản xuất được</span>
+                                        <span class="summary-value" id="amount-produced">-</span>
                                     </div>
                                 </div>
+                            </div>
+                            <p class="level-up-coins" id="goal-also" style="display: none;"></p>
 
-                                <div class="result-summary">
-                                    <div class="summary-grid">
-                                        <div class="summary-item">
-                                            <span class="summary-label" data-i18n="total_time_label">Tổng thời gian cần</span>
-                                            <span class="summary-value" id="total-time">-</span>
-                                        </div>
-                                        <div class="summary-item">
-                                            <span class="summary-label" id="amount-produced-label" data-i18n="amount_produced_label">Home Coin sản xuất được</span>
-                                            <span class="summary-value" id="amount-produced">-</span>
-                                        </div>
-                                    </div>
+                            <div class="production-steps" id="product-breakdown-section" style="display: none;">
+                                <h3 data-i18n="product_breakdown_title">Chi tiết sản phẩm</h3>
+                                <div class="table-wrapper">
+                                    <table id="product-breakdown-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Item</th>
+                                                <th>Facility</th>
+                                                <th>Amount</th>
+                                                <th id="product-breakdown-rate-header">Profit</th>
+                                                <th>Worth <span class="th-unit">Home Coins</span></th>
+                                                <th id="product-breakdown-points-header" hidden>Harvest Moon Points
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="product-breakdown-tbody"></tbody>
+                                    </table>
                                 </div>
-                                <p class="level-up-coins" id="goal-also" style="display: none;"></p>
+                            </div>
 
-                                <div class="production-steps" id="product-breakdown-section" style="display: none;">
-                                    <h3 data-i18n="product_breakdown_title">Chi tiết sản phẩm</h3>
-                                    <div class="table-wrapper">
-                                        <table id="product-breakdown-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Item</th>
-                                                    <th>Facility</th>
-                                                    <th>Amount</th>
-                                                    <th id="product-breakdown-rate-header">Profit</th>
-                                                    <th>Worth <span class="th-unit">Home Coins</span></th>
-                                                    <th id="product-breakdown-points-header" hidden>Harvest Moon Points
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="product-breakdown-tbody"></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                <div class="production-steps" id="seeds-needed-section" style="display: none;">
-                                    <h3 data-i18n="seeds_needed_title">Hạt giống cần thiết</h3>
-                                    <div class="table-wrapper">
-                                        <table id="seeds-needed-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Crop</th>
-                                                    <th>Facility</th>
-                                                    <th>Plots</th>
-                                                    <th>Plantings/Plot</th>
-                                                    <th>Total Seeds</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="seeds-needed-tbody"></tbody>
-                                        </table>
-                                    </div>
+                            <div class="production-steps" id="seeds-needed-section" style="display: none;">
+                                <h3 data-i18n="seeds_needed_title">Hạt giống cần thiết</h3>
+                                <div class="table-wrapper">
+                                    <table id="seeds-needed-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Crop</th>
+                                                <th>Facility</th>
+                                                <th>Plots</th>
+                                                <th>Plantings/Plot</th>
+                                                <th>Total Seeds</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="seeds-needed-tbody"></tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
