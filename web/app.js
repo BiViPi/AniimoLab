@@ -3335,13 +3335,29 @@ export const SEASON_DISH_DATA = {
         sellValue: 5290,
         points: 8,
         cycleTime: 203,
-        // Chuỗi cơ sở bắt buộc trong game: Bàn chế tạo làm mâm cỗ + Bếp lửa lớn làm củ cải lát + Bếp gắp thú nướng ớt
+        // Chuỗi cơ sở bắt buộc trong game:
+        // 1. Nồi hầm làm Kẹo đá (Mía + Nước ngọt)
+        // 2. Bếp lửa lớn làm Củ cải sấy lát (Củ cải + Kẹo đá)
+        // 3. Lâu đài cát làm Muối biển nhanh
+        // 4. Bếp gắp thú nướng Ớt trăng (Ớt + Muối biển)
+        // 5. Bàn chế tạo ghép thành Mâm cỗ trung thu (Củ cải lát + Ớt nướng)
         facilityUsage: {
             'Crafting Table': 1,
             'Blazing Stove': 1,
-            'Claw Game Cooker': 1
+            'Claw Game Cooker': 1,
+            'Simmering Pot': 1,
+            'Tidewhisper Sandcastle': 1,
+            'Well': 1
         },
         prepChain: [
+            {
+                facility: 'Simmering Pot',
+                item_name: 'rock_candy',
+                cycleTime: 108,
+                is_emode: true,
+                reasonVi: 'Sơ chế Kẹo đá cho Củ cải sấy lát (Mâm cỗ trung thu)',
+                reasonEn: 'Prep Rock Candy for Radish Slices (Harvest Platter)'
+            },
             {
                 facility: 'Blazing Stove',
                 item_name: 'moondew_radish_slices',
@@ -3366,7 +3382,10 @@ export const SEASON_DISH_DATA = {
         sellValue: 2390,
         points: 8,
         cycleTime: 203,
-        facilityUsage: { 'Simmering Pot': 1 }
+        facilityUsage: {
+            'Simmering Pot': 1,
+            'Tidewhisper Sandcastle': 1
+        }
     },
     umbral_pickle: {
         name: 'umbral_pickle',
@@ -3376,7 +3395,19 @@ export const SEASON_DISH_DATA = {
         sellValue: 2290,
         points: 8,
         cycleTime: 203,
-        facilityUsage: { 'Pickling Jar': 1 }
+        facilityUsage: {
+            'Pickling Jar': 1,
+            'Bouncy Brew Keg': 1
+        },
+        prepChain: [
+            {
+                facility: 'Bouncy Brew Keg',
+                item_name: 'cider_vinegar',
+                cycleTime: 162,
+                reasonVi: 'Sơ chế Giấm táo cho Dưa muối chua hắc ám',
+                reasonEn: 'Prep Cider Vinegar for Umbral Pickle'
+            }
+        ]
     },
     umbral_hot_pot: {
         name: 'umbral_hot_pot',
@@ -3386,7 +3417,10 @@ export const SEASON_DISH_DATA = {
         sellValue: 2150,
         points: 8,
         cycleTime: 203,
-        facilityUsage: { 'Blazing Stove': 1 }
+        facilityUsage: {
+            'Blazing Stove': 1,
+            'Well': 1
+        }
     },
     moondew_radish_slices: {
         name: 'moondew_radish_slices',
@@ -3396,7 +3430,21 @@ export const SEASON_DISH_DATA = {
         sellValue: 2370,
         points: 4,
         cycleTime: 203,
-        facilityUsage: { 'Blazing Stove': 1 }
+        facilityUsage: {
+            'Blazing Stove': 1,
+            'Simmering Pot': 1,
+            'Well': 1
+        },
+        prepChain: [
+            {
+                facility: 'Simmering Pot',
+                item_name: 'rock_candy',
+                cycleTime: 108,
+                is_emode: true,
+                reasonVi: 'Sơ chế Kẹo đá cho Củ cải sấy lát',
+                reasonEn: 'Prep Rock Candy for Dried Radish Slices'
+            }
+        ]
     },
     roasted_waxing_moon_pepper: {
         name: 'roasted_waxing_moon_pepper',
@@ -3406,7 +3454,10 @@ export const SEASON_DISH_DATA = {
         sellValue: 1520,
         points: 4,
         cycleTime: 162,
-        facilityUsage: { 'Claw Game Cooker': 1 }
+        facilityUsage: {
+            'Claw Game Cooker': 1,
+            'Tidewhisper Sandcastle': 1
+        }
     }
 };
 
@@ -3502,8 +3553,11 @@ export function selectOptimalSeasonDishes(planRateEstimate = 40) {
     function hasFacilityConflict(dishA, dishB) {
         const usageA = dishA.facilityUsage || { [dishA.facility]: 1 };
         const usageB = dishB.facilityUsage || { [dishB.facility]: 1 };
-        for (const fac of Object.keys(usageA)) {
-            if (usageB[fac]) return true;
+        const allFacs = new Set([...Object.keys(usageA), ...Object.keys(usageB)]);
+        for (const fac of allFacs) {
+            const req = (usageA[fac] || 0) + (usageB[fac] || 0);
+            const owned = currentSetup[fac]?.[0]?.count || 0;
+            if (req > owned) return true;
         }
         return false;
     }
@@ -3594,8 +3648,12 @@ function getPlanInputValues() {
 
     // 3. Deduct dedicated event plots from Farmland and reserve facilities for chosen season dishes
     if (seasonActive()) {
+        const optimalDishes = selectOptimalSeasonDishes();
+        const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
+        const sugarcanePlots = needsRockCandy ? 1 : 0;
+
         const totalFarmland = facilities['Farmland']?.[0]?.count || 0;
-        const dedicated = Math.min(totalFarmland, seasonRadishPlots + seasonPepperPlots);
+        const dedicated = Math.min(totalFarmland, seasonRadishPlots + seasonPepperPlots + sugarcanePlots);
         if (facilities['Farmland'] && facilities['Farmland'][0]) {
             facilities['Farmland'][0].count = Math.max(0, totalFarmland - dedicated);
         }
@@ -3603,6 +3661,8 @@ function getPlanInputValues() {
         // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn (bao gồm cả chuỗi sơ chế)
         const eventFacUsage = getSeasonFacilityUsage();
         for (const [fac, count] of Object.entries(eventFacUsage)) {
+            // Không trừ Tidewhisper Sandcastle vì Sandcastle sẽ được cập nhật mục đích sử dụng trực tiếp từ mẻ muối biển
+            if (fac === 'Tidewhisper Sandcastle') continue;
             if (facilities[fac] && facilities[fac][0]) {
                 facilities[fac][0].count = Math.max(0, facilities[fac][0].count - count);
             }
@@ -3673,6 +3733,40 @@ function integrateSeasonPlan(plan) {
     // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo các quy tắc
     const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
 
+    // Nếu có món cần Kẹo đá, thêm 1 ô Farmland trồng Mía
+    const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
+    if (needsRockCandy) {
+        newSteps.push({
+            facility: 'Farmland',
+            item_name: 'sugarcane',
+            facility_count: 1,
+            status: 'producing',
+            cycle_time: 2400,
+            is_grower: true,
+            reason: isVi ? 'Dùng cho Kẹo đá; phần còn lại bán trực tiếp' : 'Used for rock_candy; the rest sells directly',
+            environment: null
+        });
+    }
+
+    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt thường
+    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.name === 'umbral_hot_pot');
+    if (needsFreshWater) {
+        const fwReason = isVi
+            ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
+            : 'Used for event dishes';
+        newSteps.push({
+            facility: 'Well',
+            item_name: 'fresh_water',
+            facility_count: 1,
+            status: 'producing',
+            cycle_time: 2250,
+            is_grower: false,
+            is_emode: true,
+            reason: fwReason,
+            environment: null
+        });
+    }
+
     for (const dish of optimalDishes) {
         const maxFacCapacity = 1 / (dish.cycleTime || 203);
         let availUnits = 0;
@@ -3697,7 +3791,7 @@ function integrateSeasonPlan(plan) {
             extraCoinsRate += coinsPerSec;
             seasonPointsRate += ptsPerSec;
 
-            // 1. Nếu món có chuỗi sơ chế (ví dụ Mâm cỗ trung thu cần Củ cải sấy lát và Ớt nướng trăng):
+            // 1. Nếu món có chuỗi sơ chế (ví dụ Mâm cỗ trung thu cần Kẹo đá, Củ cải sấy lát và Ớt nướng trăng):
             if (dish.prepChain) {
                 for (const prep of dish.prepChain) {
                     newSteps.push({
@@ -3707,6 +3801,7 @@ function integrateSeasonPlan(plan) {
                         status: 'producing',
                         cycle_time: prep.cycleTime,
                         is_grower: false,
+                        is_emode: prep.is_emode || false,
                         reason: isVi ? prep.reasonVi : prep.reasonEn,
                         environment: null
                     });
@@ -3736,6 +3831,36 @@ function integrateSeasonPlan(plan) {
                 total_units: 0,
                 total_value: 0,
                 points: dish.points
+            });
+        }
+    }
+
+    // Cập nhật mục đích của cơ sở sản xuất nguyên liệu phụ trợ cho sự kiện:
+    // Muối biển từ Lâu đài cát Tidewhisper dùng cho Ớt nướng trăng (hoặc Mâm cỗ trung thu, Sốt cay ngọt)
+    const saltDishes = optimalDishes.filter(d => d.name === 'roasted_waxing_moon_pepper' || d.name === 'harvest_platter' || d.name === 'umbral_sweet_and_spicy_sauce');
+    if (saltDishes.length > 0) {
+        let forTextVi = 'Ớt nướng trăng';
+        if (saltDishes.some(d => d.name === 'harvest_platter')) {
+            forTextVi = 'Ớt nướng trăng (Mâm cỗ trung thu)';
+        } else if (saltDishes.some(d => d.name === 'umbral_sweet_and_spicy_sauce')) {
+            forTextVi = 'Sốt cay ngọt hắc ám';
+        }
+        const purposeText = isVi
+            ? `Dùng cho ${forTextVi}; phần còn lại bán trực tiếp`
+            : `Used for ${forTextVi}; the rest sells directly`;
+        const sandStep = newSteps.find(s => s.facility.includes('Tidewhisper Sandcastle') && s.status === 'producing');
+        if (sandStep) {
+            sandStep.reason = purposeText;
+        } else {
+            newSteps.push({
+                facility: 'Tidewhisper Sandcastle',
+                item_name: 'quick_sea_salt',
+                facility_count: 1,
+                status: 'producing',
+                cycle_time: 2250,
+                is_grower: false,
+                reason: isVi ? `Dùng cho ${forTextVi}` : `Used for ${forTextVi}`,
+                environment: null
             });
         }
     }
@@ -5531,6 +5656,66 @@ async function runFindPlan() {
             if (runId !== planRunId) return;
             bestPlan = JSON.parse(bestJson);
             finalEmodeCounts = {};
+        }
+
+        // STEP 4: Tự động loại bỏ các sản phẩm thô/phụ có tỷ lệ doanh thu <= 2% (như Muối biển, Ngôi sao)
+        // để giải phóng công nhân Aniimo và tránh đề xuất cơ sở sản xuất thô lãng phí nhân lực.
+        if (bestPlan && bestPlan.success && bestPlan.income_streams && bestPlan.rate_per_second > 0) {
+            const totalRate = bestPlan.rate_per_second;
+            const userPicks = new Set([
+                ...(unlockedSpecial || []),
+                ...(selectedSeasonDishes || []),
+                ...activePriorities()
+            ]);
+
+            // Nếu Lễ hội Trung Thu đang bật và có món cần Muối biển hoặc Kẹo đá, bảo vệ chúng khỏi auto-pruning
+            if (seasonActive()) {
+                if (selectedSeasonDishes.has('roasted_waxing_moon_pepper') || selectedSeasonDishes.has('harvest_platter') || selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce')) {
+                    userPicks.add('sea_salt');
+                    userPicks.add('quick_sea_salt');
+                }
+                if (selectedSeasonDishes.has('moondew_radish_slices') || selectedSeasonDishes.has('harvest_platter')) {
+                    userPicks.add('rock_candy');
+                    userPicks.add('quick_rock_candy');
+                    userPicks.add('sugarcane');
+                    userPicks.add('fresh_water');
+                    userPicks.add('quick_fresh_water');
+                }
+                if (selectedSeasonDishes.has('umbral_hot_pot')) {
+                    userPicks.add('fresh_water');
+                    userPicks.add('quick_fresh_water');
+                }
+            }
+
+            const lowShareItems = [];
+            for (const stream of bestPlan.income_streams) {
+                const baseName = stream.item_name.replace(/^quick_/, '');
+                if (userPicks.has(stream.item_name) || userPicks.has(baseName)) continue;
+
+                const share = stream.rate_per_second / totalRate;
+                if (share <= 0.02) {
+                    lowShareItems.push(stream.item_name);
+                    lowShareItems.push(baseName);
+                    lowShareItems.push(`quick_${baseName}`);
+                }
+            }
+
+            if (lowShareItems.length > 0) {
+                const newExclusions = [...new Set([...(input.exclude || []), ...lowShareItems])];
+                const prunedInput = { ...input, exclude: newExclusions };
+
+                const prunedJson = await callWorker('find_plan', JSON.stringify({ ...prunedInput, aniimo: bestSetup }));
+                if (runId !== planRunId) return;
+
+                const prunedPlan = JSON.parse(prunedJson);
+                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và giữ lại món chính nếu user có pick
+                const hasMainProduct = userPicks.size === 0 || (prunedPlan?.income_streams || []).some(s => userPicks.has(s.item_name) || userPicks.has(s.item_name.replace(/^quick_/, '')));
+                const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && hasMainProduct;
+                if (prunedViable) {
+                    bestPlan = prunedPlan;
+                    input.exclude = newExclusions;
+                }
+            }
         }
 
         bestPlan = integrateSeasonPlan(bestPlan);
