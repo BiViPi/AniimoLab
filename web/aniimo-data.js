@@ -1,3 +1,4 @@
+import { HOMELAND_MATRIX_COLUMNS, HOMELAND_ELEMENTS, HOMELAND_MATRIX_ROWS } from './aniimo-matrix-data.js?v=aniimolab_v25';
 // Aniimo Data & Homeland Ability Recommendations
 // Automatically generated from Aniidex & Homeland game files
 
@@ -4709,155 +4710,368 @@ function getOtherAbilitiesText(aniimoName, currentAbilityKey, isPrismanaCard = f
 }
 
 /**
- * Render the complete Aniimo Tier List Modal Content
- * Only includes Tier SS (Prismana Lv.4) and Tier S (Normal Lv.3)
- * STRICTLY EXCLUDES ANY LEVEL 1 OR LEVEL 2 WORKERS
- * @param {string} filterAbility - 'all' or ability key
+ * Homeland Worker Abilities Matrix (HideoutGacha Style)
+ * Renders the complete 14-column matrix:
+ * - Rows: 27 Prismana forms, followed by 54 Ordinary forms at Nova Stage (highest evolution)
+ * - Columns: ANIIMO + 13 Homeland Abilities (Fire, Grass, Water, Earth, Lightning, Ice, Wind, Dark, Light, Hauling, Artisanship, Leisure, Perfumery)
  */
-export function renderAniimoTierModalContent(filterAbility = currentTierFilter) {
-    currentTierFilter = filterAbility;
+
+let matrixState = {
+    sortColIndex: null,   // null = default (Prismana group first, then Nova group), or 0..12 for ability, or 'name'
+    sortDir: 'desc',      // 'desc' | 'asc'
+    levelSort: 'highest', // 'highest' | 'lowest'
+    filterType: 'all',    // 'all' | 'prismana' | 'ordinary'
+    searchQuery: ''       // search query string
+};
+
+function getMatrixFilteredAndSortedRows(isVi) {
+    let rows = [...HOMELAND_MATRIX_ROWS];
+
+    // 1. Filter by Type
+    if (matrixState.filterType === 'prismana') {
+        rows = rows.filter(r => r.isPrismana);
+    } else if (matrixState.filterType === 'ordinary') {
+        rows = rows.filter(r => !r.isPrismana);
+    }
+
+    // 2. Filter by Search Query
+    const q = (matrixState.searchQuery || '').trim().toLowerCase();
+    if (q) {
+        rows = rows.filter(r => {
+            const elem = HOMELAND_ELEMENTS[r.element] || {};
+            const elemVi = elem.vi || '';
+            const elemEn = elem.en || '';
+            return r.name.toLowerCase().includes(q) ||
+                   r.element.toLowerCase().includes(q) ||
+                   elemVi.toLowerCase().includes(q) ||
+                   elemEn.toLowerCase().includes(q);
+        });
+    }
+
+    // 3. Sort Rows
+    if (matrixState.sortColIndex === null) {
+        // Default sort: Group 1 Prismana (A-Z), Group 2 Ordinary Nova (A-Z)
+        rows.sort((a, b) => {
+            if (matrixState.levelSort === 'highest') {
+                if (a.isPrismana !== b.isPrismana) return b.isPrismana ? 1 : -1;
+            } else {
+                if (a.isPrismana !== b.isPrismana) return a.isPrismana ? 1 : -1;
+            }
+            return a.name.localeCompare(b.name);
+        });
+    } else if (matrixState.sortColIndex === 'name') {
+        rows.sort((a, b) => {
+            const cmp = a.name.localeCompare(b.name);
+            return matrixState.sortDir === 'asc' ? cmp : -cmp;
+        });
+    } else if (typeof matrixState.sortColIndex === 'number') {
+        const colIdx = matrixState.sortColIndex;
+        rows.sort((a, b) => {
+            const valA = a.values[colIdx] || 0;
+            const valB = b.values[colIdx] || 0;
+
+            if (matrixState.sortDir === 'desc') {
+                // Highest first: 4 -> 3 -> 0
+                if (valA !== valB) return valB - valA;
+            } else {
+                // Lowest first: workers with >0 grouped before 0
+                if (valA === 0 && valB > 0) return 1;
+                if (valB === 0 && valA > 0) return -1;
+                if (valA !== valB) return valA - valB;
+            }
+
+            // Tiebreaker 1: Prismana first
+            if (a.isPrismana !== b.isPrismana) return b.isPrismana ? 1 : -1;
+            // Tiebreaker 2: Name A-Z
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    return rows;
+}
+
+export function renderAniimoTierModalContent(filterAbility = null) {
     const container = document.getElementById('aniimo-tier-container');
     if (!container) return;
 
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    // Optional override if caller passed a specific ability
+    if (filterAbility && filterAbility !== 'all') {
+        const colMatch = HOMELAND_MATRIX_COLUMNS.find(c => c.en.toLowerCase() === filterAbility.toLowerCase() || c.vi.toLowerCase() === filterAbility.toLowerCase() || c.key.toLowerCase() === filterAbility.toLowerCase());
+        if (colMatch) {
+            matrixState.sortColIndex = colMatch.index;
+            matrixState.sortDir = 'desc';
+        }
+    }
 
-    // 1. Filter Chips Header
-    const filterChipsHtml = `
-        <div class="tier-filter-chips">
-            <button type="button" class="tier-chip ${filterAbility === 'all' ? 'active' : ''}" data-tier-filter="all">
-                🌟 ${isVi ? 'Tất cả kỹ năng' : 'All Abilities'}
-            </button>
-            ${ABILITIES_TIER_ORDER.map(ab => `
-                <button type="button" class="tier-chip ${filterAbility === ab.key ? 'active' : ''}" data-tier-filter="${ab.key}" style="--chip-color:${ab.color}">
-                    <span>${ab.icon}</span> <span>${isVi ? ab.vi : ab.en}</span>
+    const isVi = !window.i18n || window.i18n.getLang() === 'vi';
+
+    const countAll = HOMELAND_MATRIX_ROWS.length;
+    const countPrismana = HOMELAND_MATRIX_ROWS.filter(r => r.isPrismana).length;
+    const countOrdinary = HOMELAND_MATRIX_ROWS.filter(r => !r.isPrismana).length;
+
+    // Render outer shell
+    container.innerHTML = `
+        <div class="matrix-top-bar">
+            <div class="matrix-legend-row">
+                <span class="matrix-legend-badge badge-lv3">Level 3</span>
+                <span class="matrix-legend-badge badge-lv4">Level 4</span>
+                <span class="matrix-legend-desc">
+                    ${isVi 
+                        ? 'Hàng màu xanh là Aniimo cơ bản giai đoạn Tân Tinh (Nova Stage - Cấp 3/4 thực tế). Hàng màu hổ phách là biến thể Prismana hiếm 1%.' 
+                        : 'Green rows are ordinary Aniimo at Nova Stage (Level 3/4). Amber rows are rare 1% Prismana breeds.'}
+                </span>
+            </div>
+            <div class="matrix-sort-group">
+                <span class="matrix-sort-label">${isVi ? 'SẮP XẾP CẤP ĐỘ:' : 'SORT LEVEL:'}</span>
+                <button type="button" class="matrix-btn-sort ${matrixState.levelSort === 'highest' ? 'active' : ''}" id="matrixSortHighest">
+                    ${isVi ? 'Cao nhất' : 'Highest'}
                 </button>
-            `).join('')}
+                <button type="button" class="matrix-btn-sort ${matrixState.levelSort === 'lowest' ? 'active' : ''}" id="matrixSortLowest">
+                    ${isVi ? 'Thấp nhất' : 'Lowest'}
+                </button>
+            </div>
+        </div>
+
+        <div class="matrix-toolbar">
+            <div class="matrix-search-box">
+                <span class="matrix-search-icon">🔍</span>
+                <input type="text" id="matrixSearchInput" class="matrix-search-input" 
+                       placeholder="${isVi ? 'Tìm Aniimo theo tên, hệ...' : 'Search Aniimo by name, element...'}" 
+                       value="${matrixState.searchQuery}" />
+                ${matrixState.searchQuery ? '<button type="button" class="matrix-search-clear" id="matrixSearchClear" title="Xóa">&times;</button>' : ''}
+            </div>
+
+            <div class="matrix-filter-tabs">
+                <button type="button" class="matrix-tab ${matrixState.filterType === 'all' ? 'active' : ''}" data-filter-type="all">
+                    ${isVi ? 'Tất cả' : 'All'} (${countAll})
+                </button>
+                <button type="button" class="matrix-tab ${matrixState.filterType === 'prismana' ? 'active' : ''}" data-filter-type="prismana">
+                    ⭐ Prismana (${countPrismana})
+                </button>
+                <button type="button" class="matrix-tab ${matrixState.filterType === 'ordinary' ? 'active' : ''}" data-filter-type="ordinary">
+                    🔷 ${isVi ? 'Tân Tinh / Cơ bản' : 'Nova Stage'} (${countOrdinary})
+                </button>
+            </div>
+
+            <div class="matrix-hint-group">
+                <span class="matrix-quick-hint">
+                    ${isVi 
+                        ? '💡 Nhấp cột kỹ năng để xếp hạng. Nhấp ANIIMO để đặt lại.' 
+                        : '💡 Click any ability column to rank. Click ANIIMO to reset.'}
+                </span>
+                <button type="button" class="matrix-btn-reset" id="matrixResetBtn" title="${isVi ? 'Khôi phục thứ tự mặc định' : 'Reset to default order'}">
+                    ↺ ${isVi ? 'Đặt lại' : 'Reset'}
+                </button>
+            </div>
+        </div>
+
+        <div class="matrix-table-wrap">
+            <table class="homeland-matrix-table" id="matrixTable">
+                <thead>
+                    <tr>
+                        <th class="col-sticky-aniimo" id="thColAniimo" title="${isVi ? 'Nhấp để đặt lại thứ tự mặc định (Prismana trước, Tân Tinh sau)' : 'Click to reset to default order'}">
+                            <div class="th-aniimo-inner">
+                                <span class="th-aniimo-title">ANIIMO</span>
+                                <span class="th-sort-icon">
+                                    ${matrixState.sortColIndex === null ? '▼' : (matrixState.sortColIndex === 'name' ? (matrixState.sortDir === 'asc' ? '▲' : '▼') : '⇅')}
+                                </span>
+                            </div>
+                        </th>
+                        ${HOMELAND_MATRIX_COLUMNS.map(col => {
+                            const isActive = matrixState.sortColIndex === col.index;
+                            const sortArrow = isActive ? (matrixState.sortDir === 'desc' ? '▼' : '▲') : '⇅';
+                            return `
+                                <th class="th-ability ${isActive ? 'is-active-col' : ''}" data-col="${col.index}" title="${isVi ? 'Sắp xếp theo ' + col.vi + ' (' + col.en + ')' : 'Sort by ' + col.en}">
+                                    <div class="th-ability-cell">
+                                        <span class="th-ability-icon">${col.icon}</span>
+                                        <span class="th-ability-name">${isVi ? col.vi : col.en}</span>
+                                        <span class="th-ability-sub">${isVi ? col.en : col.vi}</span>
+                                        <span class="th-ability-sort">${sortArrow}</span>
+                                    </div>
+                                </th>
+                            `;
+                        }).join('')}
+                    </tr>
+                </thead>
+                <tbody id="matrixTbody">
+                </tbody>
+            </table>
         </div>
     `;
 
-    // 2. Sections for each ability
-    const sectionsHtml = ABILITIES_TIER_ORDER.map(ab => {
-        if (filterAbility !== 'all' && filterAbility !== ab.key) {
-            return '';
+    function updateTbodyOnly() {
+        const tbody = document.getElementById('matrixTbody');
+        if (!tbody) return;
+
+        const rows = getMatrixFilteredAndSortedRows(isVi);
+        if (rows.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="14" class="matrix-empty-row">
+                        ${isVi ? 'Không tìm thấy Aniimo nào phù hợp với điều kiện lọc.' : 'No Aniimo found matching the filter criteria.'}
+                    </td>
+                </tr>
+            `;
+            return;
         }
 
-        const pool = ABILITY_WORKERS[ab.key] || { prismana_lv4: [], normal_lv3: [] };
+        const html = rows.map(r => {
+            const elemMeta = HOMELAND_ELEMENTS[r.element] || { vi: r.element, en: r.element, icon: '🐾', color: r.elementColor || '#888' };
+            const isPris = r.isPrismana;
+            const rowClass = isPris ? 'row-prismana' : 'row-ordinary';
 
-        // Tier SS: Prismana Lv.4 (filter out base_level < 2 if any, sort base_level desc)
-        const rawSS = pool.prismana_lv4 || [];
-        const seenSS = new Set();
-        const tierSS = [];
-        for (const w of rawSS) {
-            if (!seenSS.has(w.name) && (w.base_level >= 2 || w.is_prismana)) {
-                seenSS.add(w.name);
-                tierSS.push(w);
-            }
-        }
-        tierSS.sort((x, y) => (y.base_level || 0) - (x.base_level || 0));
+            const cellsHtml = HOMELAND_MATRIX_COLUMNS.map(col => {
+                const val = r.values[col.index] || 0;
+                const isColActive = matrixState.sortColIndex === col.index;
+                const colClass = isColActive ? 'col-highlight' : '';
 
-        // Tier S: Normal Lv.3 (strictly base_level >= 3, no level 1 or 2)
-        const rawS = pool.normal_lv3 || [];
-        const seenS = new Set();
-        const tierS = [];
-        for (const w of rawS) {
-            if (!seenS.has(w.name) && w.base_level >= 3) {
-                seenS.add(w.name);
-                tierS.push(w);
-            }
-        }
-        tierS.sort((x, y) => (y.base_level || 0) - (x.base_level || 0));
+                let badgeHtml = '<span class="matrix-empty-dot">·</span>';
+                if (val === 4) {
+                    badgeHtml = '<span class="matrix-val-badge val-lv4">4</span>';
+                } else if (val === 3) {
+                    badgeHtml = '<span class="matrix-val-badge val-lv3">3</span>';
+                } else if (val > 0) {
+                    badgeHtml = `<span class="matrix-val-badge">${val}</span>`;
+                }
 
-        const cardRenderer = (w, isPrismana) => {
-            const level = isPrismana ? 4 : 3;
-            const otherStats = getOtherAbilitiesText(w.name, ab.key, isPrismana);
-            const secondaryHtml = otherStats 
-                ? `<div class="tier-card-secondary" title="${otherStats}"><span>${otherStats}</span></div>` 
-                : '';
+                return `<td class="matrix-cell ${colClass}">${badgeHtml}</td>`;
+            }).join('');
 
             return `
-                <div class="tier-aniimo-card ${isPrismana ? 'is-prismana-card' : ''}" style="--item-color:${ab.color}">
-                    <div class="tier-card-avatar-wrap">
-                        <img class="tier-card-avatar" src="${w.img_url}" alt="${w.name}" loading="lazy" onerror="this.src='https://aniimoguide.com/images/aniimo/head_round/${w.number || '10011'}.webp'">
-                        <span class="tier-level-tag ${isPrismana ? 'prismana-tag' : ''}">Lv.${level}</span>
-                    </div>
-                    <div class="tier-card-info">
-                        <div class="tier-card-top">
-                            <span class="tier-card-name">${w.name}</span>
-                            <span class="tier-card-num">#${w.number}</span>
+                <tr class="${rowClass}">
+                    <th class="col-sticky-aniimo">
+                        <div class="aniimo-row-item">
+                            <div class="aniimo-avatar-ring" style="box-shadow: inset 0 0 0 2px ${r.elementColor};">
+                                <img src="https://aniidex.com/images/aniimo/UI_PetHead_${r.headId}.webp" 
+                                     onerror="this.src='https://www.hideoutgacha.com/images/aniimo/heads/${r.headId}.webp'" 
+                                     alt="${r.name}" 
+                                     class="aniimo-avatar-img" 
+                                     loading="lazy" />
+                            </div>
+                            <div class="aniimo-meta-wrap">
+                                <div class="aniimo-name-line">
+                                    <span class="aniimo-name-text">${r.name}</span>
+                                    ${isPris 
+                                        ? '<span class="tag-prismana">PRISMANA</span>' 
+                                        : `<span class="tag-nova">${isVi ? 'TÂN TINH' : 'NOVA'}</span>`}
+                                </div>
+                                <div class="aniimo-elem-line" style="color: ${r.elementColor};">
+                                    <span class="elem-ico">${elemMeta.icon}</span>
+                                    <span class="elem-txt">${isVi ? elemMeta.vi : elemMeta.en}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="tier-card-badge-row">
-                            <span class="tier-type-pill ${isPrismana ? 'pill-ss' : 'pill-s'}">
-                                ${isPrismana ? '✨ Tier SS · Prismana Cấp 4' : '🔷 Tier S · Cấp 3'}
-                            </span>
-                        </div>
-                        ${secondaryHtml}
-                    </div>
-                </div>
+                    </th>
+                    ${cellsHtml}
+                </tr>
             `;
-        };
+        }).join('');
 
-        const ssCards = tierSS.map(w => cardRenderer(w, true)).join('');
-        const sCards = tierS.map(w => cardRenderer(w, false)).join('');
+        tbody.innerHTML = html;
+    }
 
-        const emptySSNotice = tierSS.length === 0
-            ? `<div class="tier-empty-notice">
-                <span class="notice-icon">ℹ️</span>
-                <span>${isVi ? 'Hiện chưa có loài Prismana cho kỹ năng này trong game. Hãy sử dụng Tier S (Cấp 3) để tối ưu hiệu suất.' : 'No Prismana species available for this ability in the game yet. Use Tier S (Level 3) for best performance.'}</span>
-               </div>`
-            : '';
+    // Initial fill of tbody
+    updateTbodyOnly();
 
-        return `
-            <section class="tier-ability-section" style="--ability-theme:${ab.color}">
-                <div class="tier-group-header">
-                    <div class="tier-group-title">
-                        <span class="tier-group-icon">${ab.icon}</span>
-                        <h3>${isVi ? ab.vi : ab.en}</h3>
-                        <span class="tier-group-subtitle">(${ab.en})</span>
-                    </div>
-                    <div class="tier-group-counts">
-                        <span class="badge-count count-ss">${tierSS.length} Tier SS</span>
-                        <span class="badge-count count-s">${tierS.length} Tier S</span>
-                    </div>
-                </div>
-
-                <!-- TIER SS BLOCK -->
-                <div class="tier-block tier-ss-block">
-                    <div class="tier-block-header">
-                        <span class="tier-block-badge tier-ss-badge">⭐ TIER SS · CẤP 4 (PRISMANA)</span>
-                        <span class="tier-block-hint">${isVi ? 'Tốc độ sản xuất & thu hoạch cao nhất (+tính cách tương thích)' : 'Highest speed & yield'}</span>
-                    </div>
-                    ${emptySSNotice}
-                    ${tierSS.length > 0 ? `<div class="tier-cards-grid">${ssCards}</div>` : ''}
-                </div>
-
-                <!-- TIER S BLOCK -->
-                <div class="tier-block tier-s-block">
-                    <div class="tier-block-header">
-                        <span class="tier-block-badge tier-s-badge">🔷 TIER S · CẤP 3 (CƠ BẢN / TỰ NHIÊN)</span>
-                        <span class="tier-block-hint">${isVi ? 'Dạng cơ bản trước khi hóa Prismana hoặc loài tự nhiên Cấp 3' : 'Base forms of Prismana or natural Lv.3 species'}</span>
-                    </div>
-                    <div class="tier-cards-grid">${sCards}</div>
-                </div>
-            </section>
-        `;
-    }).join('');
-
-    container.innerHTML = `
-        ${filterChipsHtml}
-        <div class="tier-sections-container">
-            ${sectionsHtml}
-        </div>
-    `;
-
-    // Attach click events to filter chips
-    container.querySelectorAll('.tier-chip').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const filter = e.currentTarget.dataset.tierFilter;
-            renderAniimoTierModalContent(filter);
+    // Attach Event Listeners
+    // 1. Column ability sorting
+    container.querySelectorAll('.th-ability').forEach(th => {
+        th.addEventListener('click', (e) => {
+            const colIndex = parseInt(th.dataset.col, 10);
+            if (matrixState.sortColIndex === colIndex) {
+                matrixState.sortDir = matrixState.sortDir === 'desc' ? 'asc' : 'desc';
+            } else {
+                matrixState.sortColIndex = colIndex;
+                matrixState.sortDir = 'desc';
+            }
+            renderAniimoTierModalContent();
         });
     });
+
+    // 2. ANIIMO column header click -> Reset to default order
+    const thAniimo = document.getElementById('thColAniimo');
+    if (thAniimo) {
+        thAniimo.addEventListener('click', () => {
+            matrixState.sortColIndex = null;
+            matrixState.sortDir = 'desc';
+            renderAniimoTierModalContent();
+        });
+    }
+
+    // 3. Search input
+    const searchInput = document.getElementById('matrixSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            matrixState.searchQuery = e.target.value;
+            updateTbodyOnly();
+            // Show or hide clear button
+            let clearBtn = document.getElementById('matrixSearchClear');
+            if (e.target.value && !clearBtn) {
+                renderAniimoTierModalContent();
+                const newInput = document.getElementById('matrixSearchInput');
+                if (newInput) {
+                    newInput.focus();
+                    newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+                }
+            } else if (!e.target.value && clearBtn) {
+                renderAniimoTierModalContent();
+            }
+        });
+    }
+
+    // 4. Search clear button
+    const searchClear = document.getElementById('matrixSearchClear');
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            matrixState.searchQuery = '';
+            renderAniimoTierModalContent();
+        });
+    }
+
+    // 5. Filter tabs
+    container.querySelectorAll('.matrix-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            matrixState.filterType = tab.dataset.filterType;
+            renderAniimoTierModalContent();
+        });
+    });
+
+    // 6. Sort Highest / Lowest buttons
+    const btnHighest = document.getElementById('matrixSortHighest');
+    if (btnHighest) {
+        btnHighest.addEventListener('click', () => {
+            matrixState.levelSort = 'highest';
+            if (typeof matrixState.sortColIndex === 'number') {
+                matrixState.sortDir = 'desc';
+            }
+            renderAniimoTierModalContent();
+        });
+    }
+
+    const btnLowest = document.getElementById('matrixSortLowest');
+    if (btnLowest) {
+        btnLowest.addEventListener('click', () => {
+            matrixState.levelSort = 'lowest';
+            if (typeof matrixState.sortColIndex === 'number') {
+                matrixState.sortDir = 'asc';
+            }
+            renderAniimoTierModalContent();
+        });
+    }
+
+    // 7. Reset button
+    const btnReset = document.getElementById('matrixResetBtn');
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            matrixState.sortColIndex = null;
+            matrixState.sortDir = 'desc';
+            matrixState.levelSort = 'highest';
+            matrixState.filterType = 'all';
+            matrixState.searchQuery = '';
+            renderAniimoTierModalContent();
+        });
+    }
 }
 
-// Expose to window for global modal trigger
+// Expose globally for window modal trigger
 window.renderAniimoTierModalContent = renderAniimoTierModalContent;
-

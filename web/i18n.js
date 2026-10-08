@@ -16,9 +16,9 @@ const TRANSLATIONS = {
         nav_guide: "Hướng dẫn",
         nav_theme: "Giao diện",
         nav_lang: "Tiếng Việt",
-        btn_aniimo_tierlist: "Bảng xếp hạng Aniimo (Tier SS / S)",
-        modal_tier_title: "🏆 Bảng xếp hạng công nhân Aniimo Gia Viên",
-        modal_tier_subtitle: "Danh sách xếp hạng các Aniimo Cấp 4 (Prismana - Tier SS) và Cấp 3 (Cơ bản / Tự nhiên - Tier S) tối ưu nhất theo từng kỹ năng. Hoàn toàn không đề xuất Cấp 1 và Cấp 2.",
+        btn_aniimo_tierlist: "Bảng kỹ năng Aniimo (Hideout Matrix)",
+        modal_tier_title: "🏆 Bảng kỹ năng nhân công Aniimo (Homeland Worker Abilities)",
+        modal_tier_subtitle: "Ma trận kỹ năng gia viên: gồm 27 biến thể Prismana (Cấp 4) và 54 loài cơ bản giai đoạn Tân Tinh (Nova Stage - Cấp 3/4 tiến hóa cao nhất).",
 
         // Card 1: Homeland & Power Grid
         homeland_title: "Gia Viên của bạn",
@@ -172,9 +172,9 @@ const TRANSLATIONS = {
         nav_guide: "Guide",
         nav_theme: "Theme",
         nav_lang: "English",
-        btn_aniimo_tierlist: "Aniimo Tier List (Tier SS / S)",
-        modal_tier_title: "🏆 Homeland Aniimo Worker Tier List",
-        modal_tier_subtitle: "Ranked list of Level 4 (Prismana - Tier SS) and Level 3 (Base / Natural - Tier S) Aniimo per ability. Level 1 & 2 are strictly excluded.",
+        btn_aniimo_tierlist: "Aniimo Worker Abilities (Hideout Matrix)",
+        modal_tier_title: "🏆 Aniimo Homeland Worker Abilities Matrix",
+        modal_tier_subtitle: "Complete Homeland worker ability matrix: all 27 Prismana breeds (Level 4) and 54 ordinary Nova stage species (Level 3/4 highest evolution).",
 
         // Card 1: Homeland & Power Grid
         homeland_title: "Your Homeland",
