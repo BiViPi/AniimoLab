@@ -19,7 +19,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -42,7 +42,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -65,7 +65,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -94,7 +94,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -225,7 +225,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 4
       },
@@ -248,7 +248,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       },
@@ -277,7 +277,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -300,7 +300,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -329,7 +329,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -352,13 +352,13 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 3
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -444,7 +444,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -467,13 +467,13 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 4
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 2,
         "prismana_level": 4
       }
@@ -490,13 +490,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 3
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -513,7 +513,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 1
       },
@@ -525,7 +525,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -542,7 +542,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 2,
         "prismana_level": 2
       },
@@ -554,7 +554,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -577,7 +577,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -674,7 +674,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       },
@@ -709,7 +709,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -732,7 +732,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -749,13 +749,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 1
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -772,13 +772,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -795,13 +795,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -818,13 +818,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 1
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -841,13 +841,13 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 3
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -928,7 +928,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -951,7 +951,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -974,7 +974,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -997,7 +997,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1020,7 +1020,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1043,7 +1043,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1066,7 +1066,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1089,7 +1089,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1112,7 +1112,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1296,7 +1296,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1319,7 +1319,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1342,7 +1342,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -1365,7 +1365,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1388,7 +1388,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1411,7 +1411,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1434,7 +1434,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1457,7 +1457,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -1480,7 +1480,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1503,7 +1503,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1526,7 +1526,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -1549,7 +1549,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1572,7 +1572,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1595,7 +1595,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1618,7 +1618,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1647,7 +1647,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1676,7 +1676,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1699,7 +1699,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1722,7 +1722,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -1745,7 +1745,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1768,7 +1768,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -1791,7 +1791,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1814,7 +1814,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 2,
         "prismana_level": 2
       }
@@ -1837,7 +1837,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -1894,7 +1894,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1946,7 +1946,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1969,7 +1969,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -1992,7 +1992,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -2015,7 +2015,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -2038,7 +2038,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -2078,7 +2078,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2101,7 +2101,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 1,
         "prismana_level": 1
       }
@@ -2124,7 +2124,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2141,7 +2141,7 @@ export const ANIIMO_DB = [
     "abilities": [
       {
         "ability_en": "Grass",
-        "ability_vi": "Mộc / Thảo",
+        "ability_vi": "Thảo",
         "base_level": 3,
         "prismana_level": 4
       },
@@ -2170,7 +2170,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2193,7 +2193,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Artisanship",
-        "ability_vi": "Chế Tác / Kỹ Nghệ",
+        "ability_vi": "Kỹ Nghệ",
         "base_level": 3,
         "prismana_level": 4
       }
@@ -2233,7 +2233,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2256,7 +2256,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2279,7 +2279,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -2302,7 +2302,7 @@ export const ANIIMO_DB = [
       },
       {
         "ability_en": "Hauling",
-        "ability_vi": "Vận Chuyển",
+        "ability_vi": "Khuân Vác",
         "base_level": 3,
         "prismana_level": 3
       }
@@ -4347,15 +4347,15 @@ export const ABILITY_THEMES = {
     Fire: { color: '#EF4444', icon: '🔥', vi: 'Hỏa', dark: false },
     Water: { color: '#3B82F6', icon: '💧', vi: 'Thủy', dark: false },
     Earth: { color: '#B45309', icon: '⛰️', vi: 'Thổ', dark: false },
-    Grass: { color: '#10B981', icon: '🌿', vi: 'Mộc / Thảo', dark: false },
+    Grass: { color: '#10B981', icon: '🌿', vi: 'Thảo', dark: false },
     Wind: { color: '#06B6D4', icon: '💨', vi: 'Phong', dark: false },
     Dark: { color: '#8B5CF6', icon: '🌑', vi: 'Ám', dark: false },
     Ice: { color: '#38BDF8', icon: '❄️', vi: 'Băng', dark: false },
     Light: { color: '#F59E0B', icon: '☀️', vi: 'Quang', dark: true },
     Lightning: { color: '#EAB308', icon: '⚡', vi: 'Lôi', dark: true },
-    Artisanship: { color: '#14B8A6', icon: '🔨', vi: 'Chế Tác / Kỹ Nghệ', dark: false },
+    Artisanship: { color: '#14B8A6', icon: '🔨', vi: 'Kỹ Nghệ', dark: false },
     Leisure: { color: '#EC4899', icon: '🎵', vi: 'Giải Trí', dark: false },
-    Hauling: { color: '#6366F1', icon: '📦', vi: 'Vận Chuyển', dark: false },
+    Hauling: { color: '#6366F1', icon: '📦', vi: 'Khuân Vác', dark: false },
     Perfumery: { color: '#A855F7', icon: '🌸', vi: 'Điều Hương', dark: false }
 };
 
@@ -4508,14 +4508,14 @@ export function getWorkerForLevel(ability, level) {
 export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel = 1) {
     if (!facility) return null;
     const fac = facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').trim();
-    if (fac === 'Dewy House' || fac === 'Nhà sương mai') return 'Fragrancier';
-    if (fac === 'Nimbus Bed' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') return 'Turbo';
-    if (fac === 'Tidewhisper Sandcastle' || fac === 'Lâu đài cát' || fac === 'Lâu đài cát Tidewhisper') {
+    if (fac === 'Dewy House' || fac === 'Nhà Dewy' || fac === 'Nhà sương mai') return 'Fragrancier';
+    if (fac === 'Nimbus Bed' || fac === 'Giường Cỏ Mây' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') return 'Turbo';
+    if (fac === 'Tidewhisper Sandcastle' || fac === 'Lâu Đài Cát Thủy Triều Thì Thầm' || fac === 'Lâu đài cát' || fac === 'Lâu đài cát Tidewhisper') {
         if (itemName === 'pearl' || (facilityLevel && facilityLevel >= 3)) return 'Sherro';
         if (itemName === 'quick_sea_salt' || (facilityLevel && facilityLevel >= 2)) return 'Panpanta';
         return 'Panpanta';
     }
-    if (fac === 'Starfall Hammock' || fac === 'Võng sao Starfall') return 'Stellarys';
+    if (fac === 'Starfall Hammock' || fac === 'Võng Sao Rơi' || fac === 'Võng sao Starfall') return 'Stellarys';
     return null;
 }
 

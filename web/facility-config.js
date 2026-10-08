@@ -48,7 +48,7 @@ export const FACILITIES = [
         name: 'Tidewhisper Sandcastle', slug: 'tidewhisper-sandcastle', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Judicious',
         unlocks: { 1: 5, 2: 8, 3: 13 },
         counts: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2],
-        tooltip: "Lv.1: Sea Salt&#10;Lv.2: Quick Sea Salt (Panpanta)&#10;Lv.3: Pearl (Sherro - cần Ấm áp)"
+        tooltip: "Lv.1: Sea Salt&#10;Lv.2: Quick Sea Salt (Panpanta)&#10;Lv.3: Pearl (Sherro - cần Ấm Áp)"
     },
     {
         name: 'Dewy House', slug: 'dewy-house', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Instinctive',

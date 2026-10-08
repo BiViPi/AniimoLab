@@ -528,11 +528,11 @@ function renderFacilityCards() {
     if (!grid) return;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const VI_CATEGORIES = {
-        'Materials': 'Nguyên liệu',
-        'Environment': 'Cơ sở môi trường',
-        'Aniimo Materials': 'Nguyên liệu Aniimo',
-        'Wood & Ore Processing': 'Sản xuất gỗ và gạch quặng',
-        'Materials Processing': 'Cơ sở chế biến'
+        'Materials': 'Nguyên Liệu',
+        'Environment': 'Môi Trường',
+        'Aniimo Materials': 'Nguyên Liệu Aniimo',
+        'Wood & Ore Processing': 'Gia Công Gỗ & Quặng',
+        'Materials Processing': 'Chế Biến Nguyên Liệu'
     };
     grid.innerHTML = FACILITY_CATEGORIES.map(category => {
         const catName = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
@@ -1783,9 +1783,9 @@ function renderHomelandLayout(plan) {
         ].filter(Boolean).join(' ');
         document.getElementById('layout-summary').textContent = `${trips > 0
             ? (isVi
-                ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Kho lưu trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
+                ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Thiết Bị Lưu Trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
                 : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
-            : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Kho lưu trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
+            : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Thiết Bị Lưu Trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
         lastLayout = { layout, homeLevel };
         drawLayout(lastLayout);
         setStep('layout', 'done');
@@ -4527,8 +4527,9 @@ function aniimoLabel(step) {
     let note = '';
     if (a.personality_bonus) {
         const personality = FACILITIES.find(f => f.name === step.facility)?.personality;
+        const persName = (isVi && window.VI_PERSONALITIES && window.VI_PERSONALITIES[personality]) ? window.VI_PERSONALITIES[personality] : personality;
         note = isVi
-            ? `${personality ? `Tính cách ${personality}` : 'tính cách tương thích'} (+20% tốc độ)`
+            ? `${personality ? `Tính cách ${persName}` : 'tính cách tương thích'} (+20% tốc độ)`
             : `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
     }
     const specificWorker = getFacilitySpecificWorker(step.facility, step.item_name, step.facility_level);
@@ -6013,11 +6014,11 @@ function renderRecipeTables(recipes) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
 
     const VI_CATEGORIES = {
-        'Materials': 'Nguyên liệu',
-        'Environment': 'Cơ sở môi trường',
-        'Aniimo Materials': 'Nguyên liệu Aniimo',
-        'Wood & Ore Processing': 'Sản xuất gỗ và gạch quặng',
-        'Materials Processing': 'Cơ sở chế biến'
+        'Materials': 'Nguyên Liệu',
+        'Environment': 'Môi Trường',
+        'Aniimo Materials': 'Nguyên Liệu Aniimo',
+        'Wood & Ore Processing': 'Gia Công Gỗ & Quặng',
+        'Materials Processing': 'Chế Biến Nguyên Liệu'
     };
 
     const thItem = isVi ? 'Vật phẩm' : 'Item';
