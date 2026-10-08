@@ -703,6 +703,26 @@ fn build_model<'a>(
                 model.constrain(terms, ComparisonOp::Le, crew.members[member].count as f64);
             }
         }
+    } else if let Some(cap) = facility_counts.worker_cap() {
+        let mut terms: Vec<(usize, f64)> = Vec::new();
+        // Environment buildings: each active building requires 1 worker
+        for (v, kind) in model.kinds.iter().enumerate() {
+            match kind {
+                VarKind::Environment { .. } => terms.push((v, 1.0)),
+                VarKind::EnvironmentPair { .. } => terms.push((v, 2.0)),
+                _ => {}
+            }
+        }
+        // Manual facility units: each unit of a workload-based facility requires 1 worker
+        for &(recipe, units) in &units_of {
+            if recipe.workload.is_some() {
+                terms.push((units, 1.0));
+            }
+        }
+        // Growers (Farmland/Woodland) + Hauling fixed overhead (2 workers)
+        let overhead = 2.0;
+        let available = (cap as f64 - overhead).max(1.0);
+        model.constrain(terms, ComparisonOp::Le, available);
     }
     // Of plans otherwise equal, the fewest environment buildings: a pair is two.
     for v in 0..model.kinds.len() {

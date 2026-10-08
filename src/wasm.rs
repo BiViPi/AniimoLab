@@ -776,6 +776,9 @@ pub struct JsPlanInput {
     /// Power grid supply rate (e.g. 1.0 for 100%, 1.2 for 120%, 0.955 for 95.5%). Defaults to 1.0.
     #[serde(default = "default_power_grid_rate")]
     pub power_grid_rate: f64,
+    /// Maximum production Aniimo workers allowed in the plan.
+    #[serde(default)]
+    pub production_aniimo_cap: Option<u32>,
 }
 
 fn default_power_grid_rate() -> f64 {
@@ -1732,6 +1735,7 @@ impl PreparedInput {
             (None, Some(setup)) => requirements.apply(setup, &mut items),
             (None, None) => workers_from(&input.workers).apply(&requirements, &mut items),
         }
+        facility_counts.set_worker_cap(input.production_aniimo_cap);
         Ok(PreparedInput { input, facility_counts, module_levels, items, setup, crew, requirements, grower_steps })
     }
 

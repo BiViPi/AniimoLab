@@ -1230,6 +1230,8 @@ pub struct FacilityCounts {
     default_tier: (u32, u32),
     /// The Aniimo the player has, when planning with them (see [`Crew`]).
     crew: Option<Crew>,
+    /// Optional cap on total production Aniimo workers allowed in the plan.
+    worker_cap: Option<u32>,
 }
 
 impl Default for FacilityCounts {
@@ -1238,6 +1240,7 @@ impl Default for FacilityCounts {
             facilities: std::collections::HashMap::new(),
             default_tier: (1, 1),
             crew: None,
+            worker_cap: None,
         }
     }
 }
@@ -1252,6 +1255,17 @@ impl FacilityCounts {
     /// The Aniimo the player has, if planning with them.
     pub fn crew(&self) -> Option<&Crew> {
         self.crew.as_ref()
+    }
+
+    /// Sets the maximum number of production Aniimo workers allowed.
+    pub fn set_worker_cap(&mut self, cap: Option<u32>) -> &mut Self {
+        self.worker_cap = cap;
+        self
+    }
+
+    /// The maximum number of production Aniimo workers allowed, if set.
+    pub fn worker_cap(&self) -> Option<u32> {
+        self.worker_cap
     }
 
     /// Creates an empty `FacilityCounts` (every facility defaults to count=1, level=1).
@@ -1288,6 +1302,7 @@ impl FacilityCounts {
             facilities: std::collections::HashMap::new(),
             default_tier: (0, 1),
             crew: None,
+            worker_cap: None,
         };
         for (name, count, level) in pairs {
             fc.set(name, *count, *level);
@@ -1302,6 +1317,7 @@ impl FacilityCounts {
             facilities: std::collections::HashMap::new(),
             default_tier: (1, 99),
             crew: None,
+            worker_cap: None,
         }
     }
 

@@ -5740,10 +5740,12 @@ async function runFindPlan() {
                 if (runId !== planRunId) return;
 
                 const prunedPlan = JSON.parse(prunedJson);
-                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào mà user đã tích chọn
-                const keepsUserSelections = [...(unlockedSpecial || [])].every(spec =>
-                    (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec)
-                );
+                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào đang chạy mà user đã tích chọn
+                const keepsUserSelections = [...(unlockedSpecial || [])].every(spec => {
+                    const wasInBest = (bestPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
+                    if (!wasInBest) return true;
+                    return (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
+                });
                 const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && keepsUserSelections;
                 if (prunedViable) {
                     bestPlan = prunedPlan;
