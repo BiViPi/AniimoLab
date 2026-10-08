@@ -1716,6 +1716,9 @@ impl PreparedInput {
         items.extend(manual_items);
 
         crate::models::apply_emode(&mut items, &emode_facilities, input.power_grid_rate);
+        let mut input = input;
+        input.emode_facilities = emode_facilities;
+        input.emode_facility_counts = emode_counts;
         let setup = input
             .aniimo
             .as_deref()
@@ -1770,7 +1773,8 @@ impl PreparedInput {
                 }
 
                 let is_emode = !is_manual_variant
-                    && self.input.emode_facilities.contains(&step.facility)
+                    && (self.input.emode_facilities.contains(&step.facility)
+                        || self.input.emode_facility_counts.get(&step.facility).copied().unwrap_or(0) > 0)
                     && self.items.iter().any(|i| i.facility == step.facility && i.emode_base_time.is_some());
 
                 // With the player's roster, the row names the member working it.

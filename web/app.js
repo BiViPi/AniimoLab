@@ -235,6 +235,7 @@ let emodeFacilities = new Set();
 export const EMODE_PRIORITY = [
     'Jukebox Dryer',
     'Simmering Pot',
+    'Claw Game Cooker',
     'Carousel Mill',
     'Crafting Table',
     'Blazing Stove',
@@ -245,7 +246,6 @@ export const EMODE_PRIORITY = [
     'Well',
     'Chimney Kiln',
     'Woodworking Bench',
-    'Claw Game Cooker',
     'Dance Pad Polisher',
     'Aniipod Maker'
 ];
@@ -394,6 +394,31 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             } else {
                 break;
             }
+        }
+    }
+
+    // Nếu ngân sách điện còn dư, tiếp tục phân bổ cho các cơ sở chế biến sở hữu có giá trị cao
+    // (đặc biệt là Nồi Cơm Claw Game Cooker mở khóa Bánh Quy Dừa, Bánh Mì Hoa...)
+    const CANDIDATE_PROCESSORS = [
+        'Claw Game Cooker',
+        'Carousel Mill',
+        'Jukebox Dryer',
+        'Blazing Stove',
+        'Crafting Table',
+        'Joy Wheel Loom',
+        'Bouncy Brew Keg',
+        'Pickling Jar',
+        'Dance Pad Polisher'
+    ];
+    for (const fac of CANDIDATE_PROCESSORS) {
+        const w = FACILITY_POWER_WATTS[fac] || 0;
+        if (w <= 0) continue;
+        const owned = ownedCounts[fac] || 0;
+        let current = emodeCounts[fac] || 0;
+        while (current < owned && usedWatts + w <= maxWatts) {
+            current++;
+            emodeCounts[fac] = current;
+            usedWatts += w;
         }
     }
 

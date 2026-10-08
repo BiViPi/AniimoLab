@@ -298,7 +298,15 @@ impl<'a> Model<'a> {
             let expr: Vec<(microlp::Variable, f64)> = terms.iter().map(|&(v, c)| (vars[v], c)).collect();
             problem.add_constraint(&expr, *op, *rhs);
         }
-        let solution = problem.solve().ok()?;
+        let solution = match problem.solve() {
+            Ok(s) => s,
+            Err(e) => {
+                #[cfg(target_arch = "wasm32")]
+                web_sys::console::log_1(&format!("microlp solve failed: {:?}", e).into());
+                eprintln!("microlp solve failed: {:?}", e);
+                return None;
+            }
+        };
         Some((solution.objective(), vars.iter().map(|v| solution[*v]).collect()))
     }
 }
