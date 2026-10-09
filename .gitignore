@@ -22,3 +22,5 @@ target
 # WASM build output
 web/pkg/
 scratch/
+research/
+tests/

@@ -375,6 +375,7 @@ const VI_MODULE_NAMES = {
     "power_module": "Mô-đun Năng Lượng",
     "plant_research_module": "Mô-đun Nghiên Cứu Thực Vật",
     "incubation_reaction_module": "Mô-đun Phản Ứng Ấp Nở"
+    ,"signal_emitter": "Bộ Phát Tín Hiệu"
 };
 
 const VI_PERSONALITIES = {

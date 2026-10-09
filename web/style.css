@@ -1829,6 +1829,27 @@ footer {
     color: var(--text-muted);
 }
 
+.btn-secondary {
+    border: 1px solid var(--border-strong, var(--border));
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    color: var(--text);
+    background: var(--surface-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
 .plan-unverified {
     margin: 0.6rem 0 0;
     font-size: 0.8rem;

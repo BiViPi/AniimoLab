@@ -1013,8 +1013,14 @@ function renderSimpleSummary() {
     const homeLevel = selectedHomeLevel();
     const { facilities, modules } = simpleSetup(homeLevel);
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const chip = (count, name, level) => `
-        <div class="chip"><span><span class="chip-count">${count}</span> ${name}</span>${level ? `<span class="chip-level">${level}</span>` : ''}</div>`;
+    const moduleUnlocks = {
+        power_module: [12, 14, 16, 18, 20],
+        plant_research_module: [6, 9, 12, 15],
+        incubation_reaction_module: [9],
+        signal_emitter: [6, 11, 16],
+    };
+    const chip = (count, name, level, title = '') => `
+        <div class="chip"${title ? ` title="${title}"` : ''}><span><span class="chip-count">${count}</span> ${name}</span>${level ? `<span class="chip-level">${level}</span>` : ''}</div>`;
     const built = FACILITIES
         .map(f => ({ name: f.name, tier: facilities[f.name][0], hasLevels: f.hasLevels !== false }))
         .filter(({ tier }) => tier.count > 0)
@@ -1025,12 +1031,20 @@ function renderSimpleSummary() {
         ['Kitchen Module', modules.kitchen_module],
         ['Resource Detector', modules.resource_detector],
         ['Crafting Module', modules.crafting_module],
-    ].map(([name, level]) => chip('', getModuleDisplayName(name), level > 0 ? `Lv.${level}` : (isVi ? 'chưa mở' : 'not yet'))).join('');
+        ['power_module', modules.power_module],
+        ['plant_research_module', modules.plant_research_module],
+        ['incubation_reaction_module', modules.incubation_reaction_module],
+        ['signal_emitter', modules.signal_emitter],
+    ].map(([name, level]) => {
+        const unlocks = moduleUnlocks[name];
+        const title = unlocks ? (isVi ? `Mở khóa: ${unlocks.map((rv, i) => `Lv.${i + 1} tại RV ${rv}`).join(', ')}` : `Unlocks: ${unlocks.map((rv, i) => `Lv.${i + 1} at RV ${rv}`).join(', ')}`) : '';
+        return chip('', getModuleDisplayName(name), level > 0 ? `Lv.${level}` : (isVi ? 'chưa mở' : 'not yet'), title);
+    }).join('');
     const kinds = FACILITIES.filter(f => facilities[f.name][0].count > 0).length;
     const titleEl = document.getElementById('simple-summary-title');
     if (titleEl) titleEl.textContent = isVi
-        ? `${kinds} cơ sở và 4 mô-đun tại RV ${homeLevel}`
-        : `${kinds} facilities and 4 modules at RV ${homeLevel}`;
+        ? `${kinds} cơ sở và 8 mô-đun tại RV ${homeLevel}`
+        : `${kinds} facilities and 8 modules at RV ${homeLevel}`;
     const sumEl = document.getElementById('simple-summary');
     if (sumEl) sumEl.innerHTML = `
         <p class="assume-title">${isVi ? 'Cơ sở' : 'Facilities'}</p>
