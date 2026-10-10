@@ -61,6 +61,7 @@ const TRANSLATIONS = {
         recipes_to_skip: "Công thức cần bỏ qua",
         recipes_to_skip_hint: "Kế hoạch sẽ không sử dụng các công thức này. Bạn cũng có thể bỏ qua trực tiếp bằng nút ✕ trên bảng kế hoạch.",
         search_recipes_placeholder: "Tìm kiếm công thức...",
+        search_recipe_reference_placeholder: "Tìm công thức...",
         skip_btn: "Bỏ qua",
 
         // CTA
@@ -212,6 +213,7 @@ const TRANSLATIONS = {
         recipes_to_skip: "Recipes to skip",
         recipes_to_skip_hint: "Plans won't use these, e.g. recipes behind unlocks you don't have yet. You can also skip one straight from a plan with its ✕.",
         search_recipes_placeholder: "Search recipes",
+        search_recipe_reference_placeholder: "Search recipes...",
         skip_btn: "Skip",
 
         // CTA

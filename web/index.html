@@ -463,14 +463,21 @@
 
     <!-- Facilities Modal -->
     <div id="facilitiesModal" class="modal" onclick="closeFacilitiesOnBackdrop(event)">
-        <div class="modal-content wide">
+            <div class="modal-content wide">
             <div class="modal-header">
                 <h2 data-i18n="modal_facilities_title">Công thức các cơ sở</h2>
-                <button class="close-button" onclick="closeFacilities()">&times;</button>
+                <div class="facility-recipe-modal-actions">
+                    <label class="sr-only" for="facilities-recipe-search">Tìm kiếm công thức</label>
+                    <input type="search" id="facilities-recipe-search" class="facility-recipe-search"
+                        data-i18n-placeholder="search_recipe_reference_placeholder"
+                        placeholder="Tìm công thức..." autocomplete="off">
+                    <button class="close-button" onclick="closeFacilities()">&times;</button>
+                </div>
             </div>
             <div class="modal-body">
                 <p class="hint" data-i18n="modal_facilities_hint">Toàn bộ công thức trong dữ liệu game, phân nhóm theo cơ sở sản xuất. Đây là bảng tra cứu tham khảo, không phụ thuộc vào số lượng hay cấp độ cơ sở bạn đang sở hữu.</p>
                 <p class="hint small" id="facilities-loading-hint">Đang tải dữ liệu công thức...</p>
+                <p class="hint small facilities-search-empty" id="facilities-search-empty" hidden></p>
                 <div id="facilities-modal-container" class="facilities-container"></div>
             </div>
         </div>

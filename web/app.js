@@ -6094,8 +6094,10 @@ function renderRecipeTables(recipes) {
         const tables = facilitiesInCategory.map(f => {
             // `data-label` names each cell when rows stack on phones; empty cells are left out there.
             const cell = (label, value) => `<td data-label="${label}"${value === '-' ? ' class="empty"' : ''}>${value}</td>`;
-            const rows = byFacility.get(f.name).map(r => `
-                <tr${r.verified === false ? ' class="unverified"' : ''}>
+            const rows = byFacility.get(f.name).map(r => {
+                const searchText = [r.name, prettyItem(r.name), f.name, getFacilityDisplayName(f.name), ...(r.raw_materials || [])].join(' ');
+                return `
+                <tr class="facility-recipe-row${r.verified === false ? ' unverified' : ''}" data-search-text="${escapeText(searchText)}">
                     <td class="recipe-name">${prettyItem(r.name)}${SPECIAL_NAMES.has(r.name) ? ` <span class="tag special" title="${isVi ? 'Cần tiền tệ hiếm để mở khóa' : 'Takes a rare currency to unlock'}">${isVi ? 'đặc biệt' : 'special'}</span>` : ''}${r.season ? ` <span class="tag special" title="${SEASON.name} only">${isVi ? 'mùa vụ' : 'season'}</span>` : ''}${r.verified === false ? ` <span class="info-icon" data-tooltip="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game.'}">?</span>` : ''}</td>
                     ${cell(thLevel, r.facility_level)}
                     ${cell(thInputs, formatRecipeInputs(r))}
@@ -6105,7 +6107,8 @@ function renderRecipeTables(recipes) {
                     ${cell(thModule, formatRecipeModule(r))}
                     ${cell(thAniimo, formatRecipeAniimo(r, f))}
                 </tr>
-            `).join('');
+            `;
+            }).join('');
 
             return `
                 <div class="facility-recipe-table">
@@ -6138,6 +6141,40 @@ function renderRecipeTables(recipes) {
             </div>
         `;
     }).join('');
+
+    filterFacilityRecipeTables();
+}
+
+function normalizedRecipeSearchText(value) {
+    return String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase();
+}
+
+function filterFacilityRecipeTables() {
+    const input = document.getElementById('facilities-recipe-search');
+    const container = document.getElementById('facilities-modal-container');
+    const empty = document.getElementById('facilities-search-empty');
+    if (!input || !container || !empty) return;
+
+    const query = normalizedRecipeSearchText(input.value.trim());
+    let visibleRows = 0;
+    container.querySelectorAll('.facility-recipe-table').forEach(table => {
+        let hasVisibleRow = false;
+        table.querySelectorAll('.facility-recipe-row').forEach(row => {
+            const matches = !query || normalizedRecipeSearchText(row.dataset.searchText).includes(query);
+            row.hidden = !matches;
+            hasVisibleRow ||= matches;
+            if (matches) visibleRows++;
+        });
+        table.hidden = !hasVisibleRow;
+    });
+    container.querySelectorAll('.facility-category').forEach(category => {
+        category.hidden = !category.querySelector('.facility-recipe-table:not([hidden])');
+    });
+
+    empty.hidden = visibleRows > 0;
+    empty.textContent = query
+        ? (window.i18n && window.i18n.getLang() === 'vi' ? 'Không tìm thấy công thức phù hợp.' : 'No matching recipes found.')
+        : '';
 }
 
 window.showFacilities = async function () {
@@ -6171,6 +6208,7 @@ window.closeFacilitiesOnBackdrop = function (event) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('facilities-recipe-search')?.addEventListener('input', filterFacilityRecipeTables);
     const savedData = readStorage();
     initFacilityTiers(savedData);
     renderFacilityCards();
