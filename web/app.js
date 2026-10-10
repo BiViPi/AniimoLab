@@ -5,7 +5,7 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
-} from './facility-config.js?v=aniimolab_v24';
+} from './facility-config.js?v=aniimolab_v25';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v25';
 import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v24';
 

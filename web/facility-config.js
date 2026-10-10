@@ -377,7 +377,9 @@ export const MAX_HOME_LEVEL = 20;
 
 // Highest level of each upgrade module at each RV level (index = RV level - 1).
 export const MODULE_MAX_LEVELS = {
-    ecological_module: [0, 0, 1, 1, 1, 1, 2, 3, 3, 3, 4, 5, 5, 6, 6, 6, 7, 8, 8, 8],
+    // RV 16 unlocks Farmland Lv.7 and its Quick Strawberry recipe; grant Ecological Module
+    // Lv.7 at the same RV so the default RV setup can actually use that newly unlocked recipe.
+    ecological_module: [0, 0, 1, 1, 1, 1, 2, 3, 3, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8, 8],
     kitchen_module: [0, 1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7],
     resource_detector: [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 4, 5, 5, 6, 6, 7, 7, 8, 8],
     crafting_module: [0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 4, 4, 5, 6, 7, 7],
