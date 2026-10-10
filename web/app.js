@@ -3800,7 +3800,10 @@ function integrateSeasonPlan(plan) {
             status: 'producing',
             cycle_time: 2250,
             is_grower: false,
-            is_emode: true,
+            // Festival steps are appended after the power allocator has run.  They
+            // are not present in emode_facility_counts, so marking them Electric
+            // would make the plan claim more powered units than the gauge charges.
+            is_manual: true,
             reason: fwReason,
             environment: null
         });
@@ -3840,7 +3843,9 @@ function integrateSeasonPlan(plan) {
                         status: 'producing',
                         cycle_time: prep.cycleTime,
                         is_grower: false,
-                        is_emode: prep.is_emode || false,
+                        // As above, event prep is outside the solver's E-mode
+                        // allocation and must remain visibly manual.
+                        is_manual: true,
                         reason: isVi ? prep.reasonVi : prep.reasonEn,
                         environment: null
                     });
@@ -4555,6 +4560,13 @@ function aniimoLabel(step) {
         const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
         const label = isVi ? '⚡ Chế độ điện' : '⚡ E-mode';
         return `<span class="tag emode-tag" title="${title}">${label}</span>`;
+    }
+    if (step.is_manual && step.status === 'producing') {
+        const title = isVi
+            ? 'Chế độ thủ công; không nằm trong phân bổ công suất điện'
+            : 'Manual mode; not included in the electric power allocation';
+        const label = isVi ? 'Thủ công' : 'Manual';
+        return `<span class="tag" title="${title}">${label}</span>`;
     }
     const a = step.aniimo;
     if (!a) {
