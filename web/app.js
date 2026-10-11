@@ -484,6 +484,21 @@ function calculatePowerWatts(counts) {
     return total;
 }
 
+// The allocator may reserve watts for owned machines the final plan never runs in E-mode
+// (leftover-budget loop, pruning, or the re-solve keeping them manual). The gauge must show
+// only machines the final plan actually shows as E-mode.
+function actualEmodeCounts(plan) {
+    const counts = {};
+    for (const step of (plan && plan.coin_items) || []) {
+        if (step.status !== 'producing' || !step.facility) continue;
+        const isElectric = step.is_emode || step.facility.includes('(Electric)');
+        if (!isElectric) continue;
+        const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
+        counts[fac] = (counts[fac] || 0) + (step.facility_count || 1);
+    }
+    return counts;
+}
+
 function updatePowerGauge(customCounts = null) {
     const maxWatts = getGeneratorCapacity();
     const rate = getPowerGridRate();
@@ -5809,6 +5824,9 @@ async function runFindPlan() {
 
         bestPlan = integrateSeasonPlan(bestPlan);
 
+        if (useEmode && Object.keys(finalEmodeCounts).length > 0) {
+            finalEmodeCounts = actualEmodeCounts(bestPlan);
+        }
         lastEmodeCounts = finalEmodeCounts;
         lastPlanInput = input;
         finishSolveSteps();
@@ -6631,7 +6649,7 @@ function renderInsights(plan) {
     let emodeDetail = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
     if (emodeActive) {
         const genWatts = getGeneratorCapacity();
-        const activeWatts = calculatePowerWatts(lastPlanInput?.emode_facility_counts || {});
+        const activeWatts = calculatePowerWatts(emodeMachinesCount > 0 ? lastEmodeCounts : (lastPlanInput?.emode_facility_counts || {}));
         const countDisplay = emodeMachinesCount > 0 ? emodeMachinesCount : Object.values(lastPlanInput?.emode_facility_counts || {}).reduce((a, b) => a + b, 0);
         emodeDetail = isVi
             ? `Đã kích hoạt Chế độ điện trên <strong>${countDisplay} máy móc & cơ sở</strong> (${activeWatts}W / ${genWatts}W), giải phóng Aniimo chuyển sang <strong>Tưới nước nông trại/lâm nghiệp</strong> (giúp tăng 25% tốc độ phát triển toàn đảo).`
