@@ -33,7 +33,7 @@ export const FACILITIES = [
         tooltip: "Lv.1: Willow Wood&#10;Lv.2: Bamboo, Lemon&#10;Lv.3: Cherry Blossom, Apple, Maple Syrup, Quick Bamboo&#10;Lv.4: Palm Bark, Chestnut, Walnut, Quick Lemon&#10;Lv.5: Natural Rubber, Coconut, Quick Maple Syrup&#10;Lv.6: Cocoa, Orange Flower, Quick Coconut&#10;Also yields Wood Blocks."
     },
     {
-        name: 'Mine', slug: 'mine', defaultCount: 1, category: 'Materials', hasWorker: true, ability: 'Earth', personality: 'Playful',
+        name: 'Mine', slug: 'mine', defaultCount: 1, category: 'Materials', hasWorker: true, ability: 'Earth', personality: 'Playful', supportsEmode: true, powerWatts: 150,
         unlocks: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 18 },
         counts: [0, 0, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
         tooltip: "Lv.1: Rock&#10;Lv.2: Clay&#10;Lv.3: Shell&#10;Lv.4: Copper Ore&#10;Lv.5: Quartz Ore&#10;Lv.6: Gem&#10;Also yields Mineral Sand."
@@ -60,7 +60,7 @@ export const FACILITIES = [
         name: 'Nimbus Bed', slug: 'nimbus-bed', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Judicious',
         unlocks: { 1: 10, 2: 13, 3: 16 },
         counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        tooltip: "Lv.1: Wool (Turbo)&#10;Lv.2: Quick Wool (Turbo)&#10;Lv.3: Petals (Turbo)"
+        tooltip: "Lv.1: Wool (Turbo)&#10;Lv.2: Quick Wool (Turbo)&#10;Lv.3: Petals (Irisal)"
     },
     {
         name: 'Starfall Hammock', slug: 'starfall-hammock', defaultCount: 0, category: 'Aniimo Materials', hasLevels: false, hasWorker: true, ability: 'Leisure', personality: 'Faithful',
@@ -194,6 +194,7 @@ export const FACILITY_POWER_WATTS = {
     'Dance Pad Polisher': 90,
     'Aniipod Maker': 90,
     'Well': 120,
+    'Mine': 150,
 };
 
 export const DEFAULT_GENERATOR_WATTS = 600;
@@ -203,19 +204,19 @@ export const GENERATOR_WATTS_BY_HOME_LEVEL = {
     13: 600,
     14: 800,
     15: 800,
-    16: 1000,
-    17: 1000,
-    18: 1200,
-    19: 1200,
-    20: 1500,
+    16: 2000,
+    17: 2000,
+    18: 3000,
+    19: 3000,
+    20: 4000,
 };
 
 export const GENERATOR_CAPACITY_OPTIONS = [
     { watts: 600, level: 1, minHomeLevel: 12, label: '600W (Lv.1: RV 12–13)' },
     { watts: 800, level: 2, minHomeLevel: 14, label: '800W (Lv.2: RV 14–15)' },
-    { watts: 1000, level: 3, minHomeLevel: 16, label: '1000W (Lv.3: RV 16–17)' },
-    { watts: 1200, level: 4, minHomeLevel: 18, label: '1200W (Lv.4: RV 18–19)' },
-    { watts: 1500, level: 5, minHomeLevel: 20, label: '1500W (Lv.5: RV 20)' },
+    { watts: 2000, level: 3, minHomeLevel: 16, label: '2000W (Lv.3: RV 16–17, 2 power poles)' },
+    { watts: 3000, level: 4, minHomeLevel: 18, label: '3000W (Lv.4: RV 18–19, 3 power poles)' },
+    { watts: 4000, level: 5, minHomeLevel: 20, label: '4000W (Lv.5: RV 20, 4 power poles)' },
 ];
 
 

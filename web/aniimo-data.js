@@ -4510,7 +4510,14 @@ export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel
     if (!facility) return null;
     const fac = facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').trim();
     if (fac === 'Dewy House' || fac === 'Nhà Dewy' || fac === 'Nhà sương mai') return 'Fragrancier';
-    if (fac === 'Nimbus Bed' || fac === 'Giường Cỏ Mây' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') return 'Turbo';
+    const item = (itemName || '').toLowerCase();
+    if (fac === 'Nimbus Bed' || fac === 'Giường Cỏ Mây' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') {
+        if (item.includes('petal') || item.includes('cánh hoa') || (facilityLevel && facilityLevel >= 3)) return 'Irisal';
+        return 'Turbo';
+    }
+    if (fac === 'Woodworking Bench' || fac === 'Bàn Gia Công Gỗ' || fac === 'Bàn mộc') {
+        return 'Fulmintis';
+    }
     if (fac === 'Tidewhisper Sandcastle' || fac === 'Lâu Đài Cát Thủy Triều Thì Thầm' || fac === 'Lâu đài cát' || fac === 'Lâu đài cát Tidewhisper') {
         if (itemName === 'pearl' || (facilityLevel && facilityLevel >= 3)) return 'Sherro';
         if (itemName === 'quick_sea_salt' || (facilityLevel && facilityLevel >= 2)) return 'Panpanta';

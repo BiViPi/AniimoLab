@@ -779,6 +779,10 @@ pub struct JsPlanInput {
     /// Maximum production Aniimo workers allowed in the plan.
     #[serde(default)]
     pub production_aniimo_cap: Option<u32>,
+    /// Power poles standing in the Homeland, each needing one Aniimo on guard 24/7. Only counted
+    /// when some facility runs in E-mode; the guards come out of `production_aniimo_cap`.
+    #[serde(default)]
+    pub power_poles: u32,
 }
 
 fn default_power_grid_rate() -> f64 {
@@ -1715,6 +1719,11 @@ impl PreparedInput {
         }
         items.extend(manual_items);
 
+        // An electric Mine only mines what it has an E-mode time for (the level-5 Quartz Ore);
+        // its other recipes would otherwise get a time guessed from workload.
+        items.retain(|item| {
+            !(item.facility == "Mine" && emode_facilities.iter().any(|f| f == "Mine") && item.emode_base_time.is_none())
+        });
         crate::models::apply_emode(&mut items, &emode_facilities, input.power_grid_rate);
         let mut input = input;
         input.emode_facilities = emode_facilities;
@@ -1738,7 +1747,8 @@ impl PreparedInput {
             (None, Some(setup)) => requirements.apply(setup, &mut items),
             (None, None) => workers_from(&input.workers).apply(&requirements, &mut items),
         }
-        facility_counts.set_worker_cap(input.production_aniimo_cap);
+        let guards = if input.emode_facility_counts.values().any(|&count| count > 0) { input.power_poles } else { 0 };
+        facility_counts.set_worker_cap(input.production_aniimo_cap.map(|cap| cap.saturating_sub(guards)));
         Ok(PreparedInput { input, facility_counts, module_levels, items, setup, crew, requirements, grower_steps })
     }
 

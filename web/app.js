@@ -247,7 +247,8 @@ export const EMODE_PRIORITY = [
     'Chimney Kiln',
     'Woodworking Bench',
     'Dance Pad Polisher',
-    'Aniipod Maker'
+    'Aniipod Maker',
+    'Mine'
 ];
 
 export function getProductionAniimoCap() {
@@ -319,6 +320,17 @@ export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), 
     return generatorCapacity;
 }
 
+// Only level-5 Mines have a known E-mode (150W), and only from RV 16 is there load to spare for them.
+function emodeMineUnits(homeLevel, tiers) {
+    if (homeLevel < 16) return 0;
+    return (tiers || []).filter(t => t.level === 5).reduce((sum, t) => sum + t.count, 0);
+}
+
+// Each power pole (1000W from RV 16; one pole at RV 12-15) needs an Aniimo on guard 24/7.
+export function getPowerPoleCount(generatorCapacity = getGeneratorCapacity()) {
+    return Math.max(1, Math.round(generatorCapacity / 1000));
+}
+
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
     if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
 
@@ -327,6 +339,7 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     for (const [name, tiers] of Object.entries(facilities)) {
         ownedCounts[name] = tiers.reduce((sum, t) => sum + t.count, 0);
     }
+    ownedCounts['Mine'] = emodeMineUnits(homeLevel, facilities['Mine']);
 
     // 1. Gather active producing facilities from basePlan (exclude Woodworking Bench and Chimney Kiln)
     const activeCounts = {};
@@ -378,9 +391,9 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     }
 
     // Ưu tiên các cơ sở chế biến chính (Bàn chế tạo, Máy sấy, Cối xay, Khung dệt)
-    // Tránh điện hóa Phonolfactory Table do bị nghẽn đầu vào aromathyst từ Dewy House
+    // Tránh điện hóa Phonolfactory Table do nghẽn aromathyst; Tách riêng Mine để tránh nuốt trọn điện
     const otherFacs = Object.keys(activeCounts)
-        .filter(f => f !== 'Simmering Pot' && f !== 'Well' && f !== 'Phonolfactory Table')
+        .filter(f => f !== 'Simmering Pot' && f !== 'Well' && f !== 'Phonolfactory Table' && f !== 'Mine')
         .sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
 
     for (const fac of otherFacs) {
@@ -398,12 +411,12 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     }
 
     // Nếu ngân sách điện còn dư, tiếp tục phân bổ cho các cơ sở chế biến sở hữu có giá trị cao
-    // (đặc biệt là Nồi Cơm Claw Game Cooker mở khóa Bánh Quy Dừa, Bánh Mì Hoa...)
+    // (đặc biệt là Nồi Cơm Claw Game Cooker mở khóa Bánh Quy Dừa, Bếp Blazing Stove mở Kẹo Dâu...)
     const CANDIDATE_PROCESSORS = [
         'Claw Game Cooker',
+        'Blazing Stove',
         'Carousel Mill',
         'Jukebox Dryer',
-        'Blazing Stove',
         'Crafting Table',
         'Joy Wheel Loom',
         'Bouncy Brew Keg',
@@ -422,6 +435,20 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         }
     }
 
+    // Cuối cùng: Chỉ cấp điện cho Hầm mỏ cấp 5 (150W/mỏ) từ watt dư còn lại sau khi tất cả
+    // xưởng chế biến và giếng nước đã đủ điện. (Hầm mỏ dùng điện mất 25 phút, chậm hơn
+    // Prismana Thổ Lv.4 mất 18p45s, nên chỉ điện hóa số lượng vừa phải để tận dụng tải dư).
+    const mineWatts = FACILITY_POWER_WATTS['Mine'] || 150;
+    const availableMines = ownedCounts['Mine'] || 0;
+    const activeMines = activeCounts['Mine'] || 0;
+    const maxElectrifiedMines = Math.min(activeMines, availableMines);
+    let currentMines = emodeCounts['Mine'] || 0;
+    while (currentMines < maxElectrifiedMines && usedWatts + mineWatts <= maxWatts) {
+        currentMines++;
+        emodeCounts['Mine'] = currentMines;
+        usedWatts += mineWatts;
+    }
+
     return emodeCounts;
 }
 
@@ -438,7 +465,9 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
         const wattsPerUnit = FACILITY_POWER_WATTS[name] || 0;
         if (wattsPerUnit <= 0) continue;
 
-        let availableUnits = (facilities[name] || []).reduce((sum, t) => sum + t.count, 0);
+        let availableUnits = name === 'Mine'
+            ? emodeMineUnits(homeLevel, facilities[name])
+            : (facilities[name] || []).reduce((sum, t) => sum + t.count, 0);
         if (activeProducingCounts && typeof activeProducingCounts[name] === 'number') {
             availableUnits = Math.min(availableUnits, activeProducingCounts[name]);
         }
@@ -3748,6 +3777,7 @@ function getPlanInputValues() {
         emode_facility_counts: {},
         power_grid_rate: getPowerGridRate(),
         production_aniimo_cap: getProductionAniimoCap(),
+        power_poles: selectedHomeLevel() >= 12 ? getPowerPoleCount() : 0,
         facilities,
         modules
     };
@@ -3822,17 +3852,29 @@ function integrateSeasonPlan(plan) {
         const fwReason = isVi
             ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
             : 'Used for event dishes';
+
+        // Tự động kiểm tra công suất điện: nếu còn dư tải (>= 120W), cấp điện cho giếng nước ngọt
+        const currentWatts = calculatePowerWatts(lastEmodeCounts || {});
+        const targetWatts = getTargetEmodeWatts();
+        const emodeOn = (document.getElementById('emode-simple-on')?.checked ?? true) && selectedHomeLevel() >= 12;
+        const canElectrify = emodeOn && (currentWatts + 120 <= targetWatts);
+
+        if (canElectrify) {
+            lastEmodeCounts['Well'] = (lastEmodeCounts['Well'] || 0) + 1;
+            updatePowerGauge();
+        }
+
+        const chosenRate = getPowerGridRate() || 1.2;
         newSteps.push({
             facility: 'Well',
             item_name: 'fresh_water',
             facility_count: 1,
             status: 'producing',
-            cycle_time: 2250,
+            cycle_time: canElectrify ? Math.round(1500 / chosenRate) : 2250,
             is_grower: false,
-            // Festival steps are appended after the power allocator has run.  They
-            // are not present in emode_facility_counts, so marking them Electric
-            // would make the plan claim more powered units than the gauge charges.
-            is_manual: true,
+            is_emode: canElectrify,
+            is_manual: !canElectrify,
+            aniimo: canElectrify ? null : { ability: 'Water', level: 4, personality_bonus: true },
             reason: fwReason,
             environment: null
         });
