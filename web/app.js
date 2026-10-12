@@ -331,6 +331,201 @@ export function getPowerPoleCount(generatorCapacity = getGeneratorCapacity()) {
     return Math.max(1, Math.round(generatorCapacity / 1000));
 }
 
+
+// =========================================================================
+// TWO-TIER SOLVER: INTERACTIVE WORKSHEET STATE & INVARIANT GUARDS
+// =========================================================================
+let facilityOverrides = [];
+let fastResolveDebounceTimer = null;
+
+export function getFacilityOverrides() {
+    return facilityOverrides;
+}
+
+export function resetFacilityOverrides() {
+    facilityOverrides = [];
+}
+
+window.resetWorksheetOverrides = function() {
+    facilityOverrides = [];
+    const badge = document.getElementById('fast-resolve-benchmark-badge');
+    if (badge) badge.style.display = 'none';
+    const resetBtn = document.getElementById('btn-reset-overrides');
+    if (resetBtn) resetBtn.style.display = 'none';
+    runFindPlan();
+};
+
+export function getSpecialistQuotas() {
+    const earthEl = document.getElementById('quota-earth-4p');
+    const waterEl = document.getElementById('quota-water-4f');
+    return {
+        earth_4p_mines: earthEl ? Math.max(0, parseInt(earthEl.value, 10) || 0) : 3,
+        water_4f_wells: waterEl ? Math.max(0, parseInt(waterEl.value, 10) || 0) : 0,
+    };
+}
+
+export function validateInvariants(facility, targetMode, stepCount) {
+    const homeLevel = selectedHomeLevel();
+    const generatorCapacity = getGeneratorCapacity();
+    const chosenRate = getPowerGridRate();
+    const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
+
+    // Tính toán công suất dự kiến khi áp dụng override này
+    let projectedWatts = 0;
+    const testOverrides = JSON.parse(JSON.stringify(facilityOverrides));
+    let ovr = testOverrides.find(o => o.facility === facility);
+    if (!ovr) {
+        const facLevel = (facility === 'Mine' ? 5 : (facility === 'Well' ? 4 : 1));
+        ovr = { facility, level: facLevel, electric_count: 0, specialist_count: 0, manual_count: 0 };
+        testOverrides.push(ovr);
+    }
+
+    if (targetMode === 'electric') {
+        ovr.electric_count = stepCount;
+        ovr.specialist_count = 0;
+        ovr.manual_count = 0;
+    } else if (targetMode === 'specialist') {
+        ovr.specialist_count = stepCount;
+        ovr.electric_count = 0;
+        ovr.manual_count = 0;
+    } else {
+        ovr.manual_count = stepCount;
+        ovr.electric_count = 0;
+        ovr.specialist_count = 0;
+    }
+
+    for (const o of testOverrides) {
+        const w = FACILITY_POWER_WATTS[o.facility] || 0;
+        projectedWatts += (o.electric_count || 0) * w;
+    }
+
+    if (projectedWatts > maxWatts) {
+        return {
+            valid: false,
+            reason: `Vượt công suất điện lưới: ${projectedWatts}W / ${maxWatts}W tối đa!`
+        };
+    }
+
+    return { valid: true };
+}
+
+window.onWorksheetModeClick = async function(facility, targetMode, stepCount) {
+    const inv = validateInvariants(facility, targetMode, stepCount);
+    if (!inv.valid) {
+        showInvariantWarning(facility, inv.reason);
+        return;
+    }
+
+    let ovr = facilityOverrides.find(o => o.facility === facility);
+    if (!ovr) {
+        const facLevel = (facility === 'Mine' ? 5 : (facility === 'Well' ? 4 : 1));
+        ovr = { facility, level: facLevel, electric_count: 0, specialist_count: 0, manual_count: 0 };
+        facilityOverrides.push(ovr);
+    }
+
+    if (targetMode === 'electric') {
+        ovr.electric_count = stepCount;
+        ovr.specialist_count = 0;
+        ovr.manual_count = 0;
+    } else if (targetMode === 'specialist') {
+        ovr.specialist_count = stepCount;
+        ovr.electric_count = 0;
+        ovr.manual_count = 0;
+    } else {
+        ovr.manual_count = stepCount;
+        ovr.electric_count = 0;
+        ovr.specialist_count = 0;
+    }
+
+    // Hiển thị nút Reset Overrides
+    const resetBtn = document.getElementById('btn-reset-overrides');
+    if (resetBtn) resetBtn.style.display = 'inline-flex';
+
+    // Optimistic UI (0ms)
+    const pillsContainer = document.querySelector(`.mode-selector-pills[data-fac="${facility}"]`);
+    if (pillsContainer) {
+        pillsContainer.querySelectorAll('.mode-pill').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = pillsContainer.querySelector(`.pill-${targetMode}`);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    // Debounce 150ms kích hoạt Fast Re-solve
+    clearTimeout(fastResolveDebounceTimer);
+    fastResolveDebounceTimer = setTimeout(async () => {
+        await runFastReSolve();
+    }, 150);
+};
+
+export async function runFastReSolve() {
+    try {
+        const input = getPlanInputValues();
+        const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
+        const payload = JSON.stringify({ ...input, ...aniimoInput(bestSetup) });
+
+        const json = await callWorker('FAST_RE_SOLVE', payload);
+        const plan = JSON.parse(json);
+
+        if (plan && plan.success) {
+            plansBySetup[bestSetup] = plan;
+            showSelectedPlan();
+
+            const badge = document.getElementById('fast-resolve-benchmark-badge');
+            if (badge && plan.benchmark) {
+                badge.style.display = 'inline-flex';
+                badge.innerHTML = `⚡ ${plan.benchmark.total}ms <span class="benchmark-sub">(${plan.benchmark.t_lp}ms LP | ${plan.benchmark.t_highs}ms HiGHS | ${plan.benchmark.t_plan}ms Map)</span>`;
+            }
+        }
+    } catch (err) {
+        console.error('runFastReSolve error:', err);
+        runFindPlan();
+    }
+}
+
+function showInvariantWarning(facility, reason) {
+    const alertId = `invariant-warn-${facility}`;
+    let el = document.getElementById(alertId);
+    if (!el) {
+        const row = document.querySelector(`.mode-selector-pills[data-fac="${facility}"]`);
+        if (row) {
+            el = document.createElement('span');
+            el.id = alertId;
+            el.className = 'invariant-warning-badge';
+            row.parentNode.appendChild(el);
+        }
+    }
+    if (el) {
+        el.textContent = `⚠ ${reason}`;
+        el.style.display = 'inline-block';
+        setTimeout(() => {
+            el.style.display = 'none';
+        }, 3000);
+    }
+}
+
+function attachSpecialistQuotaHandlers() {
+    document.querySelectorAll('.stepper-btn[data-step-specialist]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.stepSpecialist;
+            const dir = parseInt(btn.dataset.stepDir, 10) || 0;
+            const inputId = key === 'earth_4p' ? 'quota-earth-4p' : 'quota-water-4f';
+            const input = document.getElementById(inputId);
+            if (input) {
+                const min = parseInt(input.min, 10) || 0;
+                const max = parseInt(input.max, 10) || 8;
+                let val = (parseInt(input.value, 10) || 0) + dir;
+                val = Math.max(min, Math.min(max, val));
+                input.value = val;
+                runFindPlan();
+            }
+        });
+    });
+    ['quota-earth-4p', 'quota-water-4f'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+            runFindPlan();
+        });
+    });
+}
+
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
     if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
 
@@ -438,10 +633,20 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     // Cuối cùng: Chỉ cấp điện cho Hầm mỏ cấp 5 (150W/mỏ) từ watt dư còn lại sau khi tất cả
     // xưởng chế biến và giếng nước đã đủ điện. (Hầm mỏ dùng điện mất 25 phút, chậm hơn
     // Prismana Thổ Lv.4 mất 18p45s, nên chỉ điện hóa số lượng vừa phải để tận dụng tải dư).
+    // Ưu tiên đọc trực tiếp facility_overrides nếu người dùng đã can thiệp:
+    for (const ovr of facilityOverrides) {
+        if (ovr.electric_count > 0) {
+            emodeCounts[ovr.facility] = ovr.electric_count;
+            usedWatts += (FACILITY_POWER_WATTS[ovr.facility] || 0) * ovr.electric_count;
+        }
+    }
+
+    // Cuối cùng: Cấp điện cho Hầm mỏ cấp 5 (150W/mỏ) từ watt dư còn lại sau khi trừ đi Quota Prismana Thổ 4P:
     const mineWatts = FACILITY_POWER_WATTS['Mine'] || 150;
     const availableMines = ownedCounts['Mine'] || 0;
     const activeMines = activeCounts['Mine'] || 0;
-    const maxElectrifiedMines = Math.min(activeMines, availableMines);
+    const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
+    const maxElectrifiedMines = Math.min(activeMines, Math.max(0, availableMines - earth4pQuota));
     let currentMines = emodeCounts['Mine'] || 0;
     while (currentMines < maxElectrifiedMines && usedWatts + mineWatts <= maxWatts) {
         currentMines++;
@@ -3778,6 +3983,8 @@ function getPlanInputValues() {
         power_grid_rate: getPowerGridRate(),
         production_aniimo_cap: getProductionAniimoCap(),
         power_poles: selectedHomeLevel() >= 12 ? getPowerPoleCount() : 0,
+        specialist_quotas: getSpecialistQuotas(),
+        facility_overrides: getFacilityOverrides(),
         facilities,
         modules
     };
@@ -4678,16 +4885,30 @@ function facilityPlanTable(rows) {
 // One table over several labelled groups, e.g. a paired environment's three zones: each group's
 // rows follow a band naming it, so the column headers are written once.
 function facilityPlanTableOf(groups) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const hasOverrides = facilityOverrides && facilityOverrides.length > 0;
     const body = groups
-        .map(group => (group.label ? `<tr class="facility-plan-group"><td colspan="5">${group.label}</td></tr>` : '') + planRows(group.rows))
+        .map(group => (group.label ? `<tr class="facility-plan-group"><td colspan="6">${group.label}</td></tr>` : '') + planRows(group.rows))
         .join('');
     return `
-        <div class="table-wrapper">
+        <div class="table-wrapper worksheet-table-wrapper">
+            <div class="worksheet-toolbar">
+                <div class="worksheet-toolbar-left">
+                    <span class="worksheet-toolbar-title">⚡ Interactive Worksheet</span>
+                    <span id="fast-resolve-benchmark-badge" class="benchmark-badge" style="display: none;"></span>
+                </div>
+                <div class="worksheet-toolbar-actions">
+                    <button type="button" id="btn-reset-overrides" class="btn-reset-overrides" style="display: ${hasOverrides ? 'inline-flex' : 'none'};" onclick="window.resetWorksheetOverrides()" title="Hoàn tác toàn bộ can thiệp thủ công về thuật toán tự động tối ưu">
+                        ↺ ${isVi ? 'Tự động tối ưu' : 'Auto Optimize'}
+                    </button>
+                </div>
+            </div>
             <table class="facility-plan-table">
                 <thead>
                     <tr>
                         <th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th>
                         <th>${window.th ? window.th('th_count', 'Count') : 'Count'}</th>
+                        <th>${isVi ? 'Chế độ' : 'Mode'}</th>
                         <th>${window.th ? window.th('th_producing', 'Producing') : 'Producing'}</th>
                         <th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th>
                         <th>${window.th ? window.th('th_why', 'Why') : 'Why'}</th>
@@ -4701,25 +4922,62 @@ function facilityPlanTableOf(groups) {
 
 function planRows(rows) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    return rows.map(step => `
-                    <tr class="status-${step.status}">
-                        <td data-label="Facility">
-                            <div class="facility-cell">
-                                ${renderFacilityIcon(step.facility)}
-                                <span class="facility-name-text">${getFacilityDisplayName(step.facility)}</span>
-                            </div>
-                        </td>
-                        <td data-label="Count">${step.facility_count}</td>
-                        <td data-label="Producing">
-                            <div class="item-cell">
-                                ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
-                                ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
-                            </div>
-                        </td>
-                        <td data-label="Aniimo">${aniimoLabel(step)}</td>
-                        <td data-label="Why">${prettyReason(step.reason)}</td>
-                    </tr>
-                `).join('');
+    return rows.map(step => {
+        const rawFac = step.facility || '';
+        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        const isMine = baseFac === 'Mine';
+        const isWell = baseFac === 'Well';
+        const facDef = FACILITIES.find(f => f.name === baseFac);
+        const supportsEmode = facDef?.supportsEmode ?? false;
+        const isSupportedMultiMode = isMine || isWell || supportsEmode;
+
+        // Xác định mode hiện tại:
+        let currentMode = 'manual';
+        if (step.is_emode || rawFac.includes('(Electric)')) {
+            currentMode = 'electric';
+        } else if (rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
+            currentMode = 'specialist';
+        }
+
+        // Tính wattage badge:
+        const wattsPerUnit = FACILITY_POWER_WATTS[baseFac] || 0;
+        const totalWatts = currentMode === 'electric' ? wattsPerUnit * step.facility_count : 0;
+        const powerBadge = totalWatts > 0 ? `<span class="facility-power-badge">⚡ ${totalWatts}W</span>` : '';
+
+        // Mode selector pills
+        let modeControls = `<span class="mode-static">${isVi ? 'Mặc định' : 'Default'}</span>`;
+        if (isSupportedMultiMode && baseFac !== 'Farmland' && baseFac !== 'Woodland') {
+            modeControls = `
+                <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
+                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count})" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
+                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
+                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count})" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                </div>
+            `;
+        }
+
+        return `
+            <tr class="status-${step.status}">
+                <td data-label="Facility">
+                    <div class="facility-cell">
+                        ${renderFacilityIcon(baseFac)}
+                        <span class="facility-name-text">${getFacilityDisplayName(baseFac)}</span>
+                        ${powerBadge}
+                    </div>
+                </td>
+                <td data-label="Count">${step.facility_count}</td>
+                <td data-label="Mode" class="mode-cell">${modeControls}</td>
+                <td data-label="Producing">
+                    <div class="item-cell">
+                        ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
+                        ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                    </div>
+                </td>
+                <td data-label="Aniimo">${aniimoLabel(step)}</td>
+                <td data-label="Why">${prettyReason(step.reason)}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // "Sowing", "Sowing and Collecting", "Reaping, Logging and Collecting".
@@ -6319,6 +6577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showAniimoSetup();
     applyConfigMode();
     updateSimpleEmodeState();
+    attachSpecialistQuotaHandlers();
     initWasm();
 
     document.getElementById('optimize-btn').addEventListener('click', runFindPlan);

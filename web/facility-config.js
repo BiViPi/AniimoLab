@@ -34,12 +34,14 @@ export const FACILITIES = [
     },
     {
         name: 'Mine', slug: 'mine', defaultCount: 1, category: 'Materials', hasWorker: true, ability: 'Earth', personality: 'Playful', supportsEmode: true, powerWatts: 150,
+        specialist: { ability: 'Earth', minLevel: 4, personality: 'Playful', cycleSeconds: 1125, item: 'quartz_ore', label: 'Prismana Thổ Lv.4 Playful (18p45s)' },
         unlocks: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 18 },
         counts: [0, 0, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
         tooltip: "Lv.1: Rock&#10;Lv.2: Clay&#10;Lv.3: Shell&#10;Lv.4: Copper Ore&#10;Lv.5: Quartz Ore&#10;Lv.6: Gem&#10;Also yields Mineral Sand."
     },
     {
         name: 'Well', slug: 'well', defaultCount: 0, category: 'Materials', hasWorker: true, ability: 'Water', personality: 'Faithful', supportsEmode: true, powerWatts: 120,
+        specialist: { ability: 'Water', minLevel: 4, personality: 'Faithful', cycleSeconds: 1125, item: 'deep_rock_spring_water', label: 'Prismana Thủy Lv.4 Faithful (18p45s)' },
         unlocks: { 1: 4, 2: 8, 3: 11, 4: 13, 5: 17 },
         counts: [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3],
         tooltip: "Lv.1: Well Water, Quick Well Water&#10;Lv.2: Fresh Water&#10;Lv.3: Quick Fresh Water&#10;Lv.4: Deep Rock Spring Water, Quick Deep Rock Spring Water&#10;Lv.5: Natural Mineral Spring Water, Quick Natural Mineral Spring Water"

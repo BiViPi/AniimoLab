@@ -3590,7 +3590,8 @@ tr:hover .skip-row,
     border-radius: 4px;
     transition: width 0.3s ease, background 0.3s ease;
     box-shadow: 0 0 10px rgba(0, 245, 160, 0.3);
-}.power-breakdown {
+}
+.power-breakdown {
     margin-top: 0.6rem;
     font-size: 0.8rem;
 }
@@ -5822,3 +5823,344 @@ body.light .explain summary:hover {
 
 
 
+
+
+/* ==========================================================================
+   Phase 3: Two-Tier Hybrid Solver - Specialist Quotas & Interactive Worksheet
+   ========================================================================== */
+
+/* Specialist Quotas Section in Power Card */
+.specialist-quotas-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius, 10px);
+}
+
+body.light .specialist-quotas-section {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.specialist-quotas-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.specialist-quotas-head h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text, #e2e8f0);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.specialist-quotas-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.specialist-quotas-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.75rem;
+}
+
+.specialist-stepper-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface-2, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border-radius: 8px;
+}
+
+body.light .specialist-stepper-item {
+    background: #ffffff;
+    border-color: #e2e8f0;
+}
+
+.specialist-stepper-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.specialist-stepper-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text, #e2e8f0);
+}
+
+.specialist-stepper-sub {
+    font-size: 0.73rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.specialist-stepper-ctrl {
+    display: flex;
+    align-items: center;
+}
+
+.specialist-stepper-ctrl input[type="number"] {
+    width: 65px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 0.35rem 0.4rem;
+    border-radius: 6px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+    background: var(--bg, #0f172a);
+    color: var(--text, #f8fafc);
+}
+
+body.light .specialist-stepper-ctrl input[type="number"] {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.specialist-stepper-ctrl input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+/* Worksheet Toolbar & Interactive Table */
+.worksheet-table-wrapper {
+    margin-top: 0.5rem;
+    position: relative;
+}
+
+.worksheet-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface-2, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+}
+
+body.light .worksheet-toolbar {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.worksheet-toolbar-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text, #e2e8f0);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.worksheet-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.benchmark-badge {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    animation: benchmark-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes benchmark-pop {
+    from {
+        transform: scale(0.92);
+        opacity: 0.6;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.btn-reset-overrides {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted, #94a3b8);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-reset-overrides:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #f87171;
+}
+
+body.light .btn-reset-overrides {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+body.light .btn-reset-overrides:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+    color: #dc2626;
+}
+
+/* Facility Power Badge */
+.facility-power-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    vertical-align: middle;
+}
+
+body.light .facility-power-badge {
+    background: #fef9c3;
+    color: #ca8a04;
+    border-color: #fde047;
+}
+
+/* Mode Selector Pills in Worksheet Cells */
+.mode-cell {
+    white-space: nowrap;
+}
+
+.mode-static {
+    color: var(--text-muted, #64748b);
+    font-size: 0.82rem;
+}
+
+.mode-selector-pills {
+    display: inline-flex;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 2px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.light .mode-selector-pills {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+.mode-pill {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+}
+
+.mode-pill:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text, #f1f5f9);
+}
+
+body.light .mode-pill:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.7);
+    color: #0f172a;
+}
+
+.mode-pill.pill-electric.active {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(202, 138, 4, 0.35));
+    border-color: #eab308;
+    color: #fef08a;
+    font-weight: 700;
+    box-shadow: 0 0 6px rgba(234, 179, 8, 0.3);
+}
+
+body.light .mode-pill.pill-electric.active {
+    background: #fef08a;
+    border-color: #ca8a04;
+    color: #854d0e;
+}
+
+.mode-pill.pill-specialist.active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(126, 34, 206, 0.35));
+    border-color: #a855f7;
+    color: #f3e8ff;
+    font-weight: 700;
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.3);
+}
+
+body.light .mode-pill.pill-specialist.active {
+    background: #f3e8ff;
+    border-color: #9333ea;
+    color: #6b21a8;
+}
+
+.mode-pill.pill-manual.active {
+    background: rgba(100, 116, 139, 0.25);
+    border-color: #64748b;
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+body.light .mode-pill.pill-manual.active {
+    background: #cbd5e1;
+    border-color: #64748b;
+    color: #1e293b;
+}
+
+/* Invariant Warning Badge */
+.invariant-warning-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #fca5a5;
+    animation: pulse-warn 1s infinite alternate;
+}
+
+@keyframes pulse-warn {
+    from {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+}

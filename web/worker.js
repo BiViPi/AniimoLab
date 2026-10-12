@@ -33,6 +33,9 @@ async function newHighs() {
     return highsModule({ wasmBinary: await highsBytes, print: () => {}, printErr: line => console.warn(line) });
 }
 
+// Cached stage constraints (byproduct/priority floors and level-up pace) from the most recent full solve.
+let cachedStage = null;
+
 // Seconds HiGHS may search before settling for the best plan found so far.
 const EXACT_TIME_LIMIT = 30;
 
@@ -160,6 +163,10 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
         if (stockedPlan && stockedPlan.success) {
             step('check', 'done');
             stockedPlan.level_up_note = levelUpNote;
+            cachedStage = {
+                floors: stage.floors ? [...stage.floors] : [],
+                pace: stage.pace ?? null,
+            };
             return JSON.stringify(stockedPlan);
         }
         console.warn('Level-up stock solve found no usable plan; keeping the plan without it.');
@@ -178,6 +185,10 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     }
     if (!plan.success) throw new Error(plan.error || 'the plan failed its check');
     step('check', 'done');
+    cachedStage = {
+        floors: stage.floors ? [...stage.floors] : [],
+        pace: stage.pace ?? null,
+    };
     if (!levelUpNote) return json;
     plan.level_up_note = levelUpNote;
     return JSON.stringify(plan);
@@ -237,14 +248,87 @@ async function rankImprovements(pkg, payload, report) {
     }
 }
 
-// The smallest gain worth ranking, as a share of what the plan already makes: below it, a
-// difference is as likely to be the solver's tolerances as a real improvement.
-const RANK_MIN_GAIN = 1e-3;
+// Performs a sub-25ms fast re-solve for interactive worksheet adjustments.
+// Reuses cached floors/pace from the most recent full solve, locks facility
+// assignments in Rust (<1ms), solves with HiGHS with a tight time limit (50ms),
+// and decodes the plan in Rust (<1ms).
+async function fastReSolve(pkg, payload) {
+    const stage = cachedStage ? {
+        floors: cachedStage.floors ? [...cachedStage.floors] : [],
+        pace: cachedStage.pace ?? undefined,
+    } : { floors: [] };
+    const stageJson = JSON.stringify(stage);
+
+    const t0 = performance.now();
+
+    // 1. Rust compile LP:
+    const t_lp_start = performance.now();
+    const problemJson = pkg.exact_problem(payload, stageJson);
+    const problem = JSON.parse(problemJson);
+    const t_lp = performance.now() - t_lp_start;
+
+    if (!problem.lp) {
+        throw new Error('This setup is not covered by the exact planner');
+    }
+
+    // 2. HiGHS solve (mip_rel_gap: 0, time_limit: 0.05s = 50ms):
+    const t_highs_start = performance.now();
+    const solved = await solveModel(problem, { mip_rel_gap: 0, time_limit: 0.05 });
+    const t_highs = performance.now() - t_highs_start;
+
+    if (!solved) {
+        throw new Error('HiGHS found no solution within fast re-solve limits');
+    }
+
+    // 3. Rust map plan:
+    const t_plan_start = performance.now();
+    const solutionJson = JSON.stringify({
+        values: solved.values,
+        proven: solved.proven,
+        bound: solved.objective,
+    });
+    const planJson = pkg.exact_plan(payload, stageJson, solutionJson);
+    let plan = JSON.parse(planJson);
+    const t_plan = performance.now() - t_plan_start;
+
+    if (!plan.success) {
+        throw new Error(plan.error || 'The fast plan failed verification');
+    }
+
+    const total = performance.now() - t0;
+    plan.benchmark = {
+        t_lp: Math.round(t_lp * 100) / 100,
+        t_highs: Math.round(t_highs * 100) / 100,
+        t_plan: Math.round(t_plan * 100) / 100,
+        total: Math.round(total * 100) / 100,
+    };
+
+    return JSON.stringify(plan);
+}
 
 self.onmessage = async (event) => {
     const { id, type, payload } = event.data;
     try {
         const pkg = await ready;
+        if (type === 'FAST_RE_SOLVE') {
+            let result = null;
+            try {
+                result = await fastReSolve(pkg, payload);
+            } catch (fastError) {
+                console.warn('FAST_RE_SOLVE failed, falling back to full solve:', fastError.message || fastError);
+                try {
+                    const fullResult = await exactPlanJson(pkg, payload);
+                    const plan = JSON.parse(fullResult);
+                    plan.fallback_to_full_solve = true;
+                    plan.fast_resolve_error = fastError.message || String(fastError);
+                    result = JSON.stringify(plan);
+                } catch (fullError) {
+                    throw new Error(`Both fast re-solve and full solve failed: ${fullError.message || fullError}`);
+                }
+            }
+            self.postMessage({ id, ok: true, result });
+            return;
+        }
         if (type === 'rank_improvements') {
             await rankImprovements(pkg, payload, (result) => self.postMessage({ id, type: 'progress', count: result }));
             self.postMessage({ id, ok: true, result: null });

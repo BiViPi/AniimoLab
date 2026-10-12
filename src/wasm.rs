@@ -5,7 +5,10 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::models::{FacilityCounts, ModuleLevels, ProductionEfficiency, ProductionItem};
+use crate::models::{
+    FacilityAssignmentOverride, FacilityCounts, ModuleLevels, ProductionEfficiency, ProductionItem,
+    SpecialistQuotas,
+};
 use crate::optimizer::{
     calculate_efficiencies, calculate_energy_efficiencies, find_best_production_path,
     find_parallel_production_path, find_production_plan_with_progress, find_self_sufficient_path,
@@ -783,6 +786,12 @@ pub struct JsPlanInput {
     /// when some facility runs in E-mode; the guards come out of `production_aniimo_cap`.
     #[serde(default)]
     pub power_poles: u32,
+    /// Specialist quotas set at the high-level dashboard (Tier 1 Macro).
+    #[serde(default)]
+    pub specialist_quotas: SpecialistQuotas,
+    /// Detailed facility assignment overrides from the interactive worksheet (Tier 2 Micro).
+    #[serde(default)]
+    pub facility_overrides: Vec<FacilityAssignmentOverride>,
 }
 
 fn default_power_grid_rate() -> f64 {
@@ -1632,21 +1641,21 @@ fn no_plan() -> String {
 
 /// A plan request parsed and set up: owned facilities, modules, and items timed for the chosen
 /// Aniimo.
-struct PreparedInput {
-    input: JsPlanInput,
-    facility_counts: FacilityCounts,
-    module_levels: ModuleLevels,
-    items: Vec<ProductionItem>,
-    setup: Option<crate::models::AniimoSetup>,
+pub struct PreparedInput {
+    pub input: JsPlanInput,
+    pub facility_counts: FacilityCounts,
+    pub module_levels: ModuleLevels,
+    pub items: Vec<ProductionItem>,
+    pub setup: Option<crate::models::AniimoSetup>,
     /// The player's own Aniimo, when planning with them.
-    crew: Option<crate::models::Crew>,
-    requirements: crate::models::AniimoRequirements,
-    grower_steps: crate::models::GrowerSteps,
+    pub crew: Option<crate::models::Crew>,
+    pub requirements: crate::models::AniimoRequirements,
+    pub grower_steps: crate::models::GrowerSteps,
 }
 
 impl PreparedInput {
     /// Parses `input_json`; on failure, the error result to return instead.
-    fn from_json(input_json: &str) -> Result<Self, String> {
+    pub fn from_json(input_json: &str) -> Result<Self, String> {
         let input: JsPlanInput = serde_json::from_str(input_json).map_err(|e| {
             serde_json::to_string(&empty_production_plan(false, Some(format!("Invalid input: {}", e)))).unwrap_or_default()
         })?;
@@ -1680,6 +1689,11 @@ impl PreparedInput {
             }
         });
 
+        let crew = match (input.aniimo.as_deref(), &input.roster) {
+            (Some(name), Some(roster)) if name.starts_with("roster") => Some(roster.crew()),
+            _ => None,
+        };
+
         let mut emode_facilities = input.emode_facilities.clone();
         let mut emode_counts = input.emode_facility_counts.clone();
         if emode_counts.is_empty() {
@@ -1694,9 +1708,169 @@ impl PreparedInput {
             }
         }
 
-        // Handle partial electric facilities (0 < E < total owned):
+        // Sync facility_overrides for other facilities into emode_counts and emode_facilities:
+        for ovr in &input.facility_overrides {
+            if ovr.facility != "Mine" && ovr.facility != "Well" && ovr.electric_count > 0 {
+                emode_counts.insert(ovr.facility.clone(), ovr.electric_count);
+                if !emode_facilities.contains(&ovr.facility) {
+                    emode_facilities.push(ovr.facility.clone());
+                }
+            }
+        }
+
+        // Precision Tier Partitioning for Mine Lv.5 (Tier-Aware):
+        let total_lv5_mines = facility_counts.get_tier_count("Mine", 5);
+        let mut partitioned_mine_items = Vec::new();
+
+        if total_lv5_mines > 0 {
+            let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Mine" && o.level == 5);
+            let (e_count, p_count, std_count) = if let Some(ovr) = override_opt {
+                let e = ovr.electric_count.min(total_lv5_mines);
+                let rem1 = total_lv5_mines - e;
+                let p = ovr.specialist_count.min(rem1);
+                let std = rem1 - p;
+                (e, p, std)
+            } else {
+                let e = emode_counts.get("Mine").copied().unwrap_or(0).min(total_lv5_mines);
+                let rem1 = total_lv5_mines - e;
+                let roster_earth_4p = crew.as_ref().map(|c| c.count_specialist("Earth", 4, "Playful")).unwrap_or(u32::MAX);
+                let quota = input.specialist_quotas.earth_4p_mines.unwrap_or(rem1);
+                let p = quota.min(rem1).min(roster_earth_4p);
+                let std = rem1 - p;
+                (e, p, std)
+            };
+
+            facility_counts.remove_tier("Mine", 5);
+
+            if e_count > 0 {
+                facility_counts.add_tier("Mine (Electric)", e_count, 5);
+                if !emode_facilities.contains(&"Mine (Electric)".to_string()) {
+                    emode_facilities.push("Mine (Electric)".to_string());
+                }
+                emode_counts.insert("Mine (Electric)".to_string(), e_count);
+                if let Some(q_ore) = items.iter().find(|i| i.facility == "Mine" && i.facility_level == 5) {
+                    let mut electric_item = q_ore.clone();
+                    electric_item.facility = "Mine (Electric)".to_string();
+                    electric_item.emode_base_time = Some(1800.0);
+                    partitioned_mine_items.push(electric_item);
+                }
+            }
+
+            if p_count > 0 {
+                facility_counts.add_tier("Mine (Prismana)", p_count, 5);
+                if let Some(q_ore) = items.iter().find(|i| i.facility == "Mine" && i.facility_level == 5) {
+                    let mut prismana_item = q_ore.clone();
+                    prismana_item.name = format!("{}{}", q_ore.name, crate::models::SPECIALIST_SUFFIX);
+                    prismana_item.facility = "Mine (Prismana)".to_string();
+                    prismana_item.emode_base_time = None;
+                    prismana_item.workload = Some(2700.0);
+                    partitioned_mine_items.push(prismana_item);
+                }
+            }
+
+            if std_count > 0 {
+                facility_counts.add_tier("Mine (Manual)", std_count, 5);
+                for item in items.iter().filter(|i| i.facility == "Mine") {
+                    let mut manual_item = item.clone();
+                    manual_item.name = format!("{}{}", item.name, crate::models::MANUAL_SUFFIX);
+                    manual_item.facility = "Mine (Manual)".to_string();
+                    manual_item.emode_base_time = None;
+                    partitioned_mine_items.push(manual_item);
+                }
+            }
+
+            if facility_counts.get_count("Mine") == 0 {
+                items.retain(|i| i.facility != "Mine");
+                emode_facilities.retain(|f| f != "Mine");
+                emode_counts.remove("Mine");
+            } else {
+                items.retain(|i| !(i.facility == "Mine" && i.facility_level == 5));
+                emode_facilities.retain(|f| f != "Mine");
+                emode_counts.remove("Mine");
+            }
+        }
+        items.extend(partitioned_mine_items);
+
+        // Precision Tier Partitioning for Well Lv.3+ (Tier-Aware):
+        let max_well_level = facility_counts.get_level("Well");
+        let total_target_wells = if max_well_level >= 3 { facility_counts.get_tier_count("Well", max_well_level) } else { 0 };
+        let mut partitioned_well_items = Vec::new();
+
+        if total_target_wells > 0 {
+            let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Well" && (o.level == max_well_level || o.level == 0));
+            let (e_count, p_count, std_count) = if let Some(ovr) = override_opt {
+                let e = ovr.electric_count.min(total_target_wells);
+                let rem1 = total_target_wells - e;
+                let p = ovr.specialist_count.min(rem1);
+                let std = rem1 - p;
+                (e, p, std)
+            } else {
+                let e = emode_counts.get("Well").copied().unwrap_or(0).min(total_target_wells);
+                let rem1 = total_target_wells - e;
+                let roster_water_4f = crew.as_ref().map(|c| c.count_specialist("Water", 4, "Faithful")).unwrap_or(u32::MAX);
+                let quota = input.specialist_quotas.water_4f_wells.unwrap_or(0);
+                let p = quota.min(rem1).min(roster_water_4f);
+                let std = rem1 - p;
+                (e, p, std)
+            };
+
+            if e_count > 0 || p_count > 0 {
+                facility_counts.remove_tier("Well", max_well_level);
+
+                if e_count > 0 {
+                    facility_counts.add_tier("Well (Electric)", e_count, max_well_level);
+                    if !emode_facilities.contains(&"Well (Electric)".to_string()) {
+                        emode_facilities.push("Well (Electric)".to_string());
+                    }
+                    emode_counts.insert("Well (Electric)".to_string(), e_count);
+                    for item in items.iter().filter(|i| i.facility == "Well" && i.facility_level <= max_well_level) {
+                        let mut electric_item = item.clone();
+                        electric_item.facility = "Well (Electric)".to_string();
+                        partitioned_well_items.push(electric_item);
+                    }
+                }
+
+                if p_count > 0 {
+                    facility_counts.add_tier("Well (Prismana)", p_count, max_well_level);
+                    for item in items.iter().filter(|i| i.facility == "Well" && i.facility_level <= max_well_level) {
+                        let mut prismana_item = item.clone();
+                        prismana_item.name = format!("{}{}", item.name, crate::models::SPECIALIST_SUFFIX);
+                        prismana_item.facility = "Well (Prismana)".to_string();
+                        prismana_item.emode_base_time = None;
+                        partitioned_well_items.push(prismana_item);
+                    }
+                }
+
+                if std_count > 0 {
+                    facility_counts.add_tier("Well (Manual)", std_count, max_well_level);
+                    for item in items.iter().filter(|i| i.facility == "Well" && i.facility_level <= max_well_level) {
+                        let mut manual_item = item.clone();
+                        manual_item.name = format!("{}{}", item.name, crate::models::MANUAL_SUFFIX);
+                        manual_item.facility = "Well (Manual)".to_string();
+                        manual_item.emode_base_time = None;
+                        partitioned_well_items.push(manual_item);
+                    }
+                }
+
+                if facility_counts.get_count("Well") == 0 {
+                    items.retain(|i| i.facility != "Well");
+                    emode_facilities.retain(|f| f != "Well");
+                    emode_counts.remove("Well");
+                } else {
+                    items.retain(|i| !(i.facility == "Well" && i.facility_level == max_well_level));
+                    emode_facilities.retain(|f| f != "Well");
+                    emode_counts.remove("Well");
+                }
+            }
+        }
+        items.extend(partitioned_well_items);
+
+        // Handle partial electric facilities (0 < E < total owned) for other facilities:
         let mut manual_items = Vec::new();
         for (fac, &e_count) in &emode_counts {
+            if fac == "Mine" || fac.starts_with("Mine (") || fac == "Well" || fac.starts_with("Well (") {
+                continue;
+            }
             let total = facility_counts.get_count(fac);
             if e_count > 0 && e_count < total {
                 let manual_count = total - e_count;
@@ -1735,17 +1909,62 @@ impl PreparedInput {
         let requirements = embedded_aniimo_requirements();
         let grower_steps = embedded_grower_steps();
         let mut facility_counts = facility_counts;
-        let crew = match (input.aniimo.as_deref(), &input.roster) {
-            (Some(name), Some(roster)) if name.starts_with("roster") => Some(roster.crew()),
-            _ => None,
-        };
+
         match (&crew, &setup) {
             (Some(crew), _) => {
                 items = crate::models::crew_variants(items, crew, &requirements, &grower_steps);
                 facility_counts.set_crew(crew.clone());
+                // Anti-Double Staffing: retain only qualified specialist variants
+                items.retain(|item| {
+                    if item.facility == "Mine (Prismana)" {
+                        if let Some(m) = item.crew {
+                            crew.members.get(m).map_or(false, |aniimo| {
+                                aniimo.level("Earth") >= 4 && aniimo.personalities.iter().any(|p| p == "Playful")
+                            })
+                        } else {
+                            false
+                        }
+                    } else if item.facility == "Well (Prismana)" {
+                        if let Some(m) = item.crew {
+                            crew.members.get(m).map_or(false, |aniimo| {
+                                aniimo.level("Water") >= 4 && aniimo.personalities.iter().any(|p| p == "Faithful")
+                            })
+                        } else {
+                            false
+                        }
+                    } else {
+                        true
+                    }
+                });
             }
-            (None, Some(setup)) => requirements.apply(setup, &mut items),
-            (None, None) => workers_from(&input.workers).apply(&requirements, &mut items),
+            (None, Some(setup)) => {
+                requirements.apply(setup, &mut items);
+                for item in items.iter_mut() {
+                    if item.facility == "Mine (Prismana)" {
+                        item.production_time = 1125.0;
+                        item.workload = None;
+                    } else if item.facility == "Well (Prismana)" {
+                        if let Some(wl) = item.workload {
+                            item.production_time = wl / 2.4;
+                            item.workload = None;
+                        }
+                    }
+                }
+            }
+            (None, None) => {
+                workers_from(&input.workers).apply(&requirements, &mut items);
+                for item in items.iter_mut() {
+                    if item.facility == "Mine (Prismana)" {
+                        item.production_time = 1125.0;
+                        item.workload = None;
+                    } else if item.facility == "Well (Prismana)" {
+                        if let Some(wl) = item.workload {
+                            item.production_time = wl / 2.4;
+                            item.workload = None;
+                        }
+                    }
+                }
+            }
         }
         let guards = if input.emode_facility_counts.values().any(|&count| count > 0) { input.power_poles } else { 0 };
         facility_counts.set_worker_cap(input.production_aniimo_cap.map(|cap| cap.saturating_sub(guards)));
@@ -1754,7 +1973,7 @@ impl PreparedInput {
 
     /// The result the web page shows for `plan`, with each row's Aniimo; `proof` is the exact
     /// planner's `(proven optimal, upper bound)`, if it made the plan.
-    fn to_js(&self, plan: crate::models::ProductionPlan, proof: Option<(bool, f64)>) -> JsProductionPlan {
+    pub fn to_js(&self, plan: crate::models::ProductionPlan, proof: Option<(bool, f64)>) -> JsProductionPlan {
         let listed = embedded_unverified();
         let mut unverified: Vec<JsUnverified> = plan
             .coin_items
@@ -1774,18 +1993,30 @@ impl PreparedInput {
             .coin_items
             .into_iter()
             .map(|mut step| {
+                let is_electric_variant = step.facility.ends_with(" (Electric)");
+                let is_prismana_variant = step.facility.ends_with(" (Prismana)");
                 let is_manual_variant = step.facility.ends_with(" (Manual)");
-                if is_manual_variant {
+
+                if is_electric_variant {
+                    step.facility = step.facility.trim_end_matches(" (Electric)").to_string();
+                } else if is_prismana_variant {
+                    step.facility = step.facility.trim_end_matches(" (Prismana)").to_string();
+                    if let Some(name) = step.item_name.as_ref() {
+                        step.item_name = Some(name.strip_suffix(crate::models::SPECIALIST_SUFFIX).unwrap_or(name).to_string());
+                    }
+                } else if is_manual_variant {
                     step.facility = step.facility.trim_end_matches(" (Manual)").to_string();
                     if let Some(name) = step.item_name.as_ref() {
                         step.item_name = Some(name.strip_suffix(crate::models::MANUAL_SUFFIX).unwrap_or(name).to_string());
                     }
                 }
 
-                let is_emode = !is_manual_variant
-                    && (self.input.emode_facilities.contains(&step.facility)
-                        || self.input.emode_facility_counts.get(&step.facility).copied().unwrap_or(0) > 0)
-                    && self.items.iter().any(|i| i.facility == step.facility && i.emode_base_time.is_some());
+                let is_emode = is_electric_variant
+                    || (!is_manual_variant
+                        && !is_prismana_variant
+                        && (self.input.emode_facilities.contains(&step.facility)
+                            || self.input.emode_facility_counts.get(&step.facility).copied().unwrap_or(0) > 0)
+                        && self.items.iter().any(|i| i.facility == step.facility && i.emode_base_time.is_some()));
 
                 // With the player's roster, the row names the member working it.
                 let from_crew = match (&self.crew, step.crew, &step.item_name) {
@@ -1799,6 +2030,16 @@ impl PreparedInput {
                 };
                 let aniimo = if is_emode {
                     None
+                } else if is_prismana_variant {
+                    let ability = match step.facility.as_str() {
+                        "Well" => "Water",
+                        _ => "Earth",
+                    };
+                    Some(JsAniimo {
+                        ability: ability.to_string(),
+                        level: 4,
+                        personality_bonus: true,
+                    })
                 } else {
                     from_crew.or_else(|| match (&self.setup, &step.item_name) {
                         (Some(setup), Some(item)) if step.status == crate::models::PlanStepStatus::Producing => {

@@ -3,7 +3,7 @@
 //! This module contains all the core data structures used throughout the application,
 //! including production items, efficiency calculations, and production paths.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// Each byproduct and the item name recipes use for it: the Woodworking Bench takes
@@ -207,10 +207,17 @@ pub fn default_level_for(ability: &str) -> u32 {
 /// alone gives (checked in game on the Dance Pad Polisher and Aniipod Maker).
 pub const FACILITIES_WITHOUT_PERSONALITY: [&str; 2] = ["Dance Pad Polisher", "Aniipod Maker"];
 
+/// Strips variant suffixes like " (Manual)", " (Electric)", " (Prismana)" from a facility name.
+pub fn base_facility_name(facility: &str) -> &str {
+    let base = facility.strip_suffix(" (Manual)").unwrap_or(facility);
+    let base = base.strip_suffix(" (Electric)").unwrap_or(base);
+    base.strip_suffix(" (Prismana)").unwrap_or(base)
+}
+
 /// Whether `facility` has a personality whose Aniimo work it faster (see
 /// [`FACILITIES_WITHOUT_PERSONALITY`]).
 pub fn has_personality_bonus(facility: &str) -> bool {
-    let base = facility.strip_suffix(" (Manual)").unwrap_or(facility);
+    let base = base_facility_name(facility);
     !FACILITIES_WITHOUT_PERSONALITY.contains(&base)
 }
 
@@ -235,16 +242,40 @@ pub fn no_personality_efficiency(level: u32, required: u32) -> f64 {
 /// [`add_uncovered_variants`]).
 pub const UNCOVERED_SUFFIX: &str = "__uncovered";
 pub const MANUAL_SUFFIX: &str = "__manual";
+pub const SPECIALIST_SUFFIX: &str = "__specialist";
+
+/// User assignment override for a facility tier.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+pub struct FacilityAssignmentOverride {
+    pub facility: String,
+    pub level: u32,
+    #[serde(default)]
+    pub electric_count: u32,
+    #[serde(default)]
+    pub specialist_count: u32,
+    #[serde(default)]
+    pub manual_count: u32,
+}
+
+/// Macro specialist quotas set at the high-level dashboard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+pub struct SpecialistQuotas {
+    #[serde(default)]
+    pub earth_4p_mines: Option<u32>,
+    #[serde(default)]
+    pub water_4f_wells: Option<u32>,
+}
 
 /// The recipe or crop behind an item name: the name without a roster copy's `__by<member>` (see
-/// [`crew_variants`]), an uncovered variant's suffix, or a manual facility variant suffix.
+/// [`crew_variants`]), an uncovered variant's suffix, a manual facility variant suffix, or a specialist variant suffix.
 pub fn base_item_name(name: &str) -> &str {
     let name = match name.rsplit_once(CREW_SUFFIX) {
         Some((base, member)) if !member.is_empty() && member.bytes().all(|b| b.is_ascii_digit()) => base,
         _ => name,
     };
     let name = name.strip_suffix(UNCOVERED_SUFFIX).unwrap_or(name);
-    name.strip_suffix(MANUAL_SUFFIX).unwrap_or(name)
+    let name = name.strip_suffix(MANUAL_SUFFIX).unwrap_or(name);
+    name.strip_suffix(SPECIALIST_SUFFIX).unwrap_or(name)
 }
 
 /// Marks a recipe worked by one Aniimo on the player's roster, e.g. `milled_rice__by2` for the
@@ -290,9 +321,25 @@ impl Crew {
     pub fn worker(&self, member: usize, item: &ProductionItem, requirements: &AniimoRequirements) -> Option<Worker> {
         let aniimo = self.members.get(member)?;
         let (ability, _) = requirements.get(base_item_name(&item.name))?;
+        let base_fac = base_facility_name(&item.facility);
         let bonus = has_personality_bonus(&item.facility)
-            && self.personalities.get(&item.facility).is_some_and(|p| aniimo.personalities.contains(p));
+            && (self.personalities.get(&item.facility).is_some_and(|p| aniimo.personalities.contains(p))
+                || self.personalities.get(base_fac).is_some_and(|p| aniimo.personalities.contains(p)));
         Some(Worker::new(aniimo.level(ability), bonus))
+    }
+
+    /// Returns the member index of an Aniimo that matches ability, minimum level, and personality.
+    pub fn find_specialist_member(&self, ability: &str, level: u32, personality: &str) -> Option<usize> {
+        self.members.iter().position(|m| {
+            m.count > 0 && m.level(ability) >= level && m.personalities.iter().any(|p| p == personality)
+        })
+    }
+
+    /// Counts how many Aniimo in the roster match ability, minimum level, and personality.
+    pub fn count_specialist(&self, ability: &str, level: u32, personality: &str) -> u32 {
+        self.members.iter().filter(|m| {
+            m.level(ability) >= level && m.personalities.iter().any(|p| p == personality)
+        }).map(|m| m.count).sum()
     }
 }
 
@@ -346,6 +393,10 @@ pub fn crew_variants(
             }
             (None, _) if item.production_time > 0.0 && item.raw_materials.is_none() => {
                 let jobs = grower_steps.get(base_item_name(&item.name));
+                if jobs.is_empty() {
+                    out.push(item);
+                    continue;
+                }
                 if !jobs.iter().filter(|job| job.step != "Watering").all(|job| can(&job.ability, job.min_level)) {
                     continue;
                 }
@@ -551,7 +602,7 @@ impl Workers {
     }
 
     pub fn get(&self, facility: &str) -> Worker {
-        let base = facility.strip_suffix(" (Manual)").unwrap_or(facility);
+        let base = base_facility_name(facility);
         self.by_facility.get(base).or_else(|| self.by_facility.get(facility)).copied().unwrap_or_default()
     }
 
@@ -1346,6 +1397,33 @@ impl FacilityCounts {
     /// tier if it was never explicitly set.
     pub fn tiers(&self, facility: &str) -> Vec<(u32, u32)> {
         self.facilities.get(facility).cloned().unwrap_or_else(|| vec![self.default_tier])
+    }
+
+    /// Returns the owned count of a specific tier level for a facility.
+    pub fn get_tier_count(&self, facility: &str, level: u32) -> u32 {
+        self.tiers(facility)
+            .iter()
+            .filter(|(_, l)| *l == level)
+            .map(|(c, _)| c)
+            .sum()
+    }
+
+    /// Removes all tiers of a specific level for a facility, returning the total count removed.
+    pub fn remove_tier(&mut self, facility: &str, level: u32) -> u32 {
+        if let Some(tiers) = self.facilities.get_mut(facility) {
+            let mut removed_count = 0;
+            tiers.retain(|(c, l)| {
+                if *l == level {
+                    removed_count += *c;
+                    false
+                } else {
+                    true
+                }
+            });
+            removed_count
+        } else {
+            0
+        }
     }
 
     /// Returns the total owned count for a given facility name, summed across every tier
