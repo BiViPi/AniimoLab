@@ -95,16 +95,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="power-gauge-container" id="simple-power-gauge-container">
-                            <div class="power-gauge-header">
-                                <span class="power-gauge-title" data-i18n="power_gauge_title">⚡ Công suất máy phát:</span>
-                                <span class="power-gauge-value" id="simple-power-gauge-value">600W / 600W (100%)</span>
-                            </div>
-                            <div class="power-gauge-track">
-                                <div class="power-gauge-fill" id="simple-power-gauge-fill" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                        <p class="hint small" id="emode-simple-hint" data-i18n="emode_hint">Tự động cân bằng điện trong giới hạn máy phát. Giải phóng công nhân Aniimo ở các cơ sở dùng điện; các cơ sở còn lại chạy thủ công với Aniimo.</p>
+                        <p class="hint small" id="emode-simple-hint" style="display: none;"></p>
                     </div>
                     <p class="hint" data-i18n="simple_mode_hint">Mặc định bạn đã xây dựng và nâng cấp tối đa mọi cơ sở theo cấp RV hiện tại.</p>
                     <details class="explain simple-details">
@@ -332,6 +323,18 @@
                          then one table per facility category (Materials / Environment /
                          Materials Processing) for everything else. -->
                             <div id="facility-plan-container" class="facilities-container"></div>
+                        </div>
+                        <div class="card production-steps" id="power-card">
+                            <div class="power-gauge-container" id="simple-power-gauge-container">
+                                <div class="power-gauge-header">
+                                    <span class="power-gauge-title" data-i18n="power_gauge_title">⚡ Công suất nguồn điện lưới:</span>
+                                    <span class="power-gauge-value" id="simple-power-gauge-value">0W / 600W (0%)</span>
+                                </div>
+                                <div class="power-gauge-track">
+                                    <div class="power-gauge-fill" id="simple-power-gauge-fill" style="width: 0%;"></div>
+                                </div>
+                                <div class="power-breakdown" id="power-breakdown"></div>
+                            </div>
                         </div>
                         <div class="card production-steps" id="seed-card" style="display: none;">
                             <h2 data-i18n="seeds_to_plant_title">Hạt giống cần gieo trồng</h2>

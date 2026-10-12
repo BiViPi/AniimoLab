@@ -516,6 +516,22 @@ function updatePowerGauge(customCounts = null) {
         simpleFill.style.width = `${Math.min(100, (totalWatts / maxWatts) * 100)}%`;
         simpleFill.classList.toggle('overload', totalWatts > targetWatts);
     }
+
+    // Per-facility breakdown so the total can be checked at a glance.
+    const breakdown = document.getElementById('power-breakdown');
+    if (breakdown) {
+        const rows = Object.entries(counts || {})
+            .filter(([name, count]) => count > 0 && FACILITY_POWER_WATTS[name])
+            .map(([name, count]) => ({ name, count, w: FACILITY_POWER_WATTS[name] }))
+            .sort((a, b) => b.count * b.w - a.count * a.w);
+        if (rows.length === 0) {
+            breakdown.innerHTML = '';
+        } else {
+            breakdown.innerHTML = rows.map(r =>
+                `<div class="power-breakdown-row"><span>${r.name}</span><span>${r.count} × ${r.w}W</span><strong>${r.count * r.w}W</strong></div>`
+            ).join('') + `<div class="power-breakdown-row power-breakdown-total"><span>${rows.map(r => r.count * r.w).join(' + ')}</span><span></span><strong>= ${totalWatts}W</strong></div>`;
+        }
+    }
 }
 
 export function getPowerGridRate() {
@@ -724,17 +740,15 @@ function updateSimpleEmodeState() {
         if (rateField) rateField.style.opacity = '0.5';
         if (genField) genField.style.opacity = '0.5';
         if (gauge) gauge.style.opacity = '0.5';
-        if (hint) hint.innerHTML = isVi
+        if (hint) { hint.style.display = ''; hint.innerHTML = isVi
             ? '<span style="color: var(--text-muted);">⚡ Chế độ điện mở khóa tại <strong>RV 12</strong>.</span>'
-            : '<span style="color: var(--text-muted);">⚡ Electric Mode unlocks at <strong>RV 12</strong>.</span>';
+            : '<span style="color: var(--text-muted);">⚡ Electric Mode unlocks at <strong>RV 12</strong>.</span>'; }
     } else {
         if (toggle) toggle.disabled = false;
         if (rateField) rateField.style.opacity = '1';
         if (genField) genField.style.opacity = '1';
         if (gauge) gauge.style.opacity = '1';
-        if (hint) hint.innerHTML = isVi
-            ? 'Tự động cân bằng điện trong giới hạn máy phát. Giải phóng công nhân Aniimo ở các cơ sở dùng điện; các cơ sở còn lại chạy thủ công với Aniimo.'
-            : 'Auto-balances power within generator limit. Frees Aniimo workers on electric units; remaining units run manually with Aniimo.';
+        if (hint) { hint.style.display = 'none'; hint.innerHTML = ''; }
     }
     updatePowerGauge();
 }
