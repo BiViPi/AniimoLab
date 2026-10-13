@@ -188,6 +188,10 @@ function showSelectedPlan() {
     }
     pending.style.display = 'none';
     lastPlan = plan;
+    if (plan.success) {
+        lastEmodeCounts = actualEmodeCounts(plan);
+        updatePowerGauge(lastEmodeCounts);
+    }
     displayPlan(plan);
     const planViable = plan.success;
     if (planViable) {
@@ -345,8 +349,30 @@ export function resetFacilityOverrides() {
     facilityOverrides = [];
 }
 
+export function getOwnedFacilityCounts() {
+    const counts = {};
+    if (typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0) {
+        for (const [fac, tiers] of Object.entries(facilityTiers)) {
+            counts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
+        }
+    } else {
+        const homeLevel = selectedHomeLevel();
+        const { facilities } = simpleSetup(homeLevel);
+        for (const [fac, tiers] of Object.entries(facilities)) {
+            counts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
+        }
+    }
+    const homeLevel = selectedHomeLevel();
+    if (counts['Mine'] !== undefined) {
+        const tiers = (facilityTiers && facilityTiers['Mine']) || simpleSetup(homeLevel).facilities['Mine'];
+        counts['Mine'] = emodeMineUnits(homeLevel, tiers);
+    }
+    return counts;
+}
+
 window.resetWorksheetOverrides = function() {
     facilityOverrides = [];
+    lastEmodeCounts = {};
     const badge = document.getElementById('fast-resolve-benchmark-badge');
     if (badge) badge.style.display = 'none';
     const resetBtn = document.getElementById('btn-reset-overrides');
@@ -368,35 +394,54 @@ export function validateInvariants(facility, targetMode, stepCount) {
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
-    // Tính toán công suất dự kiến khi áp dụng override này dựa trên lastEmodeCounts
-    const testEmode = { ...(lastEmodeCounts || {}) };
     if (targetMode === 'electric') {
-        testEmode[facility] = stepCount;
-    } else {
-        delete testEmode[facility];
-    }
-
-    const projectedWatts = calculatePowerWatts(testEmode);
-    if (projectedWatts > maxWatts) {
-        return {
-            valid: false,
-            reason: `Vượt công suất điện lưới: ${projectedWatts}W / ${maxWatts}W tối đa!`
-        };
+        const singleUnitWatts = FACILITY_POWER_WATTS[facility] || 0;
+        if (singleUnitWatts * stepCount > maxWatts) {
+            return {
+                valid: false,
+                reason: `Cơ sở này cần ${singleUnitWatts * stepCount}W, vượt quá toàn bộ công suất lưới điện (${maxWatts}W)!`
+            };
+        }
     }
 
     return { valid: true };
 }
 
-window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode) {
-    const inv = validateInvariants(facility, targetMode, stepCount);
-    if (!inv.valid) {
-        showInvariantWarning(facility, inv.reason);
-        return;
+window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode, clickedBtn) {
+    if (!lastPlan || !lastPlan.success) return;
+    if (currentMode === targetMode) return;
+
+    const wattsPerUnit = FACILITY_POWER_WATTS[facility] || 0;
+    const generatorCapacity = getGeneratorCapacity();
+    const chosenRate = getPowerGridRate();
+    const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
+
+    // Lấy số lượng máy chạy điện hiện tại từ trạng thái điện đang kích hoạt
+    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)) };
+    const currentWatts = calculatePowerWatts(currentCounts);
+
+    // 1. Kiểm tra nếu chuyển sang Điện (Electric)
+    if (targetMode === 'electric') {
+        const addedWatts = wattsPerUnit * stepCount;
+        const projectedWatts = currentWatts + addedWatts;
+
+        if (projectedWatts > maxWatts) {
+            showInvariantWarning(
+                facility,
+                `Vượt công suất tối đa của lưới điện: cần thêm ${addedWatts}W (tổng ${projectedWatts}W / ${maxWatts}W tối đa)!`
+            );
+            return; // TỪ CHỐI TÍNH TOÁN!
+        }
+
+        currentCounts[facility] = (currentCounts[facility] || 0) + stepCount;
+    } else {
+        // 2. Chuyển từ Điện sang Thường hoặc Prismana: giảm công suất tương ứng
+        if (currentMode === 'electric') {
+            currentCounts[facility] = Math.max(0, (currentCounts[facility] || stepCount) - stepCount);
+        }
     }
 
-    const ownedCounts = getOwnedFacilityCounts();
-    const totalFac = ownedCounts[facility] || stepCount;
-
+    // 3. Đồng bộ vào facilityOverrides để chuyển sang solver
     let ovr = facilityOverrides.find(o => o.facility === facility);
     if (!ovr) {
         const facLevel = (facility === 'Mine' ? 5 : (facility === 'Well' ? 4 : 1));
@@ -408,63 +453,60 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
         if (targetMode === 'electric') {
             ovr.specialist_count = earth4pQuota;
-            ovr.electric_count = Math.max(0, totalFac - earth4pQuota);
+            ovr.electric_count = currentCounts['Mine'] || 0;
             ovr.manual_count = 0;
         } else if (targetMode === 'specialist') {
-            ovr.specialist_count = Math.min(totalFac, earth4pQuota + stepCount);
-            ovr.electric_count = Math.max(0, totalFac - ovr.specialist_count);
+            ovr.specialist_count = Math.min(8, earth4pQuota + stepCount);
+            ovr.electric_count = currentCounts['Mine'] || 0;
             ovr.manual_count = 0;
         } else {
-            // Chuyển sang Thường: tôn trọng hạn ngạch Prismana, giảm điện tương ứng
             ovr.specialist_count = earth4pQuota;
             ovr.manual_count = stepCount;
-            ovr.electric_count = Math.max(0, totalFac - earth4pQuota - stepCount);
+            ovr.electric_count = currentCounts['Mine'] || 0;
         }
     } else if (facility === 'Well') {
         const water4fQuota = getSpecialistQuotas().water_4f_wells ?? 0;
         if (targetMode === 'electric') {
             ovr.specialist_count = water4fQuota;
-            ovr.electric_count = Math.max(0, totalFac - water4fQuota);
+            ovr.electric_count = currentCounts['Well'] || 0;
             ovr.manual_count = 0;
         } else if (targetMode === 'specialist') {
-            ovr.specialist_count = Math.min(totalFac, (ovr.specialist_count || 0) + stepCount);
-            ovr.electric_count = Math.max(0, totalFac - ovr.specialist_count);
+            ovr.specialist_count = Math.min(3, (ovr.specialist_count || 0) + stepCount);
+            ovr.electric_count = currentCounts['Well'] || 0;
             ovr.manual_count = 0;
         } else {
             ovr.specialist_count = water4fQuota;
             ovr.manual_count = stepCount;
-            ovr.electric_count = Math.max(0, totalFac - water4fQuota - stepCount);
+            ovr.electric_count = currentCounts['Well'] || 0;
         }
     } else {
         if (targetMode === 'electric') {
-            ovr.electric_count = stepCount;
-            ovr.specialist_count = 0;
+            ovr.electric_count = currentCounts[facility] || 0;
             ovr.manual_count = 0;
+            ovr.specialist_count = 0;
         } else {
             ovr.manual_count = stepCount;
-            ovr.electric_count = 0;
+            ovr.electric_count = currentCounts[facility] || 0;
             ovr.specialist_count = 0;
         }
     }
 
-    // Tự động phân bổ lại ngân sách điện tối ưu dựa trên override mới
-    const targetWatts = getTargetEmodeWatts();
-    const newAllocated = allocateDynamicEmode(lastPlan, selectedHomeLevel(), targetWatts);
-    lastEmodeCounts = newAllocated;
+    lastEmodeCounts = currentCounts;
 
     // Hiển thị nút Reset Overrides
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // Cập nhật thanh điện ngay lập tức
+    // Cập nhật thanh điện ngay lập tức (cộng/trừ đúng số watt tương ứng)
     updatePowerGauge(lastEmodeCounts);
 
-    // Optimistic UI (0ms)
-    const pillsContainer = document.querySelector(`.mode-selector-pills[data-fac="${facility}"]`);
-    if (pillsContainer) {
-        pillsContainer.querySelectorAll('.mode-pill').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = pillsContainer.querySelector(`.pill-${targetMode}`);
-        if (activeBtn) activeBtn.classList.add('active');
+    // Optimistic UI (0ms) trên hàng được click
+    if (clickedBtn) {
+        const pillsContainer = clickedBtn.closest('.mode-selector-pills');
+        if (pillsContainer) {
+            pillsContainer.querySelectorAll('.mode-pill').forEach(btn => btn.classList.remove('active'));
+            clickedBtn.classList.add('active');
+        }
     }
 
     // Debounce 150ms kích hoạt Fast Re-solve
@@ -498,6 +540,7 @@ export async function runFastReSolve() {
             plan = integrateSeasonPlan(plan);
             plansBySetup[bestSetup] = plan;
             lastPlan = plan;
+            lastEmodeCounts = actualEmodeCounts(plan);
             showSelectedPlan();
             updatePowerGauge(lastEmodeCounts);
 
@@ -726,13 +769,15 @@ function calculatePowerWatts(counts) {
 // The allocator may reserve watts for owned machines the final plan never runs in E-mode
 // (leftover-budget loop, pruning, or the re-solve keeping them manual). The gauge must show
 // only machines the final plan actually shows as E-mode.
-function actualEmodeCounts(plan) {
+export function actualEmodeCounts(plan) {
     const counts = {};
     for (const step of (plan && plan.coin_items) || []) {
         if (step.status !== 'producing' || !step.facility) continue;
-        const isElectric = step.is_emode || step.facility.includes('(Electric)');
+        const isSpecialist = step.is_specialist || step.facility.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
+        const isManual = step.is_manual || step.facility.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'));
+        const isElectric = !isSpecialist && !isManual && (step.is_emode || step.facility.includes('(Electric)'));
         if (!isElectric) continue;
-        const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
+        const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
         counts[fac] = (counts[fac] || 0) + (step.facility_count || 1);
     }
     return counts;
@@ -3674,7 +3719,6 @@ export const SEASON_DISH_DATA = {
                 facility: 'Simmering Pot',
                 item_name: 'rock_candy',
                 cycleTime: 108,
-                is_emode: true,
                 reasonVi: 'Sơ chế Kẹo đá cho Củ cải sấy lát (Mâm cỗ trung thu)',
                 reasonEn: 'Prep Rock Candy for Radish Slices (Harvest Platter)'
             },
@@ -4071,35 +4115,37 @@ function integrateSeasonPlan(plan) {
         });
     }
 
-    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt thường
+    // Helper kiểm tra xem máy của cơ sở có được cấp điện theo overrides / lastEmodeCounts không
+    function checkStepEmode(fac, count = 1) {
+        const ovr = facilityOverrides.find(o => o.facility === fac);
+        let cap = (lastEmodeCounts && lastEmodeCounts[fac]) || 0;
+        if (ovr && typeof ovr.electric_count === 'number') {
+            cap = ovr.electric_count;
+        }
+        const alreadyUsed = newSteps
+            .filter(s => s.facility && s.facility.replace(/ \(Electric\)$/, '') === fac && s.is_emode && s.status === 'producing')
+            .reduce((sum, s) => sum + (s.facility_count || 1), 0);
+        return (alreadyUsed + count) <= cap;
+    }
+
+    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt
     const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.name === 'umbral_hot_pot');
     if (needsFreshWater) {
         const fwReason = isVi
             ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
             : 'Used for event dishes';
+        const wellElectric = checkStepEmode('Well', 1);
 
-        // Tự động kiểm tra công suất điện: nếu còn dư tải (>= 120W), cấp điện cho giếng nước ngọt
-        const currentWatts = calculatePowerWatts(lastEmodeCounts || {});
-        const targetWatts = getTargetEmodeWatts();
-        const emodeOn = (document.getElementById('emode-simple-on')?.checked ?? true) && selectedHomeLevel() >= 12;
-        const canElectrify = emodeOn && (currentWatts + 120 <= targetWatts);
-
-        if (canElectrify) {
-            lastEmodeCounts['Well'] = (lastEmodeCounts['Well'] || 0) + 1;
-            updatePowerGauge();
-        }
-
-        const chosenRate = getPowerGridRate() || 1.2;
         newSteps.push({
             facility: 'Well',
             item_name: 'fresh_water',
             facility_count: 1,
             status: 'producing',
-            cycle_time: canElectrify ? Math.round(1500 / chosenRate) : 2250,
+            cycle_time: 2250,
             is_grower: false,
-            is_emode: canElectrify,
-            is_manual: !canElectrify,
-            aniimo: canElectrify ? null : { ability: 'Water', level: 4, personality_bonus: true },
+            is_emode: wellElectric,
+            is_manual: !wellElectric,
+            aniimo: wellElectric ? null : { ability: 'Water', level: 4, personality_bonus: true },
             reason: fwReason,
             environment: null
         });
@@ -4132,6 +4178,7 @@ function integrateSeasonPlan(plan) {
             // 1. Nếu món có chuỗi sơ chế (ví dụ Mâm cỗ trung thu cần Kẹo đá, Củ cải sấy lát và Ớt nướng trăng):
             if (dish.prepChain) {
                 for (const prep of dish.prepChain) {
+                    const prepElectric = checkStepEmode(prep.facility, 1);
                     newSteps.push({
                         facility: prep.facility,
                         item_name: prep.item_name,
@@ -4139,9 +4186,8 @@ function integrateSeasonPlan(plan) {
                         status: 'producing',
                         cycle_time: prep.cycleTime,
                         is_grower: false,
-                        // As above, event prep is outside the solver's E-mode
-                        // allocation and must remain visibly manual.
-                        is_manual: true,
+                        is_emode: prepElectric,
+                        is_manual: !prepElectric,
                         reason: isVi ? prep.reasonVi : prep.reasonEn,
                         environment: null
                     });
@@ -4149,6 +4195,7 @@ function integrateSeasonPlan(plan) {
             }
 
             // 2. Thêm cơ sở chính hoàn thiện món
+            const dishElectric = checkStepEmode(dish.facility, 1);
             newSteps.push({
                 facility: dish.facility,
                 item_name: dish.name,
@@ -4156,6 +4203,8 @@ function integrateSeasonPlan(plan) {
                 status: 'producing',
                 cycle_time: dish.cycleTime || 203,
                 is_grower: false,
+                is_emode: dishElectric,
+                is_manual: !dishElectric,
                 reason: isVi ? `Món ăn Lễ hội Trung Thu (+${dish.points} điểm)` : `Festival dish (+${dish.points} pts)`,
                 environment: null
             });
@@ -4986,9 +5035,9 @@ function planRows(rows) {
         if (isSupportedMultiMode && baseFac !== 'Farmland' && baseFac !== 'Woodland') {
             modeControls = `
                 <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
-                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
-                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
-                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
+                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
+                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
                 </div>
             `;
         }
@@ -6174,8 +6223,10 @@ async function runFindPlan() {
 
         bestPlan = integrateSeasonPlan(bestPlan);
 
-        if (useEmode && Object.keys(finalEmodeCounts).length > 0) {
+        if (useEmode) {
             finalEmodeCounts = actualEmodeCounts(bestPlan);
+        } else {
+            finalEmodeCounts = {};
         }
         lastEmodeCounts = finalEmodeCounts;
         lastPlanInput = input;
