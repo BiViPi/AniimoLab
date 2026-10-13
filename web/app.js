@@ -4902,6 +4902,195 @@ function abilityDot(name, level, note) {
     return `<span class="ability-dot${a && a.dark ? ' dark' : ''}${note ? ' bonus' : ''}" style="--ability:${color}" title="${tip}" aria-label="${tip}">${level}</span>`;
 }
 
+function renderCropHarvestBadge(step, tasks, baseFac) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const isFarmland = baseFac === 'Farmland';
+    let harvestTask = (tasks || []).find(t => t.jobs && t.jobs.some(j => j === 'Reaping' || j === 'Logging' || j === 'Collecting'));
+    if (!harvestTask) {
+        harvestTask = isFarmland
+            ? ((tasks || []).find(t => t.ability === 'Dark') || { ability: 'Dark', level: 3 })
+            : ((tasks || []).find(t => t.ability === 'Grass') || { ability: 'Grass', level: 3 });
+    }
+    const ability = harvestTask.ability || (isFarmland ? 'Dark' : 'Grass');
+    const level = harvestTask.level || (ability === 'Dark' ? 4 : 3);
+    const workerName = ability === 'Dark' ? 'Pawney' : 'Irisal';
+    const workerCard = renderAniimoWorkerCard(ability, level, '', true, workerName);
+    const roleTitle = isVi ? 'Thu hoạch' : 'Harvest';
+    const tip = isVi
+        ? `Thu hoạch: Hệ ${ability} · Phụ trách bởi Tổ Đội Đồng Áng tập trung (${workerName})`
+        : `Harvest: ${ability} · Managed by Unified Farming Crew (${workerName})`;
+
+    return `<div class="farm-harvest-single-cell" title="${tip}">
+        ${workerCard}
+        <span class="farm-role-tag">${roleTitle}</span>
+    </div>`;
+}
+
+function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const totalPlots = totalFarmland + totalWoodland;
+    const isLargeFarm = totalPlots >= 30;
+    const crewCount = isLargeFarm ? 8 : 5;
+
+    const afkBadge = isLargeFarm
+        ? `<span class="farming-crew-pill afk-pill">🛡️ ${isVi ? 'Dự phòng kép (Chống AFK)' : 'Dual-Backup (Anti-AFK)'}</span>`
+        : `<span class="farming-crew-pill">⚡ ${isVi ? 'Đội hình tinh gọn' : 'Lean Crew'}</span>`;
+
+    const plotsBadge = `<span class="farming-crew-pill">📍 ${totalPlots} ${isVi ? 'ô đất' : 'plots'} (${totalFarmland} ${isVi ? 'Nông trại' : 'Farmland'} · ${totalWoodland} ${isVi ? 'Rừng cây' : 'Woodland'})</span>`;
+
+    const roles = isLargeFarm ? [
+        {
+            roleVi: '1. Khai khẩn (51 ô)',
+            roleEn: '1. Reclaiming (51 plots)',
+            workers: '2× Gracewing (Sơn Lâm)',
+            ability: 'Earth',
+            level: 2,
+            specific: 'Gracewing',
+            descVi: 'Đất Lv.2 · Chuyên tâm 100% (không có Vác)',
+            descEn: 'Earth Lv.2 · 100% focused (No Hauling)'
+        },
+        {
+            roleVi: '2. Gieo trồng (51 ô)',
+            roleEn: '2. Sowing (51 plots)',
+            workers: 'Irisalis + Leafy',
+            ability: 'Grass',
+            level: 3,
+            specific: 'Irisal',
+            descVi: 'Thảo Lv.3 · Gieo luân phiên cả Nông trại & Rừng',
+            descEn: 'Grass Lv.3 · Alternating sow across farm'
+        },
+        {
+            roleVi: '3. Tưới nước (51 ô × 2 đợt)',
+            roleEn: '3. Watering (51 plots × 2)',
+            workers: 'Piopiota (Đêm) + Leafy',
+            ability: 'Water',
+            level: 3,
+            specific: 'Piopiota',
+            descVi: 'Thủy Lv.2-3 · Chống trễ timer, trừ 5p/lần',
+            descEn: 'Water Lv.2-3 · Auto -5m, absorbs delay'
+        },
+        {
+            roleVi: `4. Thu hoạch Nông trại (${totalFarmland} ô)`,
+            roleEn: `4. Harvest Farmland (${totalFarmland} plots)`,
+            workers: 'Pawney + Rookey',
+            ability: 'Dark',
+            level: 4,
+            specific: 'Pawney',
+            descVi: 'Ám Lv.3-4 · Gặt sạch 34 ô trong ~1 phút',
+            descEn: 'Dark Lv.3-4 · Clears 34 plots in ~1m'
+        },
+        {
+            roleVi: `5. Thu hoạch Rừng cây (${totalWoodland} ô)`,
+            roleEn: `5. Harvest Trees (${totalWoodland} plots)`,
+            workers: 'Irisalis + Leafy',
+            ability: 'Grass',
+            level: 3,
+            specific: 'Irisal',
+            descVi: 'Thảo Lv.3 · Tự động gặt cây khi chín',
+            descEn: 'Grass Lv.3 · Auto harvests trees'
+        },
+        {
+            roleVi: '6. Vận chuyển (Về SU)',
+            roleEn: '6. Hauling (To SU)',
+            workers: 'Pawney + Rookey (Leafy phụ)',
+            ability: 'Hauling',
+            level: 4,
+            specific: 'Pawney',
+            descVi: 'Khuân Vác Lv.3-4 · Gom đồ về SU sát ruộng',
+            descEn: 'Hauling Lv.3-4 · Clears field to nearby SU'
+        }
+    ] : [
+        {
+            roleVi: '1. Khai khẩn',
+            roleEn: '1. Reclaiming',
+            workers: '1× Gracewing (Sơn Lâm)',
+            ability: 'Earth',
+            level: 2,
+            specific: 'Gracewing',
+            descVi: 'Đất Lv.2 · Chuyên tâm 100%',
+            descEn: 'Earth Lv.2 · 100% focused'
+        },
+        {
+            roleVi: '2. Gieo trồng & Cây',
+            roleEn: '2. Sowing & Trees',
+            workers: '1× Irisalis',
+            ability: 'Grass',
+            level: 3,
+            specific: 'Irisal',
+            descVi: 'Thảo Lv.3 · Gieo hạt & gặt rừng cây',
+            descEn: 'Grass Lv.3 · Sowing & tree harvest'
+        },
+        {
+            roleVi: '3. Tưới nước',
+            roleEn: '3. Watering',
+            workers: '1× Piopiota (Đêm)',
+            ability: 'Water',
+            level: 3,
+            specific: 'Piopiota',
+            descVi: 'Thủy Lv.3 · Tưới siêu tốc đệm 10p',
+            descEn: 'Water Lv.3 · Fast watering buffer'
+        },
+        {
+            roleVi: '4. Thu hoạch Nông trại',
+            roleEn: '4. Harvest Farmland',
+            workers: '1× Pawney / Rookey',
+            ability: 'Dark',
+            level: 4,
+            specific: 'Pawney',
+            descVi: 'Ám Lv.4 · Gặt nông sản',
+            descEn: 'Dark Lv.4 · Farmland harvest'
+        },
+        {
+            roleVi: '5. Vận chuyển',
+            roleEn: '5. Hauling',
+            workers: '1× Pawney / Rookey',
+            ability: 'Hauling',
+            level: 4,
+            specific: 'Pawney',
+            descVi: 'Khuân Vác Lv.4 · Đưa đồ về SU sát ruộng',
+            descEn: 'Hauling Lv.4 · Carries to nearby SU'
+        }
+    ];
+
+    const cellsHtml = roles.map(r => {
+        const title = isVi ? r.roleVi : r.roleEn;
+        const desc = isVi ? r.descVi : r.descEn;
+        const avatar = renderRosterWorkerBadge(r.ability, r.level, 1, `${r.workers} · ${desc}`, false, r.specific);
+        return `
+            <div class="farming-crew-cell">
+                <div class="farming-crew-avatar">${avatar}</div>
+                <div class="farming-crew-role-info">
+                    <div class="farming-crew-role-title">${title}</div>
+                    <div class="farming-crew-workers-line">${r.workers}</div>
+                    <div class="farming-crew-note">${desc}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="farming-crew-summary-card">
+            <div class="farming-crew-head">
+                <div class="farming-crew-title-wrap">
+                    <span class="farming-crew-icon">🌾</span>
+                    <h3 class="farming-crew-title">${isVi ? 'Tổ Đội Đồng Áng Tập Trung' : 'Unified Farming Crew Summary'}</h3>
+                </div>
+                <div class="farming-crew-badges">
+                    ${plotsBadge}
+                    ${afkBadge}
+                    <span class="farming-crew-pill">👥 ${crewCount} ${isVi ? 'Aniimo' : 'workers'}</span>
+                </div>
+            </div>
+            <div class="farming-crew-grid">
+                ${cellsHtml}
+            </div>
+            <p class="farming-crew-footer-note">
+                💡 <em>${isVi ? 'Toàn bộ ô đất dùng chung 1 tổ đội luân phiên theo dây chuyền tuần hoàn. Không phân bổ riêng lẻ từng ô để tối ưu hóa slot đảo.' : 'All farm plots share one rotating crew pipeline. Workers are not assigned individually per plot to preserve island slots.'}</em>
+            </p>
+        </div>
+    `;
+}
+
 function aniimoLabel(step) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const rawFac = step.facility || '';
@@ -4923,9 +5112,12 @@ function aniimoLabel(step) {
     }
     const a = step.aniimo;
     if (!a) {
-        // Crops and trees: the abilities their planting and harvesting jobs need.
+        // Crops and trees: check if it's Farmland or Woodland
         const tasks = step.aniimo_tasks || [];
         if (tasks.length === 0) return '-';
+        if (baseFac === 'Farmland' || baseFac === 'Woodland') {
+            return renderCropHarvestBadge(step, tasks, baseFac);
+        }
         return renderAniimoTasksCluster(tasks, step.facility);
     }
     let note = '';
@@ -5233,74 +5425,280 @@ function renderAniimoSummary(plan) {
     const homelandHolds = isSimpleMode() ? ANIIMO_MAX[selectedHomeLevel() - 1] : null;
     const prodCap = isSimpleMode() ? getProductionAniimoCap() : null;
     const cap = prodCap || homelandHolds;
-    const { kept, total: assigned } = assign();
+    const { kept } = assign();
     if (selectedSetupTab() === 'best') lastBestTeam = kept;
-    let total = assigned - kept.reduce((sum, g) => sum + g.count, 0); // the Hauling row
-    const rows = kept
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .map(g => {
-            total += g.count;
-            const where = whereText(g);
-            return `<tr><td data-label="Aniimo">${abilityTag(g.ability)} ${aniimoNeeds(g)}</td><td data-label="How many">${g.count}</td><td data-label="Busy on average">${g.busy.toFixed(1)}</td><td data-label="Where">${where}</td></tr>`;
-        })
-        .join('');
-    const haulingRow = `<tr><td data-label="Aniimo">${abilityTag('Hauling')} any level</td><td data-label="How many">1+</td><td data-label="Busy on average">?</td><td data-label="Where">Carries produce to storage. How much work this is isn't known yet; add more if produce piles up.</td></tr>`;
 
-    // The count above says how many; this is only said when it's more than the production zone holds.
+    // ------------------------------------------------------------------------
+    // STANDARDIZED 3-GROUP ROSTER REBUILD
+    // ------------------------------------------------------------------------
+    const homeLevel = selectedHomeLevel();
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const capNote = cap && total > cap
+
+    // 1. Count facilities from plan.coin_items
+    let totalFarmland = 0;
+    let totalWoodland = 0;
+    let totalMines = 0;
+    let manualMines = 0;
+    let totalWells = 0;
+    let manualWells = 0;
+    let woodBenches = 0;
+    let chimneyKilns = 0;
+
+    (plan.coin_items || []).forEach(step => {
+        const rawFac = step.facility || '';
+        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        const count = step.facility_count || 0;
+        const isManual = step.is_manual || rawFac.includes('(Manual)') || (!step.is_emode && !rawFac.includes('(Electric)') && !step.is_specialist);
+
+        if (baseFac === 'Farmland') totalFarmland += count;
+        if (baseFac === 'Woodland') totalWoodland += count;
+        if (baseFac === 'Mine') {
+            totalMines += count;
+            if (isManual) manualMines += count;
+        }
+        if (baseFac === 'Well') {
+            totalWells += count;
+            if (isManual) manualWells += count;
+        }
+        if (baseFac === 'Woodworking Bench') woodBenches += count;
+        if (baseFac === 'Chimney Kiln') chimneyKilns += count;
+    });
+
+    const totalFarmPlots = totalFarmland + totalWoodland;
+
+    // --- Nhóm 1: Tổ Đội Đồng Áng (Farming Crew) ---
+    let farmingMembers = [];
+    if (totalFarmPlots > 0) {
+        if (totalFarmPlots >= 30) {
+            // Quy mô lớn (>=30 ô, ví dụ RV 16 có 51 ô): 8 Aniimos dự phòng kép chống AFK
+            farmingMembers = [
+                { name: 'Gracewing (Sơn Lâm)', count: 2, ability: 'Earth', level: 2, role: isVi ? `Khai khẩn (${totalFarmPlots} ô đất)` : `Reclaiming (${totalFarmPlots} plots)`, desc: isVi ? 'Đất Lv.2 · Chuyên tâm 100% (không có Vác)' : 'Earth Lv.2 · 100% focused (No Hauling)', specific: 'Gracewing' },
+                { name: 'Irisalis', count: 1, ability: 'Grass', level: 3, role: isVi ? `Gieo hạt & Gặt ${totalWoodland} Rừng cây` : `Sowing & Harvest ${totalWoodland} Trees`, desc: isVi ? 'Thảo Lv.3 · Gieo luân phiên & gặt cây khi chín' : 'Grass Lv.3 · Alternating sow & tree harvest', specific: 'Irisal' },
+                { name: 'Leafy', count: 1, ability: 'Grass', level: 3, role: isVi ? 'Gieo hạt & Tưới nước phụ' : 'Backup Sowing & Watering', desc: isVi ? 'Thảo Lv.3, Thủy Lv.2 · Bọc lót gieo & tưới' : 'Grass Lv.3, Water Lv.2 · Backup sow & water', specific: 'Leafy' },
+                { name: 'Piopiota (Đêm)', count: 1, ability: 'Water', level: 3, role: isVi ? 'Tưới nước chính & Gặt phụ' : 'Main Watering & Backup Harvest', desc: isVi ? 'Thủy Lv.3, Ám Lv.2 · Tưới 51 ô trong 2 phút' : 'Water Lv.3, Dark Lv.2 · Waters 51 plots in 2m', specific: 'Piopiota' },
+                { name: 'Pawney', count: 1, ability: 'Dark', level: 4, role: isVi ? `Gặt ${totalFarmland} Nông trại & Vận chuyển` : `Harvest ${totalFarmland} Farmland & Hauling`, desc: isVi ? 'Ám Lv.4, Vác Lv.4 · Gặt & dọn kho sát ruộng' : 'Dark Lv.4, Hauling Lv.4 · Harvest & hauling', specific: 'Pawney' },
+                { name: 'Rookey', count: 1, ability: 'Dark', level: 3, role: isVi ? `Gặt ${totalFarmland} Nông trại & Vận chuyển` : `Harvest ${totalFarmland} Farmland & Hauling`, desc: isVi ? 'Ám Lv.3, Vác Lv.3 · Gặt & dọn kho sát ruộng' : 'Dark Lv.3, Hauling Lv.3 · Harvest & hauling', specific: 'Rookey' },
+                { name: 'Pawney (Dự phòng)', count: 1, ability: 'Hauling', level: 4, role: isVi ? 'Vận chuyển chuyên trách về SU' : 'Dedicated Hauling to SU', desc: isVi ? 'Khuân Vác Lv.4 · Giải tỏa kho sát ruộng' : 'Hauling Lv.4 · Clears field to nearby SU', specific: 'Pawney' }
+            ];
+        } else {
+            // Quy mô tinh gọn (<30 ô): 5 Aniimos
+            farmingMembers = [
+                { name: 'Gracewing (Sơn Lâm)', count: 1, ability: 'Earth', level: 2, role: isVi ? 'Khai khẩn' : 'Reclaiming', desc: isVi ? 'Đất Lv.2 · Chuyên tâm 100%' : 'Earth Lv.2 · 100% focused', specific: 'Gracewing' },
+                { name: 'Irisalis', count: 1, ability: 'Grass', level: 3, role: isVi ? 'Gieo hạt & Gặt cây' : 'Sowing & Tree Harvest', desc: isVi ? 'Thảo Lv.3 · Gieo & gặt rừng cây' : 'Grass Lv.3 · Sow & tree harvest', specific: 'Irisal' },
+                { name: 'Piopiota (Đêm)', count: 1, ability: 'Water', level: 3, role: isVi ? 'Tưới nước' : 'Watering', desc: isVi ? 'Thủy Lv.3 · Tưới đệm 10 phút' : 'Water Lv.3 · Fast watering buffer', specific: 'Piopiota' },
+                { name: 'Pawney', count: 1, ability: 'Dark', level: 4, role: isVi ? 'Gặt Nông trại' : 'Farmland Harvest', desc: isVi ? 'Ám Lv.4 · Gặt nông sản' : 'Dark Lv.4 · Farmland harvest', specific: 'Pawney' },
+                { name: 'Rookey', count: 1, ability: 'Hauling', level: 3, role: isVi ? 'Vận chuyển về kho' : 'Hauling to Storage', desc: isVi ? 'Khuân Vác Lv.3 · Đưa nông sản về kho' : 'Hauling Lv.3 · Hauls produce to SU', specific: 'Rookey' }
+            ];
+        }
+    }
+    const farmTotal = farmingMembers.reduce((sum, m) => sum + m.count, 0);
+
+    // --- Nhóm 2: Gia công Gỗ & Quặng (Wood & Ore Processing) ---
+    const artisansNeeded = totalWoodland >= 12 ? 3 : (totalWoodland >= 5 ? 2 : (woodBenches > 0 ? 1 : 0));
+    const fireNeeded = totalMines >= 6 ? 2 : (chimneyKilns > 0 ? 1 : 0);
+
+    const processingMembers = [];
+    if (artisansNeeded > 0) {
+        processingMembers.push({
+            name: 'Fulmintis (Prismana Lv.4)',
+            count: artisansNeeded,
+            ability: 'Artisanship',
+            level: 4,
+            role: isVi ? `${artisansNeeded}× Bàn Gia Công Gỗ` : `${artisansNeeded}× Woodworking Bench`,
+            desc: isVi ? `Cưa kiệt ~${totalWoodland * 150} vụn gỗ/giờ từ ${totalWoodland} ô Rừng` : `Processes ~${totalWoodland * 150} wood blocks/hr from ${totalWoodland} trees`,
+            specific: 'Fulmintis'
+        });
+    }
+    if (fireNeeded > 0) {
+        processingMembers.push({
+            name: 'Ignis (Thợ nung Lv.4)',
+            count: fireNeeded,
+            ability: 'Fire',
+            level: 4,
+            role: isVi ? `${fireNeeded}× Lò Ống Khói` : `${fireNeeded}× Chimney Kiln`,
+            desc: isVi ? `Nung gạch kiệt ~${totalMines * 200} cát khoáng/giờ từ ${totalMines} Hầm mỏ` : `Smelts ~${totalMines * 200} mineral sand/hr from ${totalMines} mines`,
+            specific: 'Ignis'
+        });
+    }
+    const procTotal = processingMembers.reduce((sum, m) => sum + m.count, 0);
+
+    // --- Nhóm 3: Đứng máy 24/7 (Stationary & Dedicated Crew) ---
+    const stationaryMembers = [];
+
+    // Trụ điện dựa trên RV level (RV 16-17 = 2 trụ, RV 18-19 = 3 trụ, RV 20 = 4 trụ, RV 12-15 = 1 trụ)
+    let powerPoles = 0;
+    if (homeLevel >= 20) powerPoles = 4;
+    else if (homeLevel >= 18) powerPoles = 3;
+    else if (homeLevel >= 16) powerPoles = 2;
+    else if (homeLevel >= 12) powerPoles = 1;
+
+    if (powerPoles > 0) {
+        stationaryMembers.push({
+            name: isVi ? 'Công nhân trực trụ điện' : 'Power Pole Guard',
+            count: powerPoles,
+            ability: 'Lightning',
+            level: 3,
+            role: isVi ? `${powerPoles}× Trụ điện (Lưới ${powerPoles * 1000}W)` : `${powerPoles}× Power Pole (${powerPoles * 1000}W Grid)`,
+            desc: isVi ? 'Trực lưới điện 24/7 duy trì chế độ E-mode' : 'Maintains 24/7 grid for E-mode',
+            specific: ''
+        });
+    }
+
+    // Các cơ sở thú nuôi & thủ công khác
+    (plan.coin_items || []).forEach(step => {
+        const rawFac = step.facility || '';
+        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        if (baseFac === 'Farmland' || baseFac === 'Woodland' || baseFac === 'Woodworking Bench' || baseFac === 'Chimney Kiln') return;
+        
+        const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)');
+        const isManual = step.is_manual || rawFac.includes('(Manual)') || isSpecialist;
+        const isResident = RESIDENT_FACILITIES.has(baseFac) || baseFac === 'Nimbus Bed' || baseFac === 'Tidewhisper Sandcastle' || baseFac === 'Dewy House' || baseFac === 'Starfall Hammock';
+        
+        if (isResident || isManual) {
+            const count = step.facility_count || 1;
+            const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
+            const ability = step.aniimo ? step.aniimo.ability : (FACILITIES.find(f => f.name === baseFac)?.ability || 'Leisure');
+            const level = step.aniimo ? step.aniimo.level : 4;
+            stationaryMembers.push({
+                name: specificWorker || `${abilityTag(ability)} Lv.${level}`,
+                count: count,
+                ability: ability,
+                level: level,
+                role: `${count}× ${getFacilityDisplayName(baseFac)}`,
+                desc: `${prettyItem(step.item_name)} (${isVi ? 'Thủ công 24/7' : 'Manual 24/7'})`,
+                specific: specificWorker || ''
+            });
+        }
+    });
+
+    const statTotal = stationaryMembers.reduce((sum, m) => sum + m.count, 0);
+
+    // Tổng số công nhân đảo:
+    const finalTotal = farmTotal + procTotal + statTotal;
+
+    const capNote = cap && finalTotal > cap
         ? `<p class="hint small">${isVi
-            ? `Cần ${total} Aniimo, vượt quá giới hạn ${cap} của Vùng Sản Xuất (Homeland chứa tối đa ${homelandHolds}).`
-            : `That's ${total} Aniimo, more than the production zone cap of ${cap} (Homeland holds ${homelandHolds}).`}</p>`
+            ? `Cần ${finalTotal} Aniimo, vượt quá giới hạn ${cap} của Vùng Sản Xuất (Homeland chứa tối đa ${homelandHolds}).`
+            : `That's ${finalTotal} Aniimo, more than the production zone cap of ${cap} (Homeland holds ${homelandHolds}).`}</p>`
         : '';
     const have = document.getElementById('aniimo-count-have');
     const of = document.getElementById('aniimo-count-of');
     const count = document.getElementById('aniimo-count');
     if (have && of && count) {
-        have.textContent = total;
+        have.textContent = finalTotal;
         of.textContent = cap ?? '';
         of.hidden = !cap;
         count.hidden = false;
-        count.classList.toggle('over', !!cap && total > cap);
+        count.classList.toggle('over', !!cap && finalTotal > cap);
         count.title = cap
             ? (isVi
-                ? `${total} Aniimo cho kế hoạch này; giới hạn Vùng Sản Xuất là ${cap} (tổng Homeland: ${homelandHolds})`
-                : `${total} Aniimo for this plan; production zone cap is ${cap} (Homeland holds ${homelandHolds})`)
-            : `${total} Aniimo for this plan`;
+                ? `${finalTotal} Aniimo cho kế hoạch này (Đồng áng: ${farmTotal} | Gia công: ${procTotal} | Đứng máy: ${statTotal}); giới hạn Vùng Sản Xuất: ${cap} (tổng Homeland: ${homelandHolds})`
+                : `${finalTotal} Aniimo for this plan (Farm: ${farmTotal} | Proc: ${procTotal} | Stat: ${statTotal}); production zone cap is ${cap} (Homeland holds ${homelandHolds})`)
+            : `${finalTotal} Aniimo for this plan`;
     }
     collapsedSummary.textContent = '';
-    // How many of each ability the plan needs, in the game's order, like its Abilities screen.
+
+    // Cập nhật dải kỹ năng phía trên
     const needed = new Map(ABILITIES.map(a => [a.name, 0]));
-    kept.forEach(g => needed.set(g.ability, (needed.get(g.ability) || 0) + g.count));
-    // Under each count, render Aniimo worker avatar badges with level badge and count multiplier
-    const teamDots = g => {
-        const where = whereText(g);
-        const tip = `${g.count > 1 ? `${g.count}× ` : ''}${g.label}${g.bonus ? ' (+20% tốc độ)' : ''} · ${where}`;
-        return renderRosterWorkerBadge(g.ability, g.environment ? '·' : g.level, g.count, tip, g.bonus, g.specificWorker || '');
-    };
+    [...farmingMembers, ...processingMembers, ...stationaryMembers].forEach(m => {
+        needed.set(m.ability, (needed.get(m.ability) || 0) + m.count);
+    });
+
     document.getElementById('aniimo-abilities').innerHTML = ABILITIES.map(a => {
-        const n = a.name === 'Hauling' ? `${needed.get(a.name) + 1}+` : needed.get(a.name);
+        const n = a.name === 'Hauling' ? `${needed.get(a.name) || 1}+` : needed.get(a.name);
         const zero = n === 0;
-        const dots = kept
-            .filter(g => g.ability === a.name)
-            .sort((x, y) => y.level - x.level || Number(y.bonus) - Number(x.bonus))
-            .map(teamDots);
-        if (a.name === 'Hauling') {
+        const allMembers = [...farmingMembers, ...processingMembers, ...stationaryMembers].filter(m => m.ability === a.name);
+        const dots = allMembers.map(m => {
+            const tip = `${m.count > 1 ? `${m.count}× ` : ''}${m.name} · ${m.desc}`;
+            return renderRosterWorkerBadge(m.ability, m.level, m.count, tip, false, m.specific || '');
+        });
+        if (a.name === 'Hauling' && dots.length === 0) {
             dots.push(renderRosterWorkerBadge('Hauling', '·', 1, 'Vận chuyển hàng hóa vào kho', false));
         }
         const stack = dots.length ? `<div class="ability-stack">${dots.join('')}</div>` : '';
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
         const aName = isVi && window.VI_ABILITIES && window.VI_ABILITIES[a.name] ? window.VI_ABILITIES[a.name] : a.name;
         return `<div class="ability-col" style="--ability:${a.color}">
             <div class="ability-cell${zero ? ' zero' : ''}" title="${aName}: ${a.about}">
                 <span class="ability-count">${n}</span><span class="ability-name">${aName}</span>
             </div>${stack}</div>`;
     }).join('');
+
+    // Render bảng phân 3 nhóm
+    const renderMemberRow = m => {
+        const badge = m.specific
+            ? renderRosterWorkerBadge(m.ability, m.level, m.count, `${m.name} · ${m.desc}`, false, m.specific)
+            : `${abilityTag(m.ability)} Lv.${m.level}`;
+        return `
+            <tr>
+                <td data-label="Aniimo">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${badge}
+                        <strong>${m.name}</strong>
+                    </div>
+                </td>
+                <td data-label="How many"><strong>${m.count}</strong></td>
+                <td data-label="Role">${m.role}</td>
+                <td data-label="Where"><span class="hint small">${m.desc}</span></td>
+            </tr>
+        `;
+    };
+
+    const farmingRowsHtml = farmingMembers.map(renderMemberRow).join('');
+    const procRowsHtml = processingMembers.map(renderMemberRow).join('');
+    const statRowsHtml = stationaryMembers.map(renderMemberRow).join('');
+
+    const bannerHtml = `
+        <div class="roster-groups-banner">
+            <div class="roster-group-card group-farming">
+                <div class="roster-group-top">
+                    <span class="roster-group-label">🌾 ${isVi ? 'Tổ Đội Đồng Áng' : 'Farming Crew'}</span>
+                    <span class="roster-group-count">${farmTotal}</span>
+                </div>
+                <p class="roster-group-desc">${isVi ? `${totalFarmPlots} ô đất · 🛡️ Dự phòng kép chống AFK` : `${totalFarmPlots} plots · 🛡️ Anti-AFK backup`}</p>
+            </div>
+            <div class="roster-group-card group-processing">
+                <div class="roster-group-top">
+                    <span class="roster-group-label">🪵 ${isVi ? 'Gia Công Gỗ & Quặng' : 'Wood & Ore'}</span>
+                    <span class="roster-group-count">${procTotal}</span>
+                </div>
+                <p class="roster-group-desc">${isVi ? `${artisansNeeded} Kỹ nghệ (Bàn gỗ) · ${fireNeeded} Hỏa (Lò khói)` : `${artisansNeeded} Artisans · ${fireNeeded} Fire`}</p>
+            </div>
+            <div class="roster-group-card group-stationary">
+                <div class="roster-group-top">
+                    <span class="roster-group-label">⚡ ${isVi ? 'Đứng Máy 24/7' : 'Stationary 24/7'}</span>
+                    <span class="roster-group-count">${statTotal}</span>
+                </div>
+                <p class="roster-group-desc">${isVi ? `${powerPoles} Trụ điện · Thú nuôi · Cơ sở thủ công` : `${powerPoles} Power poles · Pets · Manual facilities`}</p>
+            </div>
+        </div>
+    `;
+
     container.innerHTML = `
+        ${bannerHtml}
         <div class="table-wrapper">
             <table class="facility-plan-table">
-                <thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead>
-                <tbody>${rows}${haulingRow}</tbody>
+                <thead>
+                    <tr>
+                        <th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th>
+                        <th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th>
+                        <th>${isVi ? 'Vai trò / Cơ sở' : 'Role / Facility'}</th>
+                        <th>${isVi ? 'Chi tiết nhiệm vụ' : 'Details'}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="roster-group-header-row farming-header">
+                        <td colspan="4">🌾 ${isVi ? 'Nhóm 1: Tổ Đội Đồng Áng' : 'Group 1: Farming Crew'} (${farmTotal} Aniimo)</td>
+                    </tr>
+                    ${farmingRowsHtml}
+                    <tr class="roster-group-header-row processing-header">
+                        <td colspan="4">🪵 ${isVi ? 'Nhóm 2: Gia Công Gỗ & Quặng' : 'Group 2: Wood & Ore Processing'} (${procTotal} Aniimo)</td>
+                    </tr>
+                    ${procRowsHtml}
+                    <tr class="roster-group-header-row stationary-header">
+                        <td colspan="4">⚡ ${isVi ? 'Nhóm 3: Đứng Máy 24/7' : 'Group 3: Stationary & Dedicated Crew'} (${statTotal} Aniimo)</td>
+                    </tr>
+                    ${statRowsHtml}
+                </tbody>
             </table>
         </div>
         ${capNote}
@@ -5785,7 +6183,16 @@ function renderFacilityPlan(plan) {
         `;
     }).join('');
 
-    container.innerHTML = environmentSections + categorySections;
+    let totalFarmland = 0;
+    let totalWoodland = 0;
+    steps.forEach(step => {
+        const baseFac = (step.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        if (baseFac === 'Farmland') totalFarmland += step.facility_count || 0;
+        if (baseFac === 'Woodland') totalWoodland += step.facility_count || 0;
+    });
+    const farmingCrewSummary = (totalFarmland + totalWoodland > 0) ? renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) : '';
+
+    container.innerHTML = farmingCrewSummary + environmentSections + categorySections;
 }
 
 // Re-renders "Your Rate" from `lastPlan` at whichever unit is currently selected in the

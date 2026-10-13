@@ -6164,3 +6164,251 @@ body.light .mode-pill.pill-manual.active {
         transform: scale(1.02);
     }
 }
+
+/* ==========================================================================
+   FARMING CREW SUMMARY & 3-GROUP ROSTER REBUILD
+   ========================================================================== */
+
+/* 1. Farming Crew Summary Box (Above Facility Plan) */
+.farming-crew-summary-card {
+    background: linear-gradient(135deg, rgba(20, 30, 24, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(74, 222, 128, 0.15);
+    backdrop-filter: blur(8px);
+}
+
+.farming-crew-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.farming-crew-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.farming-crew-icon {
+    font-size: 1.4rem;
+}
+
+.farming-crew-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #4ade80;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.farming-crew-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.farming-crew-pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(74, 222, 128, 0.15);
+    color: #86efac;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.farming-crew-pill.afk-pill {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.farming-crew-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.farming-crew-cell {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.farming-crew-cell:hover {
+    border-color: rgba(74, 222, 128, 0.4);
+    transform: translateY(-1px);
+}
+
+.farming-crew-role-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.farming-crew-role-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.15rem;
+}
+
+.farming-crew-workers-line {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.farming-crew-note {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 0.1rem;
+}
+
+.farming-crew-footer-note {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    margin: 0.4rem 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Farm harvest single cell inside Worksheet table */
+.farm-harvest-single-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.farm-role-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(74, 222, 128, 0.15);
+    color: #86efac;
+    border: 1px solid rgba(74, 222, 128, 0.25);
+}
+
+/* 2. Three Roster Groups in Aniimo Team Card */
+.roster-groups-banner {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 820px) {
+    .roster-groups-banner {
+        grid-template-columns: 1fr;
+    }
+}
+
+.roster-group-card {
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.roster-group-card.group-farming {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: linear-gradient(135deg, rgba(20, 35, 25, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+
+.roster-group-card.group-processing {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: linear-gradient(135deg, rgba(35, 28, 18, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+
+.roster-group-card.group-stationary {
+    border-color: rgba(56, 189, 248, 0.35);
+    background: linear-gradient(135deg, rgba(18, 30, 45, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+
+.roster-group-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.roster-group-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.group-farming .roster-group-label { color: #4ade80; }
+.group-processing .roster-group-label { color: #fbbf24; }
+.group-stationary .roster-group-label { color: #38bdf8; }
+
+.roster-group-count {
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.group-farming .roster-group-count { color: #86efac; }
+.group-processing .roster-group-count { color: #fde68a; }
+.group-stationary .roster-group-count { color: #bae6fd; }
+
+.roster-group-desc {
+    font-size: 0.74rem;
+    color: #94a3b8;
+    line-height: 1.35;
+    margin: 0;
+}
+
+.roster-group-header-row {
+    background: rgba(30, 41, 59, 0.85);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.roster-group-header-row td {
+    padding: 0.6rem 0.8rem !important;
+}
+
+.roster-group-header-row.farming-header td {
+    color: #4ade80 !important;
+    background: rgba(20, 35, 25, 0.9) !important;
+    border-left: 3px solid #4ade80;
+}
+
+.roster-group-header-row.processing-header td {
+    color: #fbbf24 !important;
+    background: rgba(35, 28, 18, 0.9) !important;
+    border-left: 3px solid #fbbf24;
+}
+
+.roster-group-header-row.stationary-header td {
+    color: #38bdf8 !important;
+    background: rgba(18, 30, 45, 0.9) !important;
+    border-left: 3px solid #38bdf8;
+}

@@ -32,7 +32,7 @@ Handler.extensions_map.update({
     '.js': 'text/javascript',
 })
 
-port = 8080
+port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 try:
     with DualStackServer(("", port), Handler) as httpd:
         print(f"Serving on port {port} (dual-stack IPv4/IPv6)...", flush=True)
