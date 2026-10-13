@@ -208,10 +208,10 @@ pub fn takes_turns(recipe: &ProductionItem) -> bool {
 
 /// The item a recipe makes: a quick variant makes the regular item, and an uncovered crop (see
 /// [`crate::models::add_uncovered_variants`]) makes the same crop, just slower.
-fn made_item<'a>(name: &'a str, all: &HashMap<&str, &ProductionItem>) -> &'a str {
+fn made_item<'a>(name: &'a str, _all: &HashMap<&str, &ProductionItem>) -> &'a str {
     let name = crate::models::base_item_name(name);
     match name.strip_prefix("quick_") {
-        Some(base) if all.contains_key(base) => base,
+        Some(base) => base,
         _ => name,
     }
 }
@@ -224,7 +224,10 @@ pub(crate) fn find_item<'a>(name: &str, all: &'a HashMap<&str, &ProductionItem>)
     if let Some(&item) = all.get(base) {
         return Some(item);
     }
-    all.values().find(|i| crate::models::base_item_name(&i.name) == base).copied()
+    if let Some(item) = all.values().find(|i| crate::models::base_item_name(&i.name) == base).copied() {
+        return Some(item);
+    }
+    all.values().find(|i| i.name.strip_prefix("quick_") == Some(base)).copied()
 }
 
 /// What a model variable stands for.
