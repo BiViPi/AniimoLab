@@ -1,6 +1,7 @@
 import http.server
 import socket
 import sys
+import os
 
 class DualStackServer(http.server.ThreadingHTTPServer):
     address_family = socket.AF_INET6
@@ -13,6 +14,14 @@ class DualStackServer(http.server.ThreadingHTTPServer):
         super().server_bind()
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/' or self.path == '/index.html':
+            self.send_response(302)
+            self.send_header('Location', '/web/index.html')
+            self.end_headers()
+            return
+        super().do_GET()
+
     def end_headers(self):
         # Disable caching during local development
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')

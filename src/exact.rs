@@ -216,6 +216,17 @@ fn made_item<'a>(name: &'a str, all: &HashMap<&str, &ProductionItem>) -> &'a str
     }
 }
 
+pub(crate) fn find_item<'a>(name: &str, all: &'a HashMap<&str, &ProductionItem>) -> Option<&'a ProductionItem> {
+    if let Some(&item) = all.get(name) {
+        return Some(item);
+    }
+    let base = crate::models::base_item_name(name);
+    if let Some(&item) = all.get(base) {
+        return Some(item);
+    }
+    all.values().find(|i| crate::models::base_item_name(&i.name) == base).copied()
+}
+
 /// What a model variable stands for.
 enum VarKind<'a> {
     Rate(&'a ProductionItem),
@@ -317,7 +328,7 @@ fn build_model<'a>(
     currency: &str,
     facility_counts: &FacilityCounts,
     module_levels: &ModuleLevels,
-    goal: Goal,
+    goal: Goal<'a>,
 ) -> Model<'a> {
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let recipes: Vec<&ProductionItem> = items
@@ -378,9 +389,10 @@ fn build_model<'a>(
     };
     let mut sold_of: Vec<(usize, &ProductionItem)> = Vec::new();
     for (&item_name, terms) in &mut balance {
-        if let Some(&item) = all.get(item_name) {
+        let base_name = crate::models::base_item_name(item_name);
+        if let Some(item) = find_item(item_name, &all) {
             if item.earns(currency) > 0.0 || floor_currencies.iter().any(|&c| item.earns(c) > 0.0) {
-                let sold = model.add(item.earns(currency), (0.0, f64::INFINITY), false, VarKind::Sold(item.name.as_str()));
+                let sold = model.add(item.earns(currency), (0.0, f64::INFINITY), false, VarKind::Sold(base_name));
                 sold_of.push((sold, item));
                 terms.push((sold, -1.0));
             }
@@ -1122,8 +1134,8 @@ pub fn check_plan(
         }
     }
     for (name, &sold) in &plan.sold {
-        let item = all.get(name.as_str()).ok_or(format!("unknown item {name}"))?;
-        *made.entry(item.name.as_str()).or_default() -= sold;
+        let item = find_item(name.as_str(), &all).ok_or(format!("unknown item {name}"))?;
+        *made.entry(crate::models::base_item_name(&item.name)).or_default() -= sold;
         // An item sold for another currency (Aniimo EXP, Aniipods) leaves the balance the same
         // way, but earns nothing towards `currency`.
         earned += sold * item.earns(currency);
@@ -1498,6 +1510,7 @@ pub fn to_production_plan(
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let is_grower = |facility: &str| !items.iter().any(|i| i.facility == facility && i.raw_materials.is_some());
 
+    let net = net_rates(exact, items);
     // What each made item goes to: the recipes using it, and whether the rest sells.
     let uses_of = |recipe: &ProductionItem| -> String {
         let made = made_item(&recipe.name, &all);
@@ -1510,10 +1523,11 @@ pub fn to_production_plan(
             .collect();
         uses.sort_unstable();
         uses.dedup();
-        let sells = exact.sold.get(made).is_some_and(|&s| s > 1e-9);
+        let base_made = crate::models::base_item_name(made);
+        let sells = exact.sold.get(made).or_else(|| exact.sold.get(base_made)).is_some_and(|&s| s > 1e-9);
         // Made, not sold, not all used up and not sellable: kept for the level-up.
-        let sellable = all.get(made).is_some_and(|item| item.sell_currency != "none" && item.sell_value > 0.0);
-        let kept = exact.pace.is_some() && !sells && !sellable && net_rates(exact, items).get(made).is_some_and(|&n| n > 1e-9);
+        let sellable = find_item(made, &all).is_some_and(|item| item.sell_currency != "none" && item.sell_value > 0.0);
+        let kept = exact.pace.is_some() && !sells && !sellable && net.get(made).or_else(|| net.get(base_made)).is_some_and(|&n| n > 1e-9);
         match (uses.is_empty(), sells || kept) {
             (true, _) if kept => "For the level-up".to_string(),
             (true, _) => "Sells directly".to_string(),
@@ -1608,28 +1622,27 @@ pub fn to_production_plan(
 
     // One income stream per item sold, less the seed costs that went into it (see
     // `seed_costs_by_item`).
-    let mut income_streams: Vec<PlanProduct> = exact
-        .sold
-        .iter()
-        .filter_map(|(name, &units)| {
-            let item = all.get(name.as_str())?;
-            // Only what sells for the plan's currency is income; Growth items or Aniipods a plan
-            // also makes (for a priority) are counted separately, not as coins.
-            if item.sell_currency != currency {
-                return None;
+    let mut stream_map: HashMap<String, PlanProduct> = HashMap::new();
+    for (name, &units) in &exact.sold {
+        let base_name = crate::models::base_item_name(name);
+        if let Some(item) = find_item(name.as_str(), &all) {
+            if item.sell_currency == currency {
+                let entry = stream_map.entry(base_name.to_string()).or_insert_with(|| PlanProduct {
+                    item_name: base_name.to_string(),
+                    facility: crate::models::base_facility_name(&item.facility).to_string(),
+                    sell_value: item.sell_value,
+                    rate_per_second: 0.0,
+                    units_per_second: 0.0,
+                    lead_time: crate::optimizer::item_lead_time(base_name, &all, 0),
+                    total_units: 0.0,
+                    total_value: 0.0,
+                });
+                entry.units_per_second += units;
+                entry.rate_per_second += units * item.sell_value;
             }
-            Some(PlanProduct {
-                item_name: name.clone(),
-                facility: item.facility.clone(),
-                sell_value: item.sell_value,
-                rate_per_second: units * item.sell_value,
-                units_per_second: units,
-                lead_time: crate::optimizer::item_lead_time(name, &all, 0),
-                total_units: 0.0,
-                total_value: 0.0,
-            })
-        })
-        .collect();
+        }
+    }
+    let mut income_streams: Vec<PlanProduct> = stream_map.into_values().collect();
     if currency == "coins" {
         let (per_unit, total) = seed_costs_by_item(exact, &all);
         let mut assigned = 0.0;

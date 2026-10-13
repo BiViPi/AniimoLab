@@ -189,8 +189,7 @@ function showSelectedPlan() {
     pending.style.display = 'none';
     lastPlan = plan;
     displayPlan(plan);
-    const isLevelUpRequested = planContext ? planContext.levelUp : isLevelUpStrategy();
-    const planViable = plan.success && (!isLevelUpRequested || Boolean(plan.level_up));
+    const planViable = plan.success;
     if (planViable) {
         runTimeToGoal();
         rankImprovementsFor(setup);
@@ -365,40 +364,19 @@ export function getSpecialistQuotas() {
 }
 
 export function validateInvariants(facility, targetMode, stepCount) {
-    const homeLevel = selectedHomeLevel();
     const generatorCapacity = getGeneratorCapacity();
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
-    // Tính toán công suất dự kiến khi áp dụng override này
-    let projectedWatts = 0;
-    const testOverrides = JSON.parse(JSON.stringify(facilityOverrides));
-    let ovr = testOverrides.find(o => o.facility === facility);
-    if (!ovr) {
-        const facLevel = (facility === 'Mine' ? 5 : (facility === 'Well' ? 4 : 1));
-        ovr = { facility, level: facLevel, electric_count: 0, specialist_count: 0, manual_count: 0 };
-        testOverrides.push(ovr);
-    }
-
+    // Tính toán công suất dự kiến khi áp dụng override này dựa trên lastEmodeCounts
+    const testEmode = { ...(lastEmodeCounts || {}) };
     if (targetMode === 'electric') {
-        ovr.electric_count = stepCount;
-        ovr.specialist_count = 0;
-        ovr.manual_count = 0;
-    } else if (targetMode === 'specialist') {
-        ovr.specialist_count = stepCount;
-        ovr.electric_count = 0;
-        ovr.manual_count = 0;
+        testEmode[facility] = stepCount;
     } else {
-        ovr.manual_count = stepCount;
-        ovr.electric_count = 0;
-        ovr.specialist_count = 0;
+        delete testEmode[facility];
     }
 
-    for (const o of testOverrides) {
-        const w = FACILITY_POWER_WATTS[o.facility] || 0;
-        projectedWatts += (o.electric_count || 0) * w;
-    }
-
+    const projectedWatts = calculatePowerWatts(testEmode);
     if (projectedWatts > maxWatts) {
         return {
             valid: false,
@@ -409,12 +387,15 @@ export function validateInvariants(facility, targetMode, stepCount) {
     return { valid: true };
 }
 
-window.onWorksheetModeClick = async function(facility, targetMode, stepCount) {
+window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode) {
     const inv = validateInvariants(facility, targetMode, stepCount);
     if (!inv.valid) {
         showInvariantWarning(facility, inv.reason);
         return;
     }
+
+    const ownedCounts = getOwnedFacilityCounts();
+    const totalFac = ownedCounts[facility] || stepCount;
 
     let ovr = facilityOverrides.find(o => o.facility === facility);
     if (!ovr) {
@@ -423,23 +404,60 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount) {
         facilityOverrides.push(ovr);
     }
 
-    if (targetMode === 'electric') {
-        ovr.electric_count = stepCount;
-        ovr.specialist_count = 0;
-        ovr.manual_count = 0;
-    } else if (targetMode === 'specialist') {
-        ovr.specialist_count = stepCount;
-        ovr.electric_count = 0;
-        ovr.manual_count = 0;
+    if (facility === 'Mine') {
+        const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
+        if (targetMode === 'electric') {
+            ovr.specialist_count = earth4pQuota;
+            ovr.electric_count = Math.max(0, totalFac - earth4pQuota);
+            ovr.manual_count = 0;
+        } else if (targetMode === 'specialist') {
+            ovr.specialist_count = Math.min(totalFac, earth4pQuota + stepCount);
+            ovr.electric_count = Math.max(0, totalFac - ovr.specialist_count);
+            ovr.manual_count = 0;
+        } else {
+            // Chuyển sang Thường: tôn trọng hạn ngạch Prismana, giảm điện tương ứng
+            ovr.specialist_count = earth4pQuota;
+            ovr.manual_count = stepCount;
+            ovr.electric_count = Math.max(0, totalFac - earth4pQuota - stepCount);
+        }
+    } else if (facility === 'Well') {
+        const water4fQuota = getSpecialistQuotas().water_4f_wells ?? 0;
+        if (targetMode === 'electric') {
+            ovr.specialist_count = water4fQuota;
+            ovr.electric_count = Math.max(0, totalFac - water4fQuota);
+            ovr.manual_count = 0;
+        } else if (targetMode === 'specialist') {
+            ovr.specialist_count = Math.min(totalFac, (ovr.specialist_count || 0) + stepCount);
+            ovr.electric_count = Math.max(0, totalFac - ovr.specialist_count);
+            ovr.manual_count = 0;
+        } else {
+            ovr.specialist_count = water4fQuota;
+            ovr.manual_count = stepCount;
+            ovr.electric_count = Math.max(0, totalFac - water4fQuota - stepCount);
+        }
     } else {
-        ovr.manual_count = stepCount;
-        ovr.electric_count = 0;
-        ovr.specialist_count = 0;
+        if (targetMode === 'electric') {
+            ovr.electric_count = stepCount;
+            ovr.specialist_count = 0;
+            ovr.manual_count = 0;
+        } else {
+            ovr.manual_count = stepCount;
+            ovr.electric_count = 0;
+            ovr.specialist_count = 0;
+        }
     }
+
+    // Tự động phân bổ lại ngân sách điện tối ưu dựa trên override mới
+    const targetWatts = getTargetEmodeWatts();
+    const newAllocated = allocateDynamicEmode(lastPlan, selectedHomeLevel(), targetWatts);
+    lastEmodeCounts = newAllocated;
 
     // Hiển thị nút Reset Overrides
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
+
+    // Cập nhật thanh điện ngay lập tức
+    updatePowerGauge(lastEmodeCounts);
 
     // Optimistic UI (0ms)
     const pillsContainer = document.querySelector(`.mode-selector-pills[data-fac="${facility}"]`);
@@ -459,20 +477,35 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount) {
 export async function runFastReSolve() {
     try {
         const input = getPlanInputValues();
+        // Bảo toàn các exclusions đã lọc ở Step 4 để không bị trôi dạt vào nguyên liệu thô phụ <= 2%
+        if (lastPlanInput?.exclude && lastPlanInput.exclude.length > 0) {
+            input.exclude = [...new Set([...(input.exclude || []), ...lastPlanInput.exclude])];
+        }
+        input.emode_facilities = Object.keys(lastEmodeCounts).filter(f => (lastEmodeCounts[f] || 0) > 0);
+        input.emode_facility_counts = { ...(lastEmodeCounts || {}) };
+        input.facility_overrides = getFacilityOverrides();
+
         const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
         const payload = JSON.stringify({ ...input, ...aniimoInput(bestSetup) });
 
-        const json = await callWorker('FAST_RE_SOLVE', payload);
-        const plan = JSON.parse(json);
+        const t0 = performance.now();
+        // Gọi find_plan để đảm bảo đầy đủ các tầng ràng buộc và tối ưu hóa toán học chuẩn xác
+        const json = await callWorker('find_plan', payload);
+        let plan = JSON.parse(json);
 
         if (plan && plan.success) {
+            // Tích hợp đầy đủ các cơ sở chế biến và món ăn sự kiện
+            plan = integrateSeasonPlan(plan);
             plansBySetup[bestSetup] = plan;
+            lastPlan = plan;
             showSelectedPlan();
+            updatePowerGauge(lastEmodeCounts);
 
+            const elapsed = Math.round(performance.now() - t0);
             const badge = document.getElementById('fast-resolve-benchmark-badge');
-            if (badge && plan.benchmark) {
+            if (badge) {
                 badge.style.display = 'inline-flex';
-                badge.innerHTML = `⚡ ${plan.benchmark.total}ms <span class="benchmark-sub">(${plan.benchmark.t_lp}ms LP | ${plan.benchmark.t_highs}ms HiGHS | ${plan.benchmark.t_plan}ms Map)</span>`;
+                badge.innerHTML = `⚡ ${elapsed}ms`;
             }
         }
     } catch (err) {
@@ -527,7 +560,7 @@ function attachSpecialistQuotaHandlers() {
 }
 
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts()) {
-    if (homeLevel < 12 || !basePlan || !basePlan.success) return {};
+    if (homeLevel < 12) return {};
 
     const { facilities } = simpleSetup(homeLevel);
     const ownedCounts = {};
@@ -536,89 +569,85 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     }
     ownedCounts['Mine'] = emodeMineUnits(homeLevel, facilities['Mine']);
 
-    // 1. Gather active producing facilities from basePlan (exclude Woodworking Bench and Chimney Kiln)
-    const activeCounts = {};
-    for (const step of basePlan.coin_items || []) {
-        if (step.status === 'producing' && step.facility) {
-            const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
-            const def = FACILITIES.find(f => f.name === fac);
-            if (def && def.supportsEmode && fac !== 'Woodworking Bench' && fac !== 'Chimney Kiln') {
-                activeCounts[fac] = (activeCounts[fac] || 0) + (step.facility_count || 1);
-            }
-        }
-    }
-
     const emodeCounts = {};
     let usedWatts = 0;
 
-    // Chiến lược 1: Cấp điện cho Nồi hầm (Simmering Pot - 75W)
-    // Cấp điện ở 120% tốn 90s/cháo (so với 45s của Aniimo Lửa cấp 4), vừa giải phóng 1 Aniimo Lửa,
-    // vừa khớp hoàn hảo với nhịp thu hoạch 2 vụ sâm/giờ mà không ngốn cạn nhân sâm và lúa mì.
-    const potSeasonUsage = typeof getSeasonFacilityUsage === 'function' && seasonActive() ? (getSeasonFacilityUsage(basePlan.rate_per_second)['Simmering Pot'] || 0) : 0;
-    const availablePots = Math.max(0, (ownedCounts['Simmering Pot'] || 0) - potSeasonUsage);
-    const activePots = activeCounts['Simmering Pot'] || 0;
-    const potWatts = FACILITY_POWER_WATTS['Simmering Pot'] || 75;
-    if (availablePots >= 1 && activePots >= 1 && usedWatts + potWatts <= maxWatts) {
-        emodeCounts['Simmering Pot'] = 1;
-        usedWatts += potWatts;
+    // BƯỚC 1: HẦM MỎ (Mine - 150W/mỏ)
+    // 1 hầm mỏ điện (150W, 25 phút) = 1 Aniimo Thổ 3/P.
+    // Tách Quota Prismana Thổ 4P (chạy thủ công 18p45s, 0W).
+    // Số mỏ còn lại ưu tiên cấp điện toàn bộ nếu lưới điện đủ tải!
+    const totalMines = ownedCounts['Mine'] || 0;
+    const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
+    const targetElectricMines = Math.max(0, totalMines - earth4pQuota);
+
+    const mineOverride = facilityOverrides.find(o => o.facility === 'Mine');
+    const desiredMineElectric = mineOverride ? mineOverride.electric_count : targetElectricMines;
+
+    let mineElectric = 0;
+    while (mineElectric < desiredMineElectric && usedWatts + 150 <= maxWatts) {
+        mineElectric++;
+        usedWatts += 150;
+    }
+    if (mineElectric > 0) {
+        emodeCounts['Mine'] = mineElectric;
     }
 
-    // Chiến lược 2: Cấp điện cho Giếng nước (Well - 120W mỗi giếng)
-    // Mỗi giếng nước cấp điện giải phóng 1 Aniimo Thủy quý giá chuyển sang tưới nước cho nông trại/lâm nghiệp (+33.3% tốc độ sinh trưởng).
-    const activeWells = activeCounts['Well'] || 0;
-    const wellWatts = FACILITY_POWER_WATTS['Well'] || 120;
-    if (activeWells > 0) {
-        for (let w = 0; w < activeWells; w++) {
-            if (usedWatts + wellWatts <= maxWatts) {
-                emodeCounts['Well'] = (emodeCounts['Well'] || 0) + 1;
-                usedWatts += wellWatts;
+    // BƯỚC 2: GIẾNG NƯỚC (Well - 120W/giếng)
+    // 1 giếng điện (120W, 25 phút) = 1 Aniimo Thủy 3/F.
+    // Tách Quota Prismana Thủy 4F (chạy thủ công 18p45s, 0W).
+    // Số giếng còn lại ưu tiên cấp điện toàn bộ để giải phóng Aniimo Thủy đi tưới cây!
+    const totalWells = ownedCounts['Well'] || 0;
+    const water4fQuota = getSpecialistQuotas().water_4f_wells ?? 0;
+    const targetElectricWells = Math.max(0, totalWells - water4fQuota);
+
+    const wellOverride = facilityOverrides.find(o => o.facility === 'Well');
+    const desiredWellElectric = wellOverride ? wellOverride.electric_count : targetElectricWells;
+
+    let wellElectric = 0;
+    while (wellElectric < desiredWellElectric && usedWatts + 120 <= maxWatts) {
+        wellElectric++;
+        usedWatts += 120;
+    }
+    if (wellElectric > 0) {
+        emodeCounts['Well'] = wellElectric;
+    }
+
+    // BƯỚC 3: CÁC CƠ SỞ CHẾ BIẾN CÓ CHẾ ĐỘ E-MODE
+    // Trừ hao công suất đã dùng cho Mỏ và Giếng. Số công suất còn lại phân bổ cho các xưởng chế biến.
+    for (const ovr of facilityOverrides) {
+        if (ovr.facility !== 'Mine' && ovr.facility !== 'Well') {
+            const w = FACILITY_POWER_WATTS[ovr.facility] || 0;
+            if (ovr.electric_count > 0 && w > 0) {
+                const count = Math.min(ovr.electric_count, Math.floor((maxWatts - usedWatts) / w));
+                if (count > 0) {
+                    emodeCounts[ovr.facility] = count;
+                    usedWatts += count * w;
+                }
             }
         }
     }
 
-    // Rank remaining active processors by revenue from income streams
-    const facRevenue = {};
-    for (const s of basePlan.income_streams || []) {
-        if (s.facility) {
-            const fac = s.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
-            facRevenue[fac] = (facRevenue[fac] || 0) + (s.rate_per_second || 0) * 3600;
-        }
-    }
-
-    // Ưu tiên các cơ sở chế biến chính (Bàn chế tạo, Máy sấy, Cối xay, Khung dệt)
-    // Tránh điện hóa Phonolfactory Table do nghẽn aromathyst; Tách riêng Mine để tránh nuốt trọn điện
-    const otherFacs = Object.keys(activeCounts)
-        .filter(f => f !== 'Simmering Pot' && f !== 'Well' && f !== 'Phonolfactory Table' && f !== 'Mine')
-        .sort((a, b) => (facRevenue[b] || 0) - (facRevenue[a] || 0));
-
-    for (const fac of otherFacs) {
-        const w = FACILITY_POWER_WATTS[fac] || 0;
-        if (w <= 0) continue;
-        const totalUnits = activeCounts[fac];
-        for (let u = 0; u < totalUnits; u++) {
-            if (usedWatts + w <= maxWatts) {
-                emodeCounts[fac] = (emodeCounts[fac] || 0) + 1;
-                usedWatts += w;
-            } else {
-                break;
-            }
-        }
-    }
-
-    // Nếu ngân sách điện còn dư, tiếp tục phân bổ cho các cơ sở chế biến sở hữu có giá trị cao
-    // (đặc biệt là Nồi Cơm Claw Game Cooker mở khóa Bánh Quy Dừa, Bếp Blazing Stove mở Kẹo Dâu...)
     const CANDIDATE_PROCESSORS = [
-        'Claw Game Cooker',
-        'Blazing Stove',
-        'Carousel Mill',
-        'Jukebox Dryer',
-        'Crafting Table',
-        'Joy Wheel Loom',
-        'Bouncy Brew Keg',
-        'Pickling Jar',
-        'Dance Pad Polisher'
+        'Simmering Pot',       // 75W
+        'Blazing Stove',       // 45W
+        'Claw Game Cooker',    // 75W
+        'Carousel Mill',       // 60W
+        'Jukebox Dryer',       // 90W
+        'Crafting Table',      // 90W
+        'Joy Wheel Loom',      // 45W
+        'Bouncy Brew Keg',     // 90W
+        'Pickling Jar',        // 60W
+        'Dance Pad Polisher',  // 60W
+        'Chimney Kiln',        // 30W
+        'Woodworking Bench'    // 30W
     ];
+
     for (const fac of CANDIDATE_PROCESSORS) {
+        const ovr = facilityOverrides.find(o => o.facility === fac);
+        if (ovr && (ovr.manual_count > 0 || (ovr.electric_count === 0 && ovr.specialist_count === 0))) {
+            // Người dùng chỉ định manual; tôn trọng lựa chọn thủ công, không tự động cấp điện
+            continue;
+        }
         const w = FACILITY_POWER_WATTS[fac] || 0;
         if (w <= 0) continue;
         const owned = ownedCounts[fac] || 0;
@@ -628,30 +657,6 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             emodeCounts[fac] = current;
             usedWatts += w;
         }
-    }
-
-    // Cuối cùng: Chỉ cấp điện cho Hầm mỏ cấp 5 (150W/mỏ) từ watt dư còn lại sau khi tất cả
-    // xưởng chế biến và giếng nước đã đủ điện. (Hầm mỏ dùng điện mất 25 phút, chậm hơn
-    // Prismana Thổ Lv.4 mất 18p45s, nên chỉ điện hóa số lượng vừa phải để tận dụng tải dư).
-    // Ưu tiên đọc trực tiếp facility_overrides nếu người dùng đã can thiệp:
-    for (const ovr of facilityOverrides) {
-        if (ovr.electric_count > 0) {
-            emodeCounts[ovr.facility] = ovr.electric_count;
-            usedWatts += (FACILITY_POWER_WATTS[ovr.facility] || 0) * ovr.electric_count;
-        }
-    }
-
-    // Cuối cùng: Cấp điện cho Hầm mỏ cấp 5 (150W/mỏ) từ watt dư còn lại sau khi trừ đi Quota Prismana Thổ 4P:
-    const mineWatts = FACILITY_POWER_WATTS['Mine'] || 150;
-    const availableMines = ownedCounts['Mine'] || 0;
-    const activeMines = activeCounts['Mine'] || 0;
-    const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
-    const maxElectrifiedMines = Math.min(activeMines, Math.max(0, availableMines - earth4pQuota));
-    let currentMines = emodeCounts['Mine'] || 0;
-    while (currentMines < maxElectrifiedMines && usedWatts + mineWatts <= maxWatts) {
-        currentMines++;
-        emodeCounts['Mine'] = currentMines;
-        usedWatts += mineWatts;
     }
 
     return emodeCounts;
@@ -3589,11 +3594,24 @@ function renderSeedTable(plan) {
 function renderProfitBreakdown(plan) {
     const card = document.getElementById('profit-card');
     const report = plan.level_up;
-    const streams = (plan.income_streams || []).filter(s => s.units_per_second > 0);
-    if (!report || streams.length === 0) {
+    const rawStreams = (plan.income_streams || []).filter(s => s.units_per_second > 0);
+    if (!report || rawStreams.length === 0) {
         card.style.display = 'none';
         return;
     }
+    // Gộp các streams có cùng base item name (ví dụ quartz_ore và quartz_ore__specialist)
+    const streamMap = new Map();
+    for (const s of rawStreams) {
+        const baseName = s.item_name.replace(/__(specialist|manual)$/, '');
+        const existing = streamMap.get(baseName);
+        if (existing) {
+            existing.units_per_second += s.units_per_second;
+            existing.rate_per_second += s.rate_per_second;
+        } else {
+            streamMap.set(baseName, { ...s, item_name: baseName });
+        }
+    }
+    const streams = Array.from(streamMap.values());
     card.style.display = 'block';
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const total = streams.reduce((sum, s) => sum + s.rate_per_second, 0);
@@ -4421,19 +4439,22 @@ window.applyOptimalPlots = function (radish, pepper) {
 // "quick_aromathyst" -> "Quick Aromathyst": the data uses snake_case names.
 function prettyItem(name) {
     if (!name) return name;
+    const base = name.replace(/__(specialist|manual)$/, '');
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (isVi) {
         const viItems = window.VI_ITEM_NAMES || (typeof VI_ITEM_NAMES !== 'undefined' ? VI_ITEM_NAMES : null);
         if (viItems) {
             if (viItems[name]) return viItems[name];
-            const snake = name.toLowerCase().replace(/[\s-]+/g, '_');
+            if (viItems[base]) return viItems[base];
+            const snake = base.toLowerCase().replace(/[\s-]+/g, '_');
             if (viItems[snake]) return viItems[snake];
         }
     }
     if (ITEM_NAMES[name]) return ITEM_NAMES[name];
-    const snake = name.toLowerCase().replace(/[\s-]+/g, '_');
+    if (ITEM_NAMES[base]) return ITEM_NAMES[base];
+    const snake = base.toLowerCase().replace(/[\s-]+/g, '_');
     if (ITEM_NAMES[snake]) return ITEM_NAMES[snake];
-    return name.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
+    return base.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
 }
 
 // A plan row's reason with its item names made readable: "Used for dried_strawberries, jam; the
@@ -4660,7 +4681,7 @@ function showError(message) {
     resultsContent.style.display = 'none';
 
     // Rule 5: If it is an infeasibility error, show exclusively the infeasible explanation card
-    if (message.includes('No plan') || message.includes('failed') || message.includes('không thể') || message.includes('infeasible')) {
+    if (message.includes('No plan found') || message.includes('infeasible') || message.includes('không thể tìm thấy') || message.includes('no plan found')) {
         if (errorEl) errorEl.style.display = 'none';
         renderInfeasibleExplanation({ success: false, error: message });
         return;
@@ -4834,12 +4855,17 @@ function abilityDot(name, level, note) {
 
 function aniimoLabel(step) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (step.is_emode && step.status === 'producing') {
+    const rawFac = step.facility || '';
+    const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+    const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
+    const isElectric = !isSpecialist && !step.is_manual && !rawFac.includes('(Manual)') && (step.is_emode || rawFac.includes('(Electric)') || ((lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well'));
+
+    if (isElectric && step.status === 'producing' && !rawFac.includes('(Manual)') && !isSpecialist) {
         const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
         const label = isVi ? '⚡ Chế độ điện' : '⚡ E-mode';
         return `<span class="tag emode-tag" title="${title}">${label}</span>`;
     }
-    if (step.is_manual && step.status === 'producing') {
+    if ((step.is_manual || rawFac.includes('(Manual)')) && step.status === 'producing' && !step.aniimo) {
         const title = isVi
             ? 'Chế độ thủ công; không nằm trong phân bổ công suất điện'
             : 'Manual mode; not included in the electric power allocation';
@@ -4933,10 +4959,21 @@ function planRows(rows) {
 
         // Xác định mode hiện tại:
         let currentMode = 'manual';
-        if (step.is_emode || rawFac.includes('(Electric)')) {
-            currentMode = 'electric';
-        } else if (rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
+        if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
             currentMode = 'specialist';
+        } else if (step.is_emode || rawFac.includes('(Electric)')) {
+            currentMode = 'electric';
+        } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
+            currentMode = 'manual';
+        } else {
+            const ovr = facilityOverrides.find(o => o.facility === baseFac);
+            if (ovr) {
+                if (ovr.electric_count > 0) currentMode = 'electric';
+                else if (ovr.specialist_count > 0) currentMode = 'specialist';
+                else if (ovr.manual_count > 0) currentMode = 'manual';
+            } else if ((lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+                currentMode = 'electric';
+            }
         }
 
         // Tính wattage badge:
@@ -4949,9 +4986,9 @@ function planRows(rows) {
         if (isSupportedMultiMode && baseFac !== 'Farmland' && baseFac !== 'Woodland') {
             modeControls = `
                 <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
-                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count})" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
-                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
-                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count})" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
+                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
+                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}')" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
                 </div>
             `;
         }
@@ -5814,8 +5851,7 @@ export function displayPlan(plan) {
 
     const infeasibleEl = document.getElementById('infeasible-explanation-section');
 
-    const isLevelUpRequested = planContext ? planContext.levelUp : isLevelUpStrategy();
-    if (!plan.success || (isLevelUpRequested && !plan.level_up)) {
+    if (!plan.success) {
         goalSection.style.display = 'none';
         resultsContent.style.display = 'none';
         if (errorEl) errorEl.style.display = 'none';
@@ -6003,12 +6039,12 @@ async function runFindPlan() {
                 if (runId !== planRunId) return;
 
                 const emodePlan = JSON.parse(emodeJson);
-                const emodeViable = emodePlan && emodePlan.success && (!planContext?.levelUp || Boolean(emodePlan.level_up));
+                const emodeViable = emodePlan && emodePlan.success;
                 if (emodeViable) {
                     bestPlan = emodePlan;
                     finalEmodeCounts = allocatedCounts;
                 } else {
-                    console.warn('Emode solve was not viable for level-up or failed; safely keeping basePlan.');
+                    console.warn('Emode solve was not viable or failed; safely keeping basePlan.');
                     bestPlan = basePlan;
                     finalEmodeCounts = {};
                     input.emode_facilities = [];
@@ -6148,7 +6184,7 @@ async function runFindPlan() {
         showSelectedPlan();
         updatePowerGauge(finalEmodeCounts);
         // With no plan there's nothing to lay out or improve on.
-        const effectiveSuccess = plansBySetup[bestSetup].success && (!planContext?.levelUp || plansBySetup[bestSetup].level_up);
+        const effectiveSuccess = plansBySetup[bestSetup].success;
         if (!effectiveSuccess && progress) {
             progress.steps.forEach(s => { if ((s.key === 'layout' || s.key === 'improve') && s.state === 'pending') s.state = 'skipped'; });
             renderProgress();

@@ -891,6 +891,12 @@ pub struct JsPlanStep {
     /// Whether this step runs under Electric Mode (E-mode).
     #[serde(default)]
     pub is_emode: bool,
+    /// Whether this step runs under Prismana Specialist mode.
+    #[serde(default)]
+    pub is_specialist: bool,
+    /// Whether this step runs under Manual mode.
+    #[serde(default)]
+    pub is_manual: bool,
 }
 
 /// Aniimo work a plan row creates for one ability: how many Aniimo of that ability and level it
@@ -1053,6 +1059,8 @@ impl From<crate::models::PlanStep> for JsPlanStep {
             aniimo_tasks: Vec::new(),
             crew: s.crew,
             is_emode: false,
+            is_specialist: false,
+            is_manual: false,
         }
     }
 }
@@ -2015,8 +2023,7 @@ impl PreparedInput {
                     || (!is_manual_variant
                         && !is_prismana_variant
                         && (self.input.emode_facilities.contains(&step.facility)
-                            || self.input.emode_facility_counts.get(&step.facility).copied().unwrap_or(0) > 0)
-                        && self.items.iter().any(|i| i.facility == step.facility && i.emode_base_time.is_some()));
+                            || self.input.emode_facility_counts.get(&step.facility).copied().unwrap_or(0) > 0));
 
                 // With the player's roster, the row names the member working it.
                 let from_crew = match (&self.crew, step.crew, &step.item_name) {
@@ -2063,7 +2070,7 @@ impl PreparedInput {
                         .map(|setup| aniimo_tasks_for(&step, setup, &self.requirements, &self.grower_steps))
                         .unwrap_or_default()
                 };
-                JsPlanStep { aniimo, aniimo_tasks, is_emode, ..step.into() }
+                JsPlanStep { aniimo, aniimo_tasks, is_emode, is_specialist: is_prismana_variant, is_manual: is_manual_variant, ..step.into() }
             })
             .collect();
         let income_streams: Vec<JsPlanProduct> = plan

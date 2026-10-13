@@ -29,6 +29,7 @@ const TRANSLATIONS = {
         production_aniimo_max_suffix: "/ {max} tối đa",
         production_aniimo_tooltip: "Số Aniimo tối đa cho phép làm việc trong Vùng Sản Xuất (trồng trọt và chế biến); phần còn lại dành cho Vùng Xây Dựng.",
         emode_title: "Chế độ E (E-mode)",
+        specialist_quotas_title: "Hạn ngạch Aniimo Tinh Anh (Tầng 1)",
         emode_generator: "Trụ điện / Máy phát",
         emode_supply_rate: "Tỷ lệ cấp điện",
         emode_standard: "100% (Tiêu chuẩn)",
