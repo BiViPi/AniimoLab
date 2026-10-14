@@ -16,6 +16,8 @@
 // and put back wherever is cheapest with the rest in place, until nothing moves. This is a
 // heuristic: it finds a good layout, not a proven best one.
 
+import { getFacilityDistrict } from './facility-config.js';
+
 const STEP = 0.25;
 const EPSILON = 1e-6;
 const CELL = 4;
@@ -27,6 +29,22 @@ const RADIUS = 4.5;
 const CLUSTER_TRIES = 24;
 const CLUSTER_PACKS = 2;
 const CLUSTER_PACK_MOST = 12;
+
+// District sorting priority
+const DISTRICT_PRIORITY = {
+    'agriculture': 1,
+    'gathering': 2,
+    'industry': 3,
+    'kitchen': 4,
+    'leisure': 5,
+    'utility': 6,
+};
+
+export const districtOf = piece => {
+    if (piece.cluster) return 'agriculture';
+    const fac = piece.members?.[0]?.facility;
+    return getFacilityDistrict(fac);
+};
 
 // `pieces`: each either
 // - `{ members: [{ x, y, w, h, weight, sensitive }] }`, one rigid piece (a facility unit), whose
@@ -55,9 +73,24 @@ export function layOut(pieces, options = {}) {
     const membersOf = piece => (piece.cluster ? [...piece.buildings.map(b => ({ ...b, weight: 0 })), ...piece.plots] : piece.members);
     const weightOf = piece => membersOf(piece).reduce((sum, m) => sum + m.weight, 0);
     const areaOf = piece => membersOf(piece).reduce((sum, m) => sum + m.w * m.h, 0);
+
+    // Hard-to-place first: Clusters -> Large footprints (5.5x5.5, 5x5, 4x4) -> District grouping -> trips
+    const piecePriority = piece => {
+        if (piece.cluster) return 10000;
+        const a = areaOf(piece);
+        if (a >= 16) return 5000 + a;
+        if (a >= 6) return 2000 + a;
+        return a;
+    };
+
     const order = pieces
-        .map((piece, i) => ({ i, density: weightOf(piece) / Math.max(areaOf(piece), EPSILON) }))
-        .sort((a, b) => b.density - a.density || areaOf(pieces[b.i]) - areaOf(pieces[a.i]))
+        .map((piece, i) => ({
+            i,
+            prio: piecePriority(piece),
+            distOrder: DISTRICT_PRIORITY[districtOf(piece)] || 99,
+            weight: weightOf(piece),
+        }))
+        .sort((a, b) => b.prio - a.prio || a.distOrder - b.distOrder || b.weight - a.weight)
         .map(p => p.i);
 
     // Spots to try: the open cells' extent, or with none given, well past what everything needs.
@@ -69,9 +102,33 @@ export function layOut(pieces, options = {}) {
             x2: Math.max(...cells.map(c => c.x + c.w)), y2: Math.max(...cells.map(c => c.y + c.h)),
         }
         : { x: -reach, y: -reach, x2: reach, y2: reach };
-    const offsets = latticeByDistance(extent, STEP);
-    // Environment buildings stand on whole tiles, which is plenty for them and far fewer to try.
-    const clusterOffsets = latticeByDistance(extent, 1);
+    // District Anchors: each functional district searches outwards from its dedicated Storage Unit
+    const getDistrictAnchor = dId => {
+        if (dId === 'agriculture' || dId === 'kitchen') {
+            const farmSU = storages.find(s => s.role === 'farm');
+            if (farmSU) return { x: farmSU.x + farmSU.w / 2, y: farmSU.y + farmSU.h / 2 };
+        } else if (dId === 'industry') {
+            const wsSU = storages.find(s => s.role === 'workshop');
+            if (wsSU) return { x: wsSU.x + wsSU.w / 2, y: wsSU.y + wsSU.h / 2 };
+        } else if (dId === 'gathering') {
+            const fSU = storages.find(s => s.role === 'forestry');
+            if (fSU) return { x: fSU.x + fSU.w / 2, y: fSU.y + fSU.h / 2 };
+        }
+        return { x: storages[0].x + storages[0].w / 2, y: storages[0].y + storages[0].h / 2 };
+    };
+
+    const districtOffsets = new Map();
+    const getOffsetsForDistrict = dId => {
+        if (!districtOffsets.has(dId)) {
+            const anchor = getDistrictAnchor(dId);
+            districtOffsets.set(dId, latticeByDistance(extent, STEP, anchor.x, anchor.y));
+        }
+        return districtOffsets.get(dId);
+    };
+
+    // Environment buildings (farming) stand on whole tiles around the agriculture anchor
+    const agAnchor = getDistrictAnchor('agriculture');
+    const clusterOffsets = latticeByDistance(extent, 1, agAnchor.x, agAnchor.y);
 
     // What's down: rectangles by piece, found through a coarse grid; coverage squares by cluster;
     // and the rectangles that must stay out of every square.
@@ -124,10 +181,23 @@ export function layOut(pieces, options = {}) {
 
     const placeRigid = i => {
         let best = null;
+        const pDist = districtOf(pieces[i]);
+
+        // Find existing placed centroids for the same district to cluster them together
+        const sameDistrictCentroids = [];
+        for (const [k, spot] of placed) {
+            if (districtOf(pieces[k]) === pDist) {
+                for (const r of spot.rects) {
+                    sameDistrictCentroids.push({ cx: r.x + r.w / 2, cy: r.y + r.h / 2 });
+                }
+            }
+        }
+
+        const offsets = getOffsetsForDistrict(pDist);
         for (const shape of shapes[i]) {
             let firstFit = null;
             for (const [ox, oy, distance] of offsets) {
-                if (firstFit !== null && distance > firstFit + shape.spread + STEP) break;
+                if (firstFit !== null && distance > firstFit + shape.spread + STEP * 3) break;
                 const x = snap(ox - shape.cx);
                 const y = snap(oy - shape.cy);
                 tried++;
@@ -136,24 +206,40 @@ export function layOut(pieces, options = {}) {
                 const touchy = rects.filter((r, j) => shape.members[j].sensitive);
                 if (touchy.some(r => inOtherSquare(r, i))) continue;
                 if (firstFit === null) firstFit = distance;
-                const rawCost = shape.members.reduce((sum, m) => sum + m.weight * minDistanceToStorage(m.x + x + m.w / 2, m.y + y + m.h / 2), 0)
-                    + EPSILON * minDistanceToStorage(shape.cx + x, shape.cy + y);
-                
-                // Fast O(1) Grid/Chessboard cross-alignment bonus: aligns along SU cross axes & integer block grids
+
+                const cx = shape.cx + x;
+                const cy = shape.cy + y;
+
+                // 1. Grid alignment bonus (whole integer tiles or half tiles)
                 let alignBonus = 0;
-                const su0 = storages[0];
-                if (su0) {
-                    const suCenterX = su0.x + su0.w / 2;
-                    const suCenterY = su0.y + su0.h / 2;
-                    if (Math.abs((x + shape.cx) - suCenterX) < 1.5 || Math.abs((y + shape.cy) - suCenterY) < 1.5) {
-                        alignBonus += 1.2;
+                const xFrac = Math.abs(x % 1.0);
+                const yFrac = Math.abs(y % 1.0);
+                const expectXHalf = (shape.spread % 1.0 !== 0);
+                const xAligned = expectXHalf ? Math.abs(xFrac - 0.5) < 0.05 : (xFrac < 0.05 || Math.abs(xFrac - 1.0) < 0.05);
+                const yAligned = (yFrac < 0.05 || Math.abs(yFrac - 1.0) < 0.05);
+                if (xAligned && yAligned) alignBonus += 4.0;
+                else if (xAligned || yAligned) alignBonus += 1.8;
+
+                // 2. District cohesion bonus: rewards placing near same district facilities
+                let districtCohesion = 0;
+                if (sameDistrictCentroids.length > 0) {
+                    let minD = Infinity;
+                    for (const dc of sameDistrictCentroids) {
+                        const d = Math.hypot(cx - dc.cx, cy - dc.cy);
+                        if (d < minD) minD = d;
                     }
+                    if (minD <= 3.5) districtCohesion += 6.5;
+                    else if (minD <= 7.0) districtCohesion += 4.0;
+                    else if (minD <= 12.0) districtCohesion += 2.0;
+                    else districtCohesion -= minD * 0.25;
                 }
-                // Snap to 1.0 or 2.0 whole grid steps for chessboard block aesthetic
-                if (Math.abs(x % 1.0) < 0.05 && Math.abs(y % 1.0) < 0.05) {
-                    alignBonus += 0.6;
-                }
-                const cost = rawCost - Math.min(alignBonus, rawCost * 0.35);
+
+                // 3. Hauling distance to nearest SU
+                const haulingCost = shape.members.reduce((sum, m) => sum + m.weight * minDistanceToStorage(m.x + x + m.w / 2, m.y + y + m.h / 2), 0)
+                    + EPSILON * minDistanceToStorage(cx, cy);
+
+                // Combined cost: hauling cost minus district cohesion & grid alignment bonuses
+                const cost = haulingCost - (districtCohesion * 1.5 + alignBonus);
                 if (!best || cost < best.cost - EPSILON) best = { cost, x, y, shape, rects, sensitive: touchy };
             }
         }
@@ -262,10 +348,12 @@ export function layOut(pieces, options = {}) {
         tried,
         pieces: pieces.map((piece, i) => {
             const spot = placed.get(i);
-            if (!spot) return { ...piece, members: [], cost: 0 };
+            const pDist = districtOf(piece);
+            if (!spot) return { ...piece, district: pDist, members: [], cost: 0 };
             const source = piece.cluster ? [...piece.buildings, ...piece.plots] : piece.members;
             return {
                 ...piece,
+                district: pDist,
                 members: spot.rects.map((r, j) => {
                     const cx = r.x + r.w / 2;
                     const cy = r.y + r.h / 2;
@@ -275,7 +363,7 @@ export function layOut(pieces, options = {}) {
                         const d = Math.hypot(cx - (su.x + su.w / 2), cy - (su.y + su.h / 2));
                         if (d < minD) { minD = d; closestSU = su; }
                     }
-                    return { ...source[j], x: r.x, y: r.y, w: r.w, h: r.h, closestStorage: closestSU.id };
+                    return { ...source[j], x: r.x, y: r.y, w: r.w, h: r.h, district: pDist, closestStorage: closestSU.id };
                 }),
                 cost: spot.cost,
             };
@@ -502,15 +590,15 @@ function turn(m, turns) {
     return { ...m, x, y, w, h };
 }
 
-// Points `step` tiles apart across `extent` (`{ x, y, x2, y2 }`), nearest the origin first:
+// Points `step` tiles apart across `extent` (`{ x, y, x2, y2 }`), nearest (targetX, targetY) first:
 // `[x, y, distance]`.
-function latticeByDistance(extent, step) {
+function latticeByDistance(extent, step, targetX = 0, targetY = 0) {
     const points = [];
     for (let i = Math.floor(extent.x / step); i <= Math.ceil(extent.x2 / step); i++) {
         for (let j = Math.floor(extent.y / step); j <= Math.ceil(extent.y2 / step); j++) {
             const x = i * step;
             const y = j * step;
-            points.push([x, y, Math.hypot(x, y)]);
+            points.push([x, y, Math.hypot(x - targetX, y - targetY)]);
         }
     }
     return points.sort((a, b) => a[2] - b[2]);

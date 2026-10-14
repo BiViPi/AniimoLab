@@ -93,8 +93,18 @@ const TRANSLATIONS = {
         how_laid_out: "Nguyên lý bố trí",
         show_whole_homeland: "Hiện toàn bộ Gia Viên",
         simulate_label: "Mô phỏng di chuyển",
+        show_districts: "Hiện phân khu",
+        minor_grid_label: "Lưới phụ (0.25)",
+        logistics_label: "Đường kho (Logistics)",
         storage_units_label: "Thiết Bị Lưu Trữ (SU):",
         replay_btn: "Phát lại",
+
+        district_agriculture: "Nông Nghiệp",
+        district_kitchen: "Ẩm Thực & Bếp",
+        district_industry: "Đại Công Xưởng",
+        district_gathering: "Khai Thác & Rừng",
+        district_leisure: "Nghỉ Dưỡng & Aniimo",
+        district_utility: "Hạ Tầng & Kho",
 
         // Sidebar
         insights_title: "Tại sao chọn kế hoạch này? & Phân tích",
@@ -247,9 +257,19 @@ const TRANSLATIONS = {
         layout_title: "Homeland 2D Layout Simulator",
         how_laid_out: "How it's laid out",
         show_whole_homeland: "Show whole homeland",
-        simulate_label: "Simulate",
+        simulate_label: "Simulate deliveries",
+        show_districts: "Show Districts",
+        minor_grid_label: "Subgrid (0.25)",
+        logistics_label: "Storage Haul Lines",
         storage_units_label: "Storage Units:",
         replay_btn: "Replay",
+
+        district_agriculture: "Agriculture",
+        district_kitchen: "Kitchen & Food",
+        district_industry: "Heavy Industry",
+        district_gathering: "Forestry & Mining",
+        district_leisure: "Leisure & Living",
+        district_utility: "Utility & Storage",
 
         // Sidebar
         insights_title: "Why this Plan? & Insights",

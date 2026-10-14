@@ -3223,6 +3223,158 @@ tr:hover .skip-row,
     stroke-width: 0.12;
 }
 
+/* ========================================================
+   Homeland 2D Layout & Top-Down Visualization
+   ======================================================== */
+.layout-diagram {
+    position: relative;
+    width: 100%;
+    margin-top: 1rem;
+    overflow-x: auto;
+    border-radius: 10px;
+    background: #090d16;
+}
+
+.layout-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 420px;
+    background: #0d1310;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+/* Controls & Toggles */
+.layout-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.layout-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+
+.layout-whole {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+}
+
+.layout-whole input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.su-count-select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.8rem;
+}
+
+/* District Layer */
+.layout-districts-layer {
+    transition: opacity 0.25s ease;
+}
+
+.layout-district-group {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.layout-district-pill {
+    cursor: default;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.layout-district-pill text {
+    font-family: var(--font-body, system-ui, sans-serif);
+    letter-spacing: 0.02em;
+    user-select: none;
+}
+
+/* Minor Grid Lines */
+.minor-grid {
+    pointer-events: none;
+}
+
+/* Top-Down Facility Tiles & Real In-Game Building Sprites */
+.layout-piece {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.homeland-topdown-tile {
+    transform-origin: center;
+}
+
+.homeland-facility-base {
+    transition: fill-opacity 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.homeland-building-sprite {
+    pointer-events: none;
+    transition: filter 0.15s ease, transform 0.15s ease;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
+}
+
+.layout-piece:hover .homeland-building-sprite {
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8)) brightness(1.12);
+}
+
+.layout-piece:hover .homeland-facility-base {
+    stroke: #38bdf8 !important;
+    stroke-width: 0.1 !important;
+    fill-opacity: 0.85 !important;
+}
+
+.layout-piece:hover text {
+    opacity: 1 !important;
+    font-weight: 800;
+}
+
+.layout-piece:hover .homeland-item-badge circle {
+    stroke: #38bdf8;
+    stroke-width: 0.08;
+}
+
+.homeland-item-badge {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+
+.homeland-su-badge circle {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+}
+
+.homeland-su-badge text {
+    font-family: var(--font-body, system-ui, sans-serif);
+    user-select: none;
+}
+
+/* Generator & Power Network */
+.generator-power-network text {
+    font-family: var(--font-body, system-ui, sans-serif);
+    user-select: none;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+}
+
 /* My Aniimo: one card per kind of Aniimo the player has. */
 .roster-editor {
     display: grid;

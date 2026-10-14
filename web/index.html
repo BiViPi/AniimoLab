@@ -391,8 +391,8 @@
                             <div class="layout-controls">
                                 <span class="layout-toggles">
                                     <label class="layout-whole"><input type="checkbox" id="layout-whole"> <span data-i18n="show_whole_homeland">Hiện toàn bộ Gia Viên</span></label>
-                                    <label class="layout-whole"><input type="checkbox" id="layout-sim-on" checked>
-                                        <span data-i18n="simulate_label">Mô phỏng di chuyển</span></label>
+                                    <label class="layout-whole"><input type="checkbox" id="layout-districts-on" checked> <span data-i18n="show_districts">Hiện phân khu</span></label>
+                                    <label class="layout-whole"><input type="checkbox" id="layout-minor-grid"> <span data-i18n="minor_grid_label">Lưới phụ (0.25)</span></label>
                                     <label class="layout-whole"
                                         style="display: inline-flex; align-items: center; gap: 0.35rem;">
                                         <span data-i18n="storage_units_label">Thiết Bị Lưu Trữ (SU):</span>
@@ -403,7 +403,6 @@
                                         </select>
                                     </label>
                                 </span>
-                                <span class="layout-sim" id="layout-sim" hidden><span id="layout-clock">0h 00m</span><button type="button" id="layout-replay" class="btn-reset-saved small" data-i18n="replay_btn">Phát lại</button></span>
                             </div>
                             <div class="layout-diagram" id="layout-diagram"></div>
                         </div>
@@ -727,7 +726,7 @@
         });
     </script>
     <script src="i18n.js?v=aniimolab_v34"></script>
-    <script type="module" src="app.js?v=aniimolab_v34_release"></script>
+    <script type="module" src="app.js?v=aniimolab_v35_homeland"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

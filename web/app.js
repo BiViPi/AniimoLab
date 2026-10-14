@@ -5,9 +5,10 @@ import {
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
+    LAYOUT_DISTRICTS, getFacilityDistrict,
 } from './facility-config.js?v=aniimolab_v25';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v25';
-import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v24';
+import { renderFacilityIcon, renderItemIcon, renderHomelandSvgFacility, getFacilityIconUrl, HOMELAND_ASSET_MANIFEST } from './asset-map.js?v=aniimolab_v26';
 
 let wasmReady = false;
 
@@ -2149,15 +2150,15 @@ function layoutHomeLevel() {
 }
 
 function attachLayoutHandlers() {
-    document.getElementById('layout-whole').addEventListener('change', (e) => {
+    document.getElementById('layout-whole')?.addEventListener('change', (e) => {
         layoutShowsWhole = e.target.checked;
         if (lastLayout) drawLayout(lastLayout);
     });
-    document.getElementById('layout-sim-on').addEventListener('change', () => {
+    document.getElementById('layout-districts-on')?.addEventListener('change', () => {
         if (lastLayout) drawLayout(lastLayout);
     });
-    document.getElementById('layout-replay').addEventListener('click', () => {
-        if (layoutSim) resetLayoutSim(layoutSim);
+    document.getElementById('layout-minor-grid')?.addEventListener('change', () => {
+        if (lastLayout) drawLayout(lastLayout);
     });
     document.getElementById('layout-su-count')?.addEventListener('change', () => {
         if (lastPlan && lastPlan.success) renderHomelandLayout(lastPlan);
@@ -2167,11 +2168,6 @@ function attachLayoutHandlers() {
 function drawLayout(drawn) {
     const diagram = document.getElementById('layout-diagram');
     diagram.innerHTML = homelandSvg(drawn.layout, drawn.homeLevel);
-    // With the simulation off, the layout is drawn on its own.
-    const on = document.getElementById('layout-sim-on').checked;
-    diagram.classList.toggle('no-sim', !on);
-    const stock = new Map(planContext?.levelUp ? lastPlanInput?.level_up?.stock || [] : []);
-    startLayoutSim(on ? diagram.querySelector('.layout-svg') : null, layoutFlows(drawn.layout), stock);
 }
 
 function renderHomelandLayout(plan) {
@@ -2255,14 +2251,13 @@ let layoutShowsWhole = false;
 let lastLayout = null;
 
 function homelandSvg(layout, homeLevel) {
-    // Each environment building in use covers the 9x9 square around its center, drawn under
-    // everything in its mode's color as on the building's own map.
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    // Each environment building in use covers the 9x9 square around its center
     const coverage = layout.pieces.flatMap(p => p.members)
         .filter(m => m.building && m.mode)
         .map(m => ({ x: m.x + m.w / 2 - ENVIRONMENT_COVERAGE_RADIUS, y: m.y + m.h / 2 - ENVIRONMENT_COVERAGE_RADIUS, w: ENVIRONMENT_COVERAGE_RADIUS * 2, h: ENVIRONMENT_COVERAGE_RADIUS * 2, mode: m.mode }));
-    // The whole homeland, its plots marked out and the ones not open yet shaded.
+    
     const plots = homelandPlots();
-    // Zoomed to what's placed, a couple of tiles around it, unless the whole homeland is asked for.
     const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
     const placed = [...storages, ...layout.pieces.flatMap(p => p.members)];
     const whole = layoutShowsWhole;
@@ -2270,66 +2265,120 @@ function homelandSvg(layout, homeLevel) {
     const minY = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.y))) - 2;
     const maxX = whole ? Math.max(...plots.map(p => p.x + p.w)) + 1 : Math.ceil(Math.max(...placed.map(r => r.x + r.w))) + 2;
     const maxY = whole ? Math.max(...plots.map(p => p.y + p.h)) + 1 : Math.ceil(Math.max(...placed.map(r => r.y + r.h))) + 2;
-    // Locked plots last, so where one meets an open plot, the edge between them reads red.
+
+    // Locked and open plots
     const plotShapes = [...plots].sort((a, b) => (b.number <= homeLevel) - (a.number <= homeLevel)).map(p => {
         const open = p.number <= homeLevel;
-        // An open plot is named by its number; one still to come by the RV level that opens it.
         return `<g class="layout-plot${open ? '' : ' locked'}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />
-            <text x="${p.x + 0.6}" y="${p.y + 0.9}" font-size="0.9">${open ? 'Plot' : 'RV'} ${p.number}</text></g>`;
+            <text x="${p.x + 0.6}" y="${p.y + 0.9}" font-size="0.85" font-weight="700" fill="${open ? '#94a3b8' : '#ef4444'}">${open ? 'Plot' : 'RV'} ${p.number}</text></g>`;
     }).join('');
+
+    // Grid lines: major lines (1.0 tile) and minor subgrid (0.25 tile)
+    const showMinorGrid = !!document.getElementById('layout-minor-grid')?.checked;
     const lines = [];
-    for (let x = minX; x <= maxX; x++) lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" />`);
-    for (let y = minY; y <= maxY; y++) lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" />`);
-    const maxTrips = Math.max(...layout.pieces.flatMap(p => p.members.map(m => m.weight || 0)), 1e-9);
-    const shapes = layout.pieces.flatMap(p => p.members).map(m => {
-        const color = layoutColor(m);
-        const away = Math.hypot(m.x + m.w / 2 - (layout.storage.x + layout.storage.w / 2), m.y + m.h / 2 - (layout.storage.y + layout.storage.h / 2));
-        const tip = tipAttrs(m.facility, {
-            detail: m.jobs ? m.jobs.map(j => prettyItem(j.item)).join(', ') : m.crop ? prettyItem(m.crop) : m.building && m.mode ? m.mode : 'Idle',
-            stats: m.weight > 0 ? `${formatRate(m.weight)} trips/hour · ${away.toFixed(1)} tiles from storage` : '',
-            color,
-        });
-        const label = Math.min(m.w, m.h) >= 1.5 ? `<text x="${m.x + m.w / 2}" y="${m.y + m.h / 2}" font-size="${Math.min(0.8, m.w / 3)}">${initialsOf(m.facility)}</text>` : '';
-        // Busier pieces are filled more solidly; idle ones are an outline.
-        const fill = m.building ? 0.9 : m.weight > 0 ? 0.35 + 0.55 * Math.sqrt(m.weight / maxTrips) : 0.08;
-        if (m.building) {
-            // As on the building's own map: its mode's color, with the game's symbol for it.
-            return `<g class="env-building" ${tip}><rect x="${m.x + 0.05}" y="${m.y + 0.05}" width="${m.w - 0.1}" height="${m.h - 0.1}" rx="0.3"
-                fill="${color}" fill-opacity="${m.mode ? 1 : 0.25}" stroke="currentColor" stroke-opacity="0.6" stroke-width="0.08" />
-                ${m.mode ? environmentBuildingIcon(m.facility, m.mode, m.x + m.w / 2, m.y + m.h / 2) : ''}</g>`;
+    if (showMinorGrid) {
+        for (let x = minX; x <= maxX; x += 0.25) {
+            if (Math.abs(x % 1.0) > 0.05) {
+                lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="#334155" stroke-opacity="0.16" stroke-width="0.02" class="minor-grid" />`);
+            }
         }
-        return `<g class="layout-piece" ${tip}><rect x="${m.x + 0.04}" y="${m.y + 0.04}" width="${m.w - 0.08}" height="${m.h - 0.08}" rx="0.2"
-            fill="${color}" fill-opacity="${fill.toFixed(2)}" stroke="${color}" stroke-width="0.06" />${label}</g>`;
+        for (let y = minY; y <= maxY; y += 0.25) {
+            if (Math.abs(y % 1.0) > 0.05) {
+                lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" stroke="#334155" stroke-opacity="0.16" stroke-width="0.02" class="minor-grid" />`);
+            }
+        }
+    }
+    for (let x = minX; x <= maxX; x++) lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
+    for (let y = minY; y <= maxY; y++) lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
+
+    // District Bounding Boundaries & District Header Pills
+    const showDistricts = document.getElementById('layout-districts-on')?.checked ?? true;
+    let districtShapes = '';
+    if (showDistricts) {
+        const districtGroups = new Map();
+        layout.pieces.flatMap(p => p.members).forEach(m => {
+            const d = m.district || getFacilityDistrict(m.facility);
+            if (!districtGroups.has(d)) districtGroups.set(d, []);
+            districtGroups.get(d).push(m);
+        });
+
+        const placedPills = [];
+        districtGroups.forEach((mList, dId) => {
+            if (dId === 'utility' || mList.length === 0) return;
+            const distDef = LAYOUT_DISTRICTS.find(d => d.id === dId) || { color: '#3b82f6', icon: '📍', nameVi: dId, nameEn: dId };
+            const dx1 = Math.min(...mList.map(m => m.x));
+            const dy1 = Math.min(...mList.map(m => m.y));
+            const dx2 = Math.max(...mList.map(m => m.x + m.w));
+            const dy2 = Math.max(...mList.map(m => m.y + m.h));
+            const dw = dx2 - dx1 + 0.8;
+            const dh = dy2 - dy1 + 0.8;
+            const tagText = `${distDef.icon} ${isVi ? distDef.nameVi : distDef.nameEn}`;
+            const tagW = tagText.length * 0.32 + 0.8;
+
+            let pillX = dx1 + 0.1;
+            let pillY = dy1 - 0.75;
+            if (pillY < minY + 0.2) pillY = dy1 + 0.1;
+
+            // Collision avoidance with other district pills
+            for (let tries = 0; tries < 4; tries++) {
+                const collides = placedPills.some(p => Math.abs(p.x - pillX) < (tagW + p.w) * 0.55 && Math.abs(p.y - pillY) < 0.6);
+                if (!collides) break;
+                if (tries === 0) pillX = dx2 - tagW - 0.1; // try top-right
+                else if (tries === 1) { pillX = dx1 + 0.1; pillY = dy2 + 0.15; } // try bottom-left
+                else if (tries === 2) { pillX = dx2 - tagW - 0.1; pillY = dy2 + 0.15; } // try bottom-right
+            }
+            placedPills.push({ x: pillX, y: pillY, w: tagW, h: 0.6 });
+
+            districtShapes += `
+                <g class="layout-district-group district-${dId}" pointer-events="none">
+                    <rect x="${dx1 - 0.4}" y="${dy1 - 0.4}" width="${dw}" height="${dh}" rx="0.5"
+                        fill="${distDef.color}" fill-opacity="0.04" stroke="${distDef.color}" stroke-opacity="0.45" stroke-dasharray="0.6 0.3" stroke-width="0.09" />
+                    <g class="layout-district-pill" transform="translate(${pillX}, ${pillY})">
+                        <rect x="0" y="0" width="${tagW}" height="0.6" rx="0.3" fill="#0f172a" fill-opacity="0.95" stroke="${distDef.color}" stroke-width="0.06"/>
+                        <text x="${tagW / 2}" y="0.42" font-size="0.38" font-weight="700" fill="#f8fafc" text-anchor="middle">${tagText}</text>
+                    </g>
+                </g>
+            `;
+        });
+    }
+
+    // Top-down SVG facility tiles
+    const allMembers = layout.pieces.flatMap(p => p.members);
+    const shapes = allMembers.map(m => {
+        const distId = m.district || getFacilityDistrict(m.facility);
+        const distDef = LAYOUT_DISTRICTS.find(d => d.id === distId) || { color: '#3b82f6' };
+        const su = storages.find(s => s.id === m.closestStorage) || storages[0];
+        const away = su ? Math.hypot(m.x + m.w / 2 - (su.x + su.w / 2), m.y + m.h / 2 - (su.y + su.h / 2)) : 0;
+        const tip = tipAttrs(m.facility, {
+            detail: m.jobs ? m.jobs.map(j => prettyItem(j.item)).join(', ') : m.crop ? prettyItem(m.crop) : m.building && m.mode ? m.mode : (isVi ? 'Đang chờ' : 'Idle'),
+            stats: m.weight > 0 ? `${formatRate(m.weight)} trips/h · ${away.toFixed(1)} ô tới ${su?.label || 'SU'}` : '',
+            color: distDef.color,
+        });
+
+        return `<g class="layout-piece" ${tip}>${renderHomelandSvgFacility(m)}</g>`;
     }).join('');
+
+    // Climate coverage areas (rounded rectangle with dashed border matching AniimoGuide)
     const coverageShapes = coverage.map(c => {
         const tint = ENVIRONMENT_MODE_COLORS[c.mode] || '#9aa0a8';
-        const shade = (0.12 * (ENVIRONMENT_MODE_SHADE[c.mode] ?? 1)).toFixed(3);
-        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${tint}" fill-opacity="${shade}" />`;
+        const shade = (0.14 * (ENVIRONMENT_MODE_SHADE[c.mode] ?? 1)).toFixed(3);
+        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="0.5" fill="${tint}" fill-opacity="${shade}" />`;
     }).join('');
-    // Its edge goes over the pieces, so the square reads through whatever stands in it.
     const coverageEdges = coverage.map(c => {
         const tint = ENVIRONMENT_MODE_COLORS[c.mode] || '#9aa0a8';
-        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="none"
-            stroke="${tint}" stroke-opacity="0.8" stroke-dasharray="0.35,0.25" stroke-width="0.08" />`;
+        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="0.5" fill="none"
+            stroke="${tint}" stroke-opacity="0.85" stroke-dasharray="0.4 0.25" stroke-width="0.08" />`;
     }).join('');
-    const s = layout.storage;
-    // A line from everything carried to the Storage Unit, each drawn once its first batch is in,
-    // and a ring for the batch it's on (see "Deliveries"), in the same order as `layoutFlows`.
-    const flowList = layoutFlows(layout);
-    const flows = flowList.map(f => `<line x1="${f.x1}" y1="${f.y1}" x2="${f.x2}" y2="${f.y2}" class="layout-flow-line" />`).join('');
-    const rings = flowList.map(f => `<g class="layout-ring" transform="translate(${f.rx.toFixed(2)} ${f.ry.toFixed(2)})">
-            <circle r="${f.ring.toFixed(2)}" class="ring-track" /><circle r="${f.ring.toFixed(2)}" class="ring-fill" pathLength="1" stroke-dasharray="0 1" transform="rotate(-90)" /></g>`).join('');
-    const totalTrips = layout.pieces.flatMap(p => p.members).reduce((sum, m) => sum + (m.weight || 0), 0);
+
     return `<svg class="layout-svg" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" role="img" aria-label="Homeland layout">
         <defs><pattern id="layout-locked" width="1" height="1" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="1" class="layout-hatch" /></pattern></defs>
         <g class="env-grid">${lines.join('')}</g>
         <g class="layout-plots">${plotShapes}</g>
+        <g class="layout-districts-layer">${districtShapes}</g>
         <g class="layout-coverage">${coverageShapes}</g>
         ${shapes}
         <g class="layout-coverage-edges" pointer-events="none">${coverageEdges}</g>
-        <g class="layout-rings" pointer-events="none">${rings}</g>
-        <g class="layout-flows" pointer-events="none">${flows}<g class="layout-dots"></g></g>
         ${(() => {
             const members = layout.pieces.flatMap(p => p.members);
             const genPiece = members.find(m => m.facility === 'Crackle Generator' || m.facility === 'Generator' || m.generator);
@@ -2346,7 +2395,7 @@ function homelandSvg(layout, homeLevel) {
                     <!-- Crackle Generator 11x11 Square Grid -->
                     <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
                         fill="#06b6d4" fill-opacity="0.06" stroke="#06b6d4" stroke-opacity="0.6" stroke-width="0.16" stroke-dasharray="0.8 0.4" />
-                    <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.72" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Crackle Generator (11×11 Grid)</text>`;
+                    <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.65" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Crackle Generator (11×11 Grid - Ước tính)</text>`;
 
                 let lastNode = genCenter;
                 poles.forEach((pole, idx) => {
@@ -2360,20 +2409,24 @@ function homelandSvg(layout, homeLevel) {
                         <!-- Power Transmission Cable -->
                         <line x1="${lastNode.x}" y1="${lastNode.y}" x2="${pCenter.x}" y2="${pCenter.y}"
                             stroke="#06b6d4" stroke-width="0.14" stroke-dasharray="0.4 0.2" stroke-opacity="0.75" />
-                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.55" fill="#eab308" font-weight="600" text-anchor="middle">⚡ Pole #${idx + 1} (7×7 Relay)</text>
+                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">⚡ Pole #${idx + 1} (7×7 Relay)</text>
                     `;
                     lastNode = pCenter;
                 });
                 aura += `</g>`;
             }
+            const suImgUrl = getFacilityIconUrl('Storage Unit');
             const suElements = storages.map((su, idx) => {
                 const roleColors = { central: '#eab308', farm: '#10b981', workshop: '#06b6d4', forestry: '#059669', expansion: '#8b5cf6' };
                 const suColor = roleColors[su.role] || '#f59e0b';
                 const suLabel = su.label || `SU ${idx + 1}`;
-                const suTrips = layout.pieces.flatMap(p => p.members).filter(m => m.closestStorage === su.id).reduce((sum, m) => sum + (m.weight || 0), 0);
-                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" ${tipAttrs(suLabel, { detail: `Dedicated hub: ${su.role || 'All-purpose'}`, stats: suTrips > 0 ? `${formatRate(suTrips)} trips/hour` : 'Logistics hub', color: suColor })}>
-                    <rect x="${su.x + 0.04}" y="${su.y + 0.04}" width="${su.w - 0.08}" height="${su.h - 0.08}" rx="0.25" fill="${suColor}" fill-opacity="0.88" stroke="#ffffff" stroke-width="0.08" class="layout-storage" />
-                    <text x="${su.x + su.w / 2}" y="${su.y + su.h / 2}" font-size="0.65" font-weight="800" fill="#000000" class="layout-storage-text">SU ${idx + 1}</text>
+                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" ${tipAttrs(suLabel, { detail: `Thiết bị lưu trữ: ${su.role || 'All-purpose'}`, color: suColor })}>
+                    <rect x="${su.x + 0.04}" y="${su.y + 0.04}" width="${su.w - 0.08}" height="${su.h - 0.08}" rx="0.22" fill="#131c17" fill-opacity="0.65" stroke="${suColor}" stroke-width="0.06" class="homeland-facility-base" />
+                    <image href="${suImgUrl}" x="${su.x + 0.06}" y="${su.y + 0.04}" width="${su.w - 0.12}" height="${su.h - 0.08}" preserveAspectRatio="xMidYMid meet" class="homeland-building-sprite" onerror="this.style.display='none'" />
+                    <g class="homeland-su-badge" pointer-events="none">
+                        <circle cx="${su.x + su.w / 2}" cy="${su.y + su.h / 2}" r="0.42" fill="${suColor}" stroke="#0f172a" stroke-width="0.08" />
+                        <text x="${su.x + su.w / 2}" y="${su.y + su.h / 2 + 0.15}" font-size="0.45" font-weight="800" fill="#0f172a" text-anchor="middle">${idx + 1}</text>
+                    </g>
                 </g>`;
             }).join('');
             return aura + suElements;

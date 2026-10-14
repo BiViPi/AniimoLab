@@ -328,11 +328,68 @@ export const FACILITY_FOOTPRINTS = {
     'Dance Pad Polisher': [2.5, 2.5],
     'Aniipod Maker': [4.5, 4.5],
     'Storage Unit': [2, 2],
+    'Hatchinator': [2, 2],
     'Crackle Generator': [2, 2],
     'Generator': [2, 2],
     'Crackle Power Pole': [1.5, 1.5],
     'Power Pole': [1.5, 1.5],
 };
+
+// Homeland functional districts for visual categorization and auto-layout grouping
+export const LAYOUT_DISTRICTS = [
+    { id: 'agriculture', nameVi: 'Nông Nghiệp', nameEn: 'Agriculture', color: '#10b981', icon: '🌾' },
+    { id: 'kitchen', nameVi: 'Ẩm Thực & Bếp', nameEn: 'Kitchen & Food', color: '#f59e0b', icon: '🍳' },
+    { id: 'industry', nameVi: 'Đại Công Xưởng', nameEn: 'Heavy Industry', color: '#3b82f6', icon: '⚙️' },
+    { id: 'gathering', nameVi: 'Khai Thác & Rừng', nameEn: 'Forestry & Mining', color: '#14b8a6', icon: '🌲' },
+    { id: 'leisure', nameVi: 'Nghỉ Dưỡng & Aniimo', nameEn: 'Leisure & Living', color: '#a855f7', icon: '✨' },
+    { id: 'utility', nameVi: 'Hạ Tầng & Kho', nameEn: 'Utility & Storage', color: '#eab308', icon: '📦' },
+];
+
+export const LAYOUT_DISTRICT_BY_FACILITY = {
+    'Farmland': 'agriculture',
+    'Well': 'agriculture',
+    'Dewy House': 'agriculture',
+    'Heat Furnace': 'agriculture',
+    'Cooling Unit': 'agriculture',
+    'Sunlamp': 'agriculture',
+
+    'Blazing Stove': 'kitchen',
+    'Simmering Pot': 'kitchen',
+    'Claw Game Cooker': 'kitchen',
+    'Bouncy Brew Keg': 'kitchen',
+    'Pickling Jar': 'kitchen',
+    'Jukebox Dryer': 'kitchen',
+
+    'Crafting Table': 'industry',
+    'Woodworking Bench': 'industry',
+    'Joy Wheel Loom': 'industry',
+    'Carousel Mill': 'industry',
+    'Chimney Kiln': 'industry',
+    'Aniipod Maker': 'industry',
+    'Dance Pad Polisher': 'industry',
+    'Phonolfactory Table': 'industry',
+
+    'Woodland': 'gathering',
+    'Mine': 'gathering',
+
+    'Nimbus Bed': 'leisure',
+    'Starfall Hammock': 'leisure',
+    'Tidewhisper Sandcastle': 'leisure',
+    'Floral Windmill': 'leisure',
+    'Hatchinator': 'leisure',
+
+    'Storage Unit': 'utility',
+    'Crackle Generator': 'utility',
+    'Generator': 'utility',
+    'Crackle Power Pole': 'utility',
+    'Power Pole': 'utility',
+};
+
+export function getFacilityDistrict(facilityName) {
+    if (!facilityName) return 'utility';
+    const clean = facilityName.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+    return LAYOUT_DISTRICT_BY_FACILITY[clean] || 'industry';
+}
 
 // The homeland: a 4x4 grid of plots, each 20 tiles wide and 15 tall, plot n opening at RV n (and
 // all of them from RV 16). Rows from the top, by plot number; the first opens bottom middle.
