@@ -4377,8 +4377,8 @@ export function getRecommendedWorker(ability, minLevel = 1, preferPrismana = tru
     let alternatives = [];
 
     // CRITICAL: Luôn ưu tiên dùng Aniimo có cấp độ gia viên cao nhất, tránh đề xuất cấp 1, 2!
-    // 1. Ưu tiên số 1: Prismana Lv.4 (cấp cao nhất trong game cho mọi công việc)
-    if (pool.prismana_lv4 && pool.prismana_lv4.length > 0) {
+    // 1. Ưu tiên số 1: Prismana Lv.4 (cấp cao nhất trong game cho mọi công việc khi preferPrismana = true)
+    if (preferPrismana && pool.prismana_lv4 && pool.prismana_lv4.length > 0) {
         // Lọc unique các loài Prismana theo tên và sort theo base_level giảm dần
         const seenNames = new Set();
         const uniquePrismana = [];
@@ -4537,24 +4537,29 @@ export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel
  * @param {string} specificName - Optional specific Aniimo name override
  * @returns {string} HTML markup
  */
-export function renderAniimoWorkerCard(ability, minLevel = 1, note = '', compact = false, specificName = '') {
+export function renderAniimoWorkerCard(ability, minLevel = 1, note = '', compact = false, specificName = '', preferPrismana = true) {
     let worker = null;
     let isPrismana = false;
-    let workerLevel = typeof minLevel === 'number' ? minLevel : 3;
+    let workerLevel = typeof minLevel === 'number' ? minLevel : (preferPrismana ? 4 : 3);
     let alternatives = [];
 
     if (specificName) {
         const found = ANIIMO_DB.find(a => a.name.toLowerCase() === specificName.toLowerCase());
         if (found) {
             const ab = found.abilities.find(a => a.ability_en === ability) || found.abilities[0];
-            isPrismana = found.is_prismana && ((ab?.prismana_level || 0) >= 4);
-            workerLevel = isPrismana ? (ab?.prismana_level || 4) : Math.min(3, ab?.base_level || 3);
+            if (preferPrismana) {
+                isPrismana = found.is_prismana && ((ab?.prismana_level || 0) >= 4);
+                workerLevel = isPrismana ? (ab?.prismana_level || 4) : 4;
+            } else {
+                isPrismana = false;
+                workerLevel = 3;
+            }
             worker = found;
         }
     }
 
     if (!worker) {
-        const rec = getRecommendedWorker(ability, minLevel, true);
+        const rec = getRecommendedWorker(ability, workerLevel, preferPrismana);
         if (rec && rec.primary) {
             worker = rec.primary;
             isPrismana = rec.isPrismana;

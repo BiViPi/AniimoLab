@@ -407,114 +407,145 @@ export function validateInvariants(facility, targetMode, stepCount) {
     return { valid: true };
 }
 
-window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode, clickedBtn) {
+window.onWorksheetModeClick = function(facility, targetMode, stepCount, currentMode, clickedBtn, stepIndex) {
     if (!lastPlan || !lastPlan.success) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+
+    // Chuẩn hóa tên mode: specialist được đồng nhất với prismana
+    if (targetMode === 'specialist') targetMode = 'prismana';
+    if (currentMode === 'specialist') currentMode = 'prismana';
     if (currentMode === targetMode) return;
     if (targetMode === 'electric' && selectedHomeLevel() < 12) return;
 
-    const wattsPerUnit = FACILITY_POWER_WATTS[facility] || 0;
+    const rawFac = facility || '';
+    const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+    const facDef = FACILITIES.find(f => f.name === baseFac);
+    const wattsPerUnit = (selectedHomeLevel() >= 12 && facDef?.supportsEmode) ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
     const generatorCapacity = getGeneratorCapacity();
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
-    // Lấy số lượng máy chạy điện hiện tại từ trạng thái điện đang kích hoạt
+    // Lấy số lượng máy chạy điện hiện tại
     const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)) };
     const currentWatts = calculatePowerWatts(currentCounts);
 
-    // 1. Kiểm tra nếu chuyển sang Điện (Electric)
+    // 1. Kiểm tra công suất nếu chuyển sang Điện
     if (targetMode === 'electric') {
         const addedWatts = wattsPerUnit * stepCount;
         const projectedWatts = currentWatts + addedWatts;
 
         if (projectedWatts > maxWatts) {
             showInvariantWarning(
-                facility,
+                baseFac,
                 `Vượt công suất tối đa của lưới điện: cần thêm ${addedWatts}W (tổng ${projectedWatts}W / ${maxWatts}W tối đa)!`
             );
-            return; // TỪ CHỐI TÍNH TOÁN!
+            return;
         }
 
-        currentCounts[facility] = (currentCounts[facility] || 0) + stepCount;
+        currentCounts[baseFac] = (currentCounts[baseFac] || 0) + stepCount;
     } else {
         // 2. Chuyển từ Điện sang Thường hoặc Prismana: giảm công suất tương ứng
         if (currentMode === 'electric') {
-            currentCounts[facility] = Math.max(0, (currentCounts[facility] || stepCount) - stepCount);
-        }
-    }
-
-    // 3. Đồng bộ vào facilityOverrides để chuyển sang solver
-    let ovr = facilityOverrides.find(o => o.facility === facility);
-    if (!ovr) {
-        const facLevel = (facility === 'Mine' ? 5 : (facility === 'Well' ? 4 : 1));
-        ovr = { facility, level: facLevel, electric_count: 0, specialist_count: 0, manual_count: 0 };
-        facilityOverrides.push(ovr);
-    }
-
-    if (facility === 'Mine') {
-        const earth4pQuota = getSpecialistQuotas().earth_4p_mines ?? 3;
-        if (targetMode === 'electric') {
-            ovr.specialist_count = earth4pQuota;
-            ovr.electric_count = currentCounts['Mine'] || 0;
-            ovr.manual_count = 0;
-        } else if (targetMode === 'specialist') {
-            ovr.specialist_count = Math.min(8, earth4pQuota + stepCount);
-            ovr.electric_count = currentCounts['Mine'] || 0;
-            ovr.manual_count = 0;
-        } else {
-            ovr.specialist_count = earth4pQuota;
-            ovr.manual_count = stepCount;
-            ovr.electric_count = currentCounts['Mine'] || 0;
-        }
-    } else if (facility === 'Well') {
-        const water4fQuota = getSpecialistQuotas().water_4f_wells ?? 0;
-        if (targetMode === 'electric') {
-            ovr.specialist_count = water4fQuota;
-            ovr.electric_count = currentCounts['Well'] || 0;
-            ovr.manual_count = 0;
-        } else if (targetMode === 'specialist') {
-            ovr.specialist_count = Math.min(3, (ovr.specialist_count || 0) + stepCount);
-            ovr.electric_count = currentCounts['Well'] || 0;
-            ovr.manual_count = 0;
-        } else {
-            ovr.specialist_count = water4fQuota;
-            ovr.manual_count = stepCount;
-            ovr.electric_count = currentCounts['Well'] || 0;
-        }
-    } else {
-        if (targetMode === 'electric') {
-            ovr.electric_count = currentCounts[facility] || 0;
-            ovr.manual_count = 0;
-            ovr.specialist_count = 0;
-        } else {
-            ovr.manual_count = stepCount;
-            ovr.electric_count = currentCounts[facility] || 0;
-            ovr.specialist_count = 0;
+            currentCounts[baseFac] = Math.max(0, (currentCounts[baseFac] || stepCount) - stepCount);
         }
     }
 
     lastEmodeCounts = currentCounts;
 
+    // Tìm đúng step cần cập nhật
+    let targetStep = null;
+    if (typeof stepIndex === 'number' && stepIndex >= 0 && lastPlan.coin_items && lastPlan.coin_items[stepIndex]) {
+        targetStep = lastPlan.coin_items[stepIndex];
+    }
+    if (!targetStep && lastPlan.coin_items) {
+        targetStep = lastPlan.coin_items.find(s => s.facility.includes(baseFac));
+    }
+
+    if (targetStep) {
+        const oldMode = targetStep.mode || currentMode;
+
+        // Tỷ lệ tốc độ theo chế độ:
+        // - Prismana (Lv.4 + 20% personality): 1.0 (chuẩn tối ưu của solver)
+        // - Thường / Manual (Lv.3 + 20% personality): 0.80 (chậm hơn 20% theo công thức game)
+        // - Điện / Electric: 0.833 (tốc độ chuẩn máy điện tự động)
+        function getModeSpeed(m) {
+            if (m === 'electric') return 0.833;
+            if (m === 'manual') return 0.80;
+            return 1.0;
+        }
+
+        const oldSpeed = getModeSpeed(oldMode);
+        const newSpeed = getModeSpeed(targetMode);
+        const speedRatio = newSpeed / oldSpeed;
+
+        // Cập nhật targetStep
+        targetStep.mode = targetMode;
+        targetStep.is_emode = (targetMode === 'electric');
+        targetStep.is_specialist = (targetMode === 'prismana');
+        targetStep.is_manual = (targetMode === 'manual');
+
+        if (targetStep.cycle_time) {
+            targetStep.cycle_time = Math.round((targetStep.cycle_time / speedRatio) * 10) / 10;
+        }
+
+        // Cập nhật Aniimo tương ứng trên step
+        if (targetMode === 'electric') {
+            targetStep.aniimo = null;
+        } else if (targetMode === 'manual') {
+            const ability = facDef?.ability || targetStep.aniimo?.ability || 'Artisanship';
+            targetStep.aniimo = { ability, level: 3, personality_bonus: true };
+            if (targetStep.aniimo_tasks) {
+                targetStep.aniimo_tasks.forEach(t => { t.level = 3; });
+            }
+        } else {
+            const ability = facDef?.ability || targetStep.aniimo?.ability || 'Artisanship';
+            targetStep.aniimo = { ability, level: 4, personality_bonus: true };
+            if (targetStep.aniimo_tasks) {
+                targetStep.aniimo_tasks.forEach(t => { t.level = 4; });
+            }
+        }
+
+        // Cập nhật income_streams cho sản phẩm này
+        if (targetStep.item_name && lastPlan.income_streams) {
+            const baseItem = targetStep.item_name.replace(/__(specialist|manual)$/, '');
+            for (const s of lastPlan.income_streams) {
+                const sBase = s.item_name.replace(/__(specialist|manual)$/, '');
+                if (sBase === baseItem || s.item_name === targetStep.item_name) {
+                    s.units_per_second *= speedRatio;
+                    s.rate_per_second *= speedRatio;
+                }
+            }
+        }
+
+        // Cập nhật lại tổng doanh thu / giây
+        if (lastPlan.income_streams && lastPlan.income_streams.length > 0) {
+            lastPlan.rate_per_second = lastPlan.income_streams.reduce((acc, s) => acc + (s.rate_per_second || 0), 0);
+        }
+    }
+
     // Hiển thị nút Reset Overrides
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // Cập nhật thanh điện ngay lập tức (cộng/trừ đúng số watt tương ứng)
+    // Cập nhật thanh điện ngay lập tức
     updatePowerGauge(lastEmodeCounts);
 
-    // Optimistic UI (0ms) trên hàng được click
-    if (clickedBtn) {
-        const pillsContainer = clickedBtn.closest('.mode-selector-pills');
-        if (pillsContainer) {
-            pillsContainer.querySelectorAll('.mode-pill').forEach(btn => btn.classList.remove('active'));
-            clickedBtn.classList.add('active');
-        }
-    }
+    // Cập nhật hiển thị thu nhập / giờ
+    updateRateDisplay();
 
-    // Debounce 150ms kích hoạt Fast Re-solve
-    clearTimeout(fastResolveDebounceTimer);
-    fastResolveDebounceTimer = setTimeout(async () => {
-        await runFastReSolve();
-    }, 150);
+    // Cập nhật bảng phân tích doanh thu
+    renderProfitBreakdown(lastPlan);
+
+    // Cập nhật lại Interactive Worksheet (giữ nguyên toàn bộ phân bổ cơ sở, chỉ render lại bảng)
+    renderFacilityPlan(lastPlan);
+
+    // Hiển thị benchmark badge thông báo
+    const badge = document.getElementById('fast-resolve-benchmark-badge');
+    if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.innerHTML = `⚡ ${isVi ? 'Đã cập nhật chế độ' : 'Mode Updated'}`;
+        setTimeout(() => { badge.style.display = 'none'; }, 2000);
+    }
 };
 
 export async function runFastReSolve() {
@@ -4956,23 +4987,25 @@ function abilityDot(name, level, note) {
     return `<span class="ability-dot${a && a.dark ? ' dark' : ''}${note ? ' bonus' : ''}" style="--ability:${color}" title="${tip}" aria-label="${tip}">${level}</span>`;
 }
 
-function renderCropHarvestBadge(step, tasks, baseFac) {
+function renderCropHarvestBadge(step, tasks, baseFac, preferPrismana = true) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const isFarmland = baseFac === 'Farmland';
     let harvestTask = (tasks || []).find(t => t.jobs && t.jobs.some(j => j === 'Reaping' || j === 'Logging' || j === 'Collecting'));
     if (!harvestTask) {
         harvestTask = isFarmland
-            ? ((tasks || []).find(t => t.ability === 'Dark') || { ability: 'Dark', level: 3 })
-            : ((tasks || []).find(t => t.ability === 'Grass') || { ability: 'Grass', level: 3 });
+            ? ((tasks || []).find(t => t.ability === 'Dark') || { ability: 'Dark', level: preferPrismana ? 4 : 3 })
+            : ((tasks || []).find(t => t.ability === 'Grass') || { ability: 'Grass', level: preferPrismana ? 4 : 3 });
     }
     const ability = harvestTask.ability || (isFarmland ? 'Dark' : 'Grass');
-    const level = harvestTask.level || (ability === 'Dark' ? 4 : 3);
-    const workerName = ability === 'Dark' ? 'Pawney' : 'Irisal';
-    const workerCard = renderAniimoWorkerCard(ability, level, '', true, workerName);
-    const roleTitle = isVi ? 'Thu hoạch' : 'Harvest';
+    const level = preferPrismana ? 4 : 3;
+    const workerName = preferPrismana
+        ? (ability === 'Dark' ? 'Pawney' : 'Irisal')
+        : (ability === 'Dark' ? 'Celestis' : 'Leaffy');
+    const workerCard = renderAniimoWorkerCard(ability, level, '', true, workerName, preferPrismana);
+    const roleTitle = isVi ? (preferPrismana ? 'Thu hoạch' : 'Thu hoạch (T)') : (preferPrismana ? 'Harvest' : 'Harvest (M)');
     const tip = isVi
-        ? `Thu hoạch: Hệ ${ability} · Phụ trách bởi Tổ Đội Đồng Áng tập trung (${workerName})`
-        : `Harvest: ${ability} · Managed by Unified Farming Crew (${workerName})`;
+        ? `Thu hoạch: Hệ ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Thường Lv.3'} (${workerName})`
+        : `Harvest: ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Normal Lv.3'} (${workerName})`;
 
     return `<div class="farm-harvest-single-cell" title="${tip}">
         ${workerCard}
@@ -5150,41 +5183,58 @@ function aniimoLabel(step) {
     const emodeAvailable = selectedHomeLevel() >= 12;
     const rawFac = step.facility || '';
     const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-    const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
-    const isElectric = emodeAvailable && !isSpecialist && !step.is_manual && !rawFac.includes('(Manual)') && (step.is_emode || rawFac.includes('(Electric)') || ((lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well'));
 
-    if (isElectric && step.status === 'producing' && !rawFac.includes('(Manual)') && !isSpecialist) {
+    // Xác định chế độ hiện tại của step
+    let mode = step.mode;
+    if (!mode) {
+        if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
+            mode = 'electric';
+        } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
+            mode = 'manual';
+        } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
+            mode = 'prismana';
+        } else {
+            const facDef = FACILITIES.find(f => f.name === baseFac);
+            const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
+            mode = (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well')
+                ? 'electric'
+                : 'prismana';
+        }
+        step.mode = mode;
+    }
+
+    if (mode === 'electric' && emodeAvailable) {
         const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
         const label = isVi ? '⚡ Chế độ điện' : '⚡ E-mode';
         return `<span class="tag emode-tag" title="${title}">${label}</span>`;
     }
-    if ((step.is_manual || rawFac.includes('(Manual)')) && step.status === 'producing' && !step.aniimo) {
-        const title = isVi
-            ? 'Chế độ thủ công; không nằm trong phân bổ công suất điện'
-            : 'Manual mode; not included in the electric power allocation';
-        const label = isVi ? 'Thủ công' : 'Manual';
-        return `<span class="tag" title="${title}">${label}</span>`;
-    }
-    const a = step.aniimo;
-    if (!a) {
-        // Crops and trees: check if it's Farmland or Woodland
+
+    const preferPrismana = (mode === 'prismana' || mode === 'specialist');
+    const workerLevel = preferPrismana ? 4 : 3;
+
+    // Crops and trees: check if it's Farmland or Woodland
+    if (baseFac === 'Farmland' || baseFac === 'Woodland') {
         const tasks = step.aniimo_tasks || [];
-        if (tasks.length === 0) return '-';
-        if (baseFac === 'Farmland' || baseFac === 'Woodland') {
-            return renderCropHarvestBadge(step, tasks, baseFac);
-        }
-        return renderAniimoTasksCluster(tasks, step.facility);
+        return renderCropHarvestBadge(step, tasks, baseFac, preferPrismana);
     }
+
+    // Các cơ sở sản xuất và chế biến khác
+    const facDef = FACILITIES.find(f => f.name === baseFac);
+    const personality = facDef?.personality;
     let note = '';
-    if (a.personality_bonus) {
-        const personality = FACILITIES.find(f => f.name === step.facility)?.personality;
+    if (personality) {
         const persName = (isVi && window.VI_PERSONALITIES && window.VI_PERSONALITIES[personality]) ? window.VI_PERSONALITIES[personality] : personality;
         note = isVi
-            ? `${personality ? `Tính cách ${persName}` : 'tính cách tương thích'} (+20% tốc độ)`
-            : `${personality ? `${personality} personality` : 'matching personality'} (+20% speed)`;
+            ? `Tính cách ${persName} (+20% tốc độ)`
+            : `${personality} personality (+20% speed)`;
+    } else {
+        note = isVi ? 'Tính cách tương thích (+20% tốc độ)' : 'Matching personality (+20% speed)';
     }
-    const specificWorker = getFacilitySpecificWorker(step.facility, step.item_name, step.facility_level);
-    return renderAniimoWorkerCard(a.ability, a.level, note, false, specificWorker);
+
+    const ability = facDef?.ability || step.aniimo?.ability || 'Artisanship';
+    const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
+
+    return renderAniimoWorkerCard(ability, workerLevel, note, false, specificWorker, preferPrismana);
 }
 
 // "Fire Lv.4 · Practical": one kind of Aniimo, with the facility's personality when the plan
@@ -5254,25 +5304,29 @@ function planRows(rows) {
         const isWell = baseFac === 'Well';
         const facDef = FACILITIES.find(f => f.name === baseFac);
         const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
-        const isSupportedMultiMode = isMine || isWell || supportsEmode;
 
         // Xác định mode hiện tại:
-        let currentMode = 'manual';
-        if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
-            currentMode = 'specialist';
-        } else if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
-            currentMode = 'electric';
-        } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
-            currentMode = 'manual';
-        } else {
-            const ovr = facilityOverrides.find(o => o.facility === baseFac);
-            if (ovr) {
-                if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
-                else if (ovr.specialist_count > 0) currentMode = 'specialist';
-                else if (ovr.manual_count > 0) currentMode = 'manual';
-            } else if (emodeAvailable && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+        let currentMode = step.mode;
+        if (!currentMode) {
+            if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
                 currentMode = 'electric';
+            } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
+                currentMode = 'manual';
+            } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
+                currentMode = 'prismana';
+            } else {
+                const ovr = facilityOverrides.find(o => o.facility === baseFac);
+                if (ovr) {
+                    if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
+                    else if (ovr.specialist_count > 0) currentMode = 'prismana';
+                    else if (ovr.manual_count > 0) currentMode = 'manual';
+                } else if (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+                    currentMode = 'electric';
+                } else {
+                    currentMode = 'prismana';
+                }
             }
+            step.mode = currentMode;
         }
 
         // Tính wattage badge:
@@ -5280,25 +5334,28 @@ function planRows(rows) {
         const totalWatts = (emodeAvailable && currentMode === 'electric') ? wattsPerUnit * step.facility_count : 0;
         const powerBadge = totalWatts > 0 ? `<span class="facility-power-badge">⚡ ${totalWatts}W</span>` : '';
 
-        // Mode selector pills
-        let modeControls = `<span class="mode-static">${isVi ? 'Mặc định' : 'Default'}</span>`;
-        if (baseFac !== 'Farmland' && baseFac !== 'Woodland') {
-            if (emodeAvailable && isSupportedMultiMode) {
-                modeControls = `
-                    <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
-                        <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
-                        ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
-                        <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
-                    </div>
-                `;
-            } else if (!emodeAvailable && (isMine || isWell)) {
-                modeControls = `
-                    <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
-                        <button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>
-                        <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
-                    </div>
-                `;
-            }
+        // Index của step trong lastPlan.coin_items
+        const stepIndex = (lastPlan?.coin_items || []).indexOf(step);
+
+        // Mode selector pills: TUYỆT ĐỐI KHÔNG CÒN "Mặc định"
+        let modeControls = '';
+        if (emodeAvailable && supportsEmode) {
+            // RV 12 trở đi: có 3 chế độ (Điện, Prismana, Thường) cho cơ sở hỗ trợ điện
+            modeControls = `
+                <div class="mode-selector-pills" data-fac="${baseFac}" data-step-index="${stepIndex}">
+                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
+                    <button type="button" class="mode-pill pill-specialist ${currentMode === 'prismana' || currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'prismana', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Prismana Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Prismana'}</button>
+                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Thủ công Cấp 3' : 'Manual Lv.3'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                </div>
+            `;
+        } else {
+            // RV 1 đến 11 HOẶC cơ sở không hỗ trợ điện (Nông trại, Rừng cây, Nhà Dewy, Giường cỏ mây, Lâu đài cát...): 2 nút (Prismana, Thường)
+            modeControls = `
+                <div class="mode-selector-pills" data-fac="${baseFac}" data-step-index="${stepIndex}">
+                    <button type="button" class="mode-pill pill-specialist ${currentMode === 'prismana' || currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'prismana', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Prismana Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Prismana'}</button>
+                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Thủ công Cấp 3' : 'Manual Lv.3'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                </div>
+            `;
         }
 
         return `
