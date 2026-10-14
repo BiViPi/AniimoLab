@@ -4184,8 +4184,9 @@ function integrateSeasonPlan(plan) {
 
     // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo các quy tắc
     const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
+    const newAssignments = JSON.parse(JSON.stringify(plan.environment_assignments || []));
 
-    // Nếu có món cần Kẹo đá, thêm 1 ô Farmland trồng Mía
+    // Nếu có món cần Kẹo đá, thêm 1 ô Farmland trồng Mía (Mía bắt buộc trồng trong Lò Sưởi chế độ Bỏng Cháy - Scorching)
     const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
     if (needsRockCandy) {
         newSteps.push({
@@ -4196,8 +4197,32 @@ function integrateSeasonPlan(plan) {
             cycle_time: 2400,
             is_grower: true,
             reason: isVi ? 'Dùng cho Kẹo đá; phần còn lại bán trực tiếp' : 'Used for rock_candy; the rest sells directly',
-            environment: null
+            environment: 'Scorching'
         });
+
+        // Bổ sung phân bổ ô đất trong Lò Sưởi Scorching
+        const scorchingAssignment = newAssignments.find(a => a.building === 'Heat Furnace' && a.mode === 'Scorching');
+        if (scorchingAssignment) {
+            if (scorchingAssignment.covered) {
+                const fc = scorchingAssignment.covered.find(c => c.facility === 'Farmland');
+                if (fc) fc.count += 1;
+                else scorchingAssignment.covered.push({ facility: 'Farmland', count: 1 });
+            }
+            if (scorchingAssignment.layouts && scorchingAssignment.layouts[0]) {
+                scorchingAssignment.layouts[0].push({ facility: 'Farmland', x: 2, y: 0, size: 1 });
+            }
+        } else {
+            newAssignments.push({
+                building: 'Heat Furnace',
+                mode: 'Scorching',
+                units: 1,
+                covered: [{ facility: 'Farmland', count: 1 }],
+                layouts: [[{ facility: 'Farmland', x: 0, y: 1, size: 1 }]],
+                partner: null,
+                zone: null,
+                pair_modes: null
+            });
+        }
     }
 
     // Helper kiểm tra xem máy của cơ sở có được cấp điện theo overrides / lastEmodeCounts không
@@ -4397,6 +4422,7 @@ function integrateSeasonPlan(plan) {
         ...plan,
         coin_items: newSteps,
         income_streams: newStreams,
+        environment_assignments: newAssignments,
         rate_per_second: plan.rate_per_second + extraCoinsRate,
         season_points: seasonPointsRate,
         level_up: updatedLevelUp

@@ -159,10 +159,13 @@ const TRANSLATIONS = {
         modules_heading: "Mô-đun",
         total_label: "Tổng cộng",
         not_yet: "chưa mở",
-        free: "miễn phí",
         su_opt_3: "3 Thiết Bị Lưu Trữ (Nông trại, Xưởng, Trung tâm)",
         su_opt_4: "4 Thiết Bị Lưu Trữ (+ Lâm nghiệp)",
-        su_opt_5: "5 Thiết Bị Lưu Trữ (+ Mở rộng)"
+        su_opt_5: "5 Thiết Bị Lưu Trữ (+ Mở rộng)",
+        footer_brand_tagline: "Trình mô phỏng sản xuất & Tối ưu hóa Gia Viên",
+        footer_origin: `Dự án được fork từ repo gốc <a href="https://github.com/ae-bii/aniimax" target="_blank" rel="noopener noreferrer">aniimax</a> của tác giả <strong>ae-bii</strong> (MIT License), và tự phát triển đầy đủ các tính năng cần thiết cho gia viên.`,
+        footer_repo_feedback: `Mã nguồn dự án tại <a href="https://github.com/BiViPi/AniimoLab" target="_blank" rel="noopener noreferrer">BiViPi/AniimoLab</a>. Nếu bạn có đóng góp, phát hiện lỗi hoặc đề xuất tính năng (feedback), vui lòng tạo <a href="https://github.com/BiViPi/AniimoLab/issues" target="_blank" rel="noopener noreferrer">Issue</a> hoặc gửi <a href="https://github.com/BiViPi/AniimoLab/pulls" target="_blank" rel="noopener noreferrer">Pull Request</a>.`,
+        footer_privacy: "Toàn bộ dữ liệu mô phỏng được tính toán trực tiếp trên trình duyệt của bạn với độ bảo mật tuyệt đối, không thu thập dữ liệu cá nhân."
     },
     en: {
         // App header
@@ -307,7 +310,11 @@ const TRANSLATIONS = {
         best_in_time: "best found in time",
         fastest_level_up: "Fastest Level-Up",
         homeland_layout: "Homeland Layout",
-        min_team_plan: "Minimum Team Plan"
+        min_team_plan: "Minimum Team Plan",
+        footer_brand_tagline: "Homeland Production Simulator & Optimizer",
+        footer_origin: `Forked from the original <a href="https://github.com/ae-bii/aniimax" target="_blank" rel="noopener noreferrer">aniimax</a> repository by <strong>ae-bii</strong> (MIT License), and actively developed with comprehensive features for Homeland management.`,
+        footer_repo_feedback: `Source code at <a href="https://github.com/BiViPi/AniimoLab" target="_blank" rel="noopener noreferrer">BiViPi/AniimoLab</a>. For contributions, bug reports, or feature requests, feel free to open an <a href="https://github.com/BiViPi/AniimoLab/issues" target="_blank" rel="noopener noreferrer">Issue</a> or send a <a href="https://github.com/BiViPi/AniimoLab/pulls" target="_blank" rel="noopener noreferrer">Pull Request</a>.`,
+        footer_privacy: "All simulation data is computed strictly in your browser with zero external telemetry."
     }
 };
 
@@ -670,6 +677,15 @@ function applyI18n() {
         if (key) {
             const val = t(key);
             if (val) el.textContent = val;
+        }
+    });
+
+    // 1b. HTML elements with data-i18n-html
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const key = el.getAttribute('data-i18n-html');
+        if (key) {
+            const val = t(key);
+            if (val) el.innerHTML = val;
         }
     });
 
