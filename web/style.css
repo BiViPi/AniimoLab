@@ -3290,6 +3290,86 @@ tr:hover .skip-row,
     font-size: 0.8rem;
 }
 
+/* Toolbar & Zoom Tools */
+.layout-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.layout-zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.layout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.layout-btn:hover {
+    background: var(--accent);
+    color: #0b1310;
+    border-color: var(--accent);
+}
+
+.layout-btn.fit-btn {
+    padding: 0 0.6rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+.layout-btn.reset-btn {
+    padding: 0 0.6rem;
+    font-size: 0.75rem;
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+.layout-btn.reset-btn:hover {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+}
+
+.layout-zoom-text {
+    display: inline-block;
+    min-width: 44px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    user-select: none;
+}
+
+.layout-interaction-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted, #94a3b8);
+    user-select: none;
+}
+
 /* District Layer */
 .layout-districts-layer {
     transition: opacity 0.25s ease;
@@ -3316,9 +3396,31 @@ tr:hover .skip-row,
 }
 
 /* Top-Down Facility Tiles & Real In-Game Building Sprites */
+.layout-svg {
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.layout-svg.is-panning {
+    cursor: grabbing;
+}
+
 .layout-piece {
-    cursor: pointer;
-    transition: transform 0.15s ease;
+    cursor: grab;
+    transition: transform 0.08s ease-out;
+}
+
+.layout-piece.is-dragging {
+    cursor: grabbing !important;
+    filter: drop-shadow(0 0 12px #38bdf8) drop-shadow(0 8px 16px rgba(0, 0, 0, 0.9)) brightness(1.2) !important;
+    opacity: 0.95;
+    z-index: 9999;
+}
+
+.layout-piece.is-dragging .homeland-facility-base {
+    stroke: #38bdf8 !important;
+    stroke-width: 0.16 !important;
 }
 
 .homeland-topdown-tile {

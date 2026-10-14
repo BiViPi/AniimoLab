@@ -1980,7 +1980,7 @@ function homelandPieces(plan, input) {
                 const validSlots = shiftedFarmlandSlots.filter(s => {
                     if (!shPlot) return true;
                     return !(s.x < shPlot.x + (shPlot.size || 5) && shPlot.x < s.x + s.size && s.y < shPlot.y + (shPlot.size || 5) && shPlot.y < s.y + s.size);
-                }).sort((a, b) => Math.hypot(a.x - 1, a.y - 1) - Math.hypot(b.x - 1, b.y - 1));
+                }).sort((a, b) => a.y - b.y || a.x - b.x);
 
                 layout = shPlot ? [{ ...shPlot }, ...validSlots] : validSlots;
             }
@@ -2019,6 +2019,34 @@ function homelandPieces(plan, input) {
         pieces.push({ cluster: true, buildings, plots, planned });
     });
 
+    // Helper: comprehensive electric mode detection
+    const checkIsElectric = (stepOrRow, facName) => {
+        if (!stepOrRow) return false;
+        if (stepOrRow.mode === 'electric' || stepOrRow.is_emode) return true;
+        const fac = stepOrRow.facility || facName || '';
+        if (typeof fac === 'string' && fac.includes('(Electric)')) return true;
+        const baseFac = fac.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+        const item = stepOrRow.item_name || '';
+        if (typeof item === 'string') {
+            if (item.includes('__electric') || item.includes('Siêu Tốc') || item.includes('Chế độ điện')) return true;
+            // Quick fresh water on Well is electric instant craft in E-mode
+            if (baseFac === 'Well' && (item.startsWith('quick_') || item.includes('Nước Sạch'))) return true;
+            // Ginseng Porridge on Simmering Pot when RV >= 12
+            if (baseFac === 'Simmering Pot' && (item.includes('ginseng_porridge') || item.includes('Cháo Nhân Sâm'))) {
+                const curRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
+                if (curRv >= 12) return true;
+            }
+            // Carousel Mill on milled rice when RV >= 12
+            if (baseFac === 'Carousel Mill' && (item.includes('milled_rice') || item.includes('Gạo Xay'))) {
+                const curRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
+                if (curRv >= 12) return true;
+            }
+        }
+        if (input.emode_facility_counts && (input.emode_facility_counts[baseFac] > 0 || input.emode_facility_counts[fac] > 0)) return true;
+        if (typeof lastEmodeCounts === 'object' && lastEmodeCounts && (lastEmodeCounts[baseFac] > 0 || lastEmodeCounts[fac] > 0)) return true;
+        return false;
+    };
+
     // Recipes taking turns on the same units (the Bench's and Kiln's tiers) share them: as many
     // units as their busy time together needs, each running every tier in turn at its share.
     const takesTurns = step => step.status === 'producing' && !!recipeIndex.find(r => r.name === step.item_name)?.turns;
@@ -2034,11 +2062,18 @@ function homelandPieces(plan, input) {
         const n = Math.max(1, Math.ceil(busy - 1e-6));
         const jobs = rows.filter(r => r.cycle_time > 0).map(r => ({ item: r.item_name, cycle: r.cycle_time, rate: (r.busy_units ?? r.facility_count) / r.cycle_time / n }));
         const weight = jobs.reduce((sum, j) => sum + j.rate * 3600, 0);
+        const baseFac = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+        const isElectric = rows.some(r => checkIsElectric(r, facility));
+        const powerWatts = isElectric ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
         for (let i = 0; i < n; i++) {
-            pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight, jobs, cycle: jobs[0]?.cycle, facility, crop: jobs[0]?.item ?? null, sensitive: false }] });
+            pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight, jobs, cycle: jobs[0]?.cycle, facility, crop: jobs[0]?.item ?? null, sensitive: false, isElectric, powerWatts }] });
         }
         count(facility, n);
     });
+
+    // Pack outdoor farmlands and woodlands into neat grid field blocks (row/column-major)
+    const outdoorFarmlands = [];
+    const outdoorWoodlands = [];
 
     // Everything else, one unit at a time; environment crops no map took count here too.
     steps.filter(step => !takesTurns(step)).forEach(step => {
@@ -2054,17 +2089,62 @@ function homelandPieces(plan, input) {
             if (n > 0) unplaced.add(step.facility);
             return;
         }
+
+        const baseFac = step.facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+        const isElectric = checkIsElectric(step, step.facility);
+        const powerWatts = isElectric ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
+        const growing = step.status === 'producing';
+
+        if (baseFac === 'Farmland') {
+            for (let i = 0; i < n; i++) {
+                outdoorFarmlands.push({
+                    weight: tripsPerUnit(step),
+                    cycle: step.cycle_time,
+                    facility: step.facility,
+                    crop: growing ? step.item_name : null,
+                    sensitive: false,
+                    isElectric: false,
+                    powerWatts: 0
+                });
+            }
+            count(step.facility, n);
+            return;
+        }
+
+        if (baseFac === 'Woodland') {
+            for (let i = 0; i < n; i++) {
+                outdoorWoodlands.push({
+                    weight: tripsPerUnit(step),
+                    cycle: step.cycle_time,
+                    facility: step.facility,
+                    crop: growing ? step.item_name : null,
+                    sensitive: false,
+                    isElectric: false,
+                    powerWatts: 0
+                });
+            }
+            count(step.facility, n);
+            return;
+        }
+
         for (let i = 0; i < n; i++) {
-            // A crop that needs an environment but is grown without one stays out of every
-            // coverage square, so no building's temperature changes it.
-            const growing = step.status === 'producing';
-            pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight: tripsPerUnit(step), cycle: step.cycle_time, facility: step.facility, crop: growing ? step.item_name : null, sensitive: growing && needsEnvironment(step.item_name) }] });
+            pieces.push({
+                members: [{
+                    x: 0, y: 0, w: footprint[0], h: footprint[1],
+                    weight: tripsPerUnit(step),
+                    cycle: step.cycle_time,
+                    facility: step.facility,
+                    crop: growing ? step.item_name : null,
+                    sensitive: growing && needsEnvironment(step.item_name),
+                    isElectric,
+                    powerWatts
+                }]
+            });
         }
         count(step.facility, n);
     });
 
     // What's owned but not in the plan at all, such as extra workshops or storage.
-    // Unused environment buildings (Cooling Unit, Heat Furnace, Sunlamp) are NOT placed on the board to avoid wasting space or confusing the layout.
     FACILITIES.forEach(f => {
         const owned = tierCount(input.facilities[f.name]);
         const extra = owned - (placed[f.name] || 0);
@@ -2075,13 +2155,80 @@ function homelandPieces(plan, input) {
             unplaced.add(f.name);
             return;
         }
-        for (let i = 0; i < extra; i++) pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight: 0, facility: f.name, crop: null, building: false, mode: null }] });
+
+        if (f.name === 'Farmland') {
+            for (let i = 0; i < extra; i++) {
+                outdoorFarmlands.push({
+                    weight: 0, cycle: 0, facility: f.name, crop: null, sensitive: false, isElectric: false, powerWatts: 0
+                });
+            }
+            return;
+        }
+        if (f.name === 'Woodland') {
+            for (let i = 0; i < extra; i++) {
+                outdoorWoodlands.push({
+                    weight: 0, cycle: 0, facility: f.name, crop: null, sensitive: false, isElectric: false, powerWatts: 0
+                });
+            }
+            return;
+        }
+
+        for (let i = 0; i < extra; i++) {
+            pieces.push({
+                members: [{
+                    x: 0, y: 0, w: footprint[0], h: footprint[1],
+                    weight: 0, facility: f.name, crop: null, building: false, mode: null, isElectric: false, powerWatts: 0
+                }]
+            });
+        }
     });
+
+    // Helper: Pack array of plots into neat rectangular grid field blocks
+    function packFieldChunk(items, slotW, slotH, maxChunkSize = 16) {
+        if (!items.length) return;
+        // Group items by crop so identical crops are clustered together in adjacent rows/cols
+        items.sort((a, b) => (b.crop || '').localeCompare(a.crop || '') || (b.weight || 0) - (a.weight || 0));
+
+        for (let start = 0; start < items.length; start += maxChunkSize) {
+            const chunk = items.slice(start, start + maxChunkSize);
+            const total = chunk.length;
+            // Determine neat column count: 3 for 5-6 items, 4 for 7-8 or >= 11 items, 5 for 10 items
+            let cols = 2;
+            if (total <= 2) cols = total;
+            else if (total <= 4) cols = 2;
+            else if (total === 5 || total === 6) cols = 3;
+            else if (total === 7 || total === 8) cols = 4;
+            else if (total === 9) cols = 3;
+            else if (total === 10) cols = 5;
+            else if (total >= 11 && total <= 16) cols = 4;
+            else cols = Math.min(5, Math.ceil(Math.sqrt(total)));
+
+            const members = chunk.map((m, idx) => {
+                const c = idx % cols;
+                const r = Math.floor(idx / cols);
+                return {
+                    ...m,
+                    x: c * slotW,
+                    y: r * slotH,
+                    w: slotW,
+                    h: slotH,
+                };
+            });
+            pieces.push({ members, isFieldBlock: true, facility: items[0].facility });
+        }
+    }
+
+    // Pack outdoor farmlands (2x2 each) and woodlands (4x4 each)
+    packFieldChunk(outdoorFarmlands, 2, 2, 16);
+    packFieldChunk(outdoorWoodlands, 4, 4, 6);
 
     // Add Crackle Generator (2x2) and Crackle Power Poles (1.5x1.5) when Electric Mode is active
     const isEmodeActive = (document.getElementById('emode-simple-on')?.checked ?? true) || !!document.getElementById('emode-on')?.checked;
-    const hasElectricFacilities = (plan.coin_items || []).some(s => s.facility?.includes('(Electric)')) || (input.emode_facility_counts && Object.values(input.emode_facility_counts).some(c => c > 0));
+    const hasElectricFacilities = (plan.coin_items || []).some(s => s.facility?.includes('(Electric)')) ||
+        (input.emode_facility_counts && Object.values(input.emode_facility_counts).some(c => c > 0)) ||
+        pieces.some(p => p.members?.some(m => m.isElectric));
     const currentRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
+
     if ((isEmodeActive || currentRv >= 12) && hasElectricFacilities) {
         // Crackle Generator (official 2x2 footprint, 11x11 square range)
         pieces.push({
@@ -2090,11 +2237,13 @@ function homelandPieces(plan, input) {
                 weight: 0,
                 facility: 'Crackle Generator',
                 generator: true,
-                sensitive: false
+                sensitive: false,
+                isElectric: false,
+                powerWatts: 0
             }]
         });
-        // Crackle Power Poles (official 1.5x1.5 footprint, 7x7 square relay range, up to 2-3 poles for network extension)
-        const poleCount = currentRv >= 12 ? Math.min(3, Math.floor((currentRv - 10) / 2)) : 0;
+        // Crackle Power Poles (official 1.5x1.5 footprint, 7x7 square relay range)
+        const poleCount = currentRv >= 12 ? Math.min(3, Math.max(1, Math.floor((currentRv - 10) / 2))) : 0;
         for (let p = 0; p < poleCount; p++) {
             pieces.push({
                 members: [{
@@ -2102,7 +2251,9 @@ function homelandPieces(plan, input) {
                     weight: 0,
                     facility: 'Crackle Power Pole',
                     powerPole: true,
-                    sensitive: false
+                    sensitive: false,
+                    isElectric: false,
+                    powerWatts: 0
                 }]
             });
         }
@@ -2165,9 +2316,205 @@ function attachLayoutHandlers() {
     });
 }
 
+let layoutSvgState = {
+    origViewBox: null,
+    currentViewBox: null,
+    lastWhole: false,
+    isPanning: false,
+    panStart: { x: 0, y: 0 },
+    isDragging: false,
+    dragTarget: null,
+    grabOffset: { x: 0, y: 0 },
+    customPositions: new Map(), // key: `${pIdx}_${mIdx}` or `su_${idx}` => { x, y }
+};
+
+function initLayoutInteraction(svg) {
+    if (!svg) return;
+
+    const zoomLevelEl = document.getElementById('layout-zoom-level');
+    const updateZoomDisplay = () => {
+        if (!zoomLevelEl || !layoutSvgState.origViewBox || !layoutSvgState.currentViewBox) return;
+        const scale = (layoutSvgState.origViewBox.w / layoutSvgState.currentViewBox.w) * 100;
+        zoomLevelEl.textContent = `${Math.round(scale)}%`;
+    };
+
+    const applyViewBox = () => {
+        if (!layoutSvgState.currentViewBox) return;
+        const { x, y, w, h } = layoutSvgState.currentViewBox;
+        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+        updateZoomDisplay();
+    };
+
+    updateZoomDisplay();
+
+    // Zoom buttons
+    document.getElementById('layout-zoom-in').onclick = () => {
+        if (!layoutSvgState.currentViewBox) return;
+        const factor = 0.8;
+        const cx = layoutSvgState.currentViewBox.x + layoutSvgState.currentViewBox.w / 2;
+        const cy = layoutSvgState.currentViewBox.y + layoutSvgState.currentViewBox.h / 2;
+        const nw = layoutSvgState.currentViewBox.w * factor;
+        const nh = layoutSvgState.currentViewBox.h * factor;
+        layoutSvgState.currentViewBox = { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh };
+        applyViewBox();
+    };
+
+    document.getElementById('layout-zoom-out').onclick = () => {
+        if (!layoutSvgState.currentViewBox) return;
+        const factor = 1.25;
+        const cx = layoutSvgState.currentViewBox.x + layoutSvgState.currentViewBox.w / 2;
+        const cy = layoutSvgState.currentViewBox.y + layoutSvgState.currentViewBox.h / 2;
+        const nw = layoutSvgState.currentViewBox.w * factor;
+        const nh = layoutSvgState.currentViewBox.h * factor;
+        layoutSvgState.currentViewBox = { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh };
+        applyViewBox();
+    };
+
+    document.getElementById('layout-zoom-fit').onclick = () => {
+        if (!layoutSvgState.origViewBox) return;
+        layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
+        applyViewBox();
+    };
+
+    document.getElementById('layout-reset-btn').onclick = () => {
+        layoutSvgState.customPositions.clear();
+        layoutSvgState.origViewBox = null;
+        layoutSvgState.currentViewBox = null;
+        if (lastPlan && lastPlan.success) renderHomelandLayout(lastPlan);
+    };
+
+    // Mouse wheel zoom
+    svg.onwheel = (e) => {
+        e.preventDefault();
+        if (!layoutSvgState.currentViewBox) return;
+        const rect = svg.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+
+        const factor = e.deltaY < 0 ? 0.85 : 1.18;
+        const minW = 6;
+        const maxW = (layoutSvgState.origViewBox?.w || 40) * 3;
+        const nw = Math.min(maxW, Math.max(minW, layoutSvgState.currentViewBox.w * factor));
+        const nh = Math.min(maxW * 0.75, Math.max(minW * 0.75, layoutSvgState.currentViewBox.h * factor));
+
+        layoutSvgState.currentViewBox.x += (layoutSvgState.currentViewBox.w - nw) * mx;
+        layoutSvgState.currentViewBox.y += (layoutSvgState.currentViewBox.h - nh) * my;
+        layoutSvgState.currentViewBox.w = nw;
+        layoutSvgState.currentViewBox.h = nh;
+        applyViewBox();
+    };
+
+    // Pointer events for Pan and Drag & Drop
+    const getSvgPoint = (clientX, clientY) => {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        return pt.matrixTransform(svg.getScreenCTM().inverse());
+    };
+
+    svg.onpointerdown = (e) => {
+        if (e.button !== 0 && e.button !== 1) return;
+        const pieceEl = e.target.closest('.layout-piece');
+
+        if (pieceEl) {
+            // Drag and drop piece
+            e.stopPropagation();
+            layoutSvgState.isDragging = true;
+            layoutSvgState.dragTarget = pieceEl;
+            pieceEl.classList.add('is-dragging');
+            // Bring to top
+            pieceEl.parentElement?.appendChild(pieceEl);
+
+            const pt = getSvgPoint(e.clientX, e.clientY);
+            const curX = parseFloat(pieceEl.getAttribute('data-x') || '0');
+            const curY = parseFloat(pieceEl.getAttribute('data-y') || '0');
+            layoutSvgState.grabOffset = { x: pt.x - curX, y: pt.y - curY };
+            pieceEl.setPointerCapture?.(e.pointerId);
+        } else {
+            // Pan map
+            layoutSvgState.isPanning = true;
+            layoutSvgState.panStart = { x: e.clientX, y: e.clientY };
+            svg.classList.add('is-panning');
+            svg.setPointerCapture?.(e.pointerId);
+        }
+    };
+
+    svg.onpointermove = (e) => {
+        if (layoutSvgState.isDragging && layoutSvgState.dragTarget) {
+            const pt = getSvgPoint(e.clientX, e.clientY);
+            const minorGrid = !!document.getElementById('layout-minor-grid')?.checked;
+            const snap = minorGrid ? 0.25 : 0.5;
+            const targetX = Math.round((pt.x - layoutSvgState.grabOffset.x) / snap) * snap;
+            const targetY = Math.round((pt.y - layoutSvgState.grabOffset.y) / snap) * snap;
+
+            const origX = parseFloat(layoutSvgState.dragTarget.getAttribute('data-orig-x') || layoutSvgState.dragTarget.getAttribute('data-x') || '0');
+            const origY = parseFloat(layoutSvgState.dragTarget.getAttribute('data-orig-y') || layoutSvgState.dragTarget.getAttribute('data-y') || '0');
+
+            layoutSvgState.dragTarget.setAttribute('transform', `translate(${targetX - origX}, ${targetY - origY})`);
+            layoutSvgState.dragTarget.setAttribute('data-cur-x', targetX);
+            layoutSvgState.dragTarget.setAttribute('data-cur-y', targetY);
+        } else if (layoutSvgState.isPanning) {
+            const dx = (e.clientX - layoutSvgState.panStart.x) * (layoutSvgState.currentViewBox.w / svg.clientWidth);
+            const dy = (e.clientY - layoutSvgState.panStart.y) * (layoutSvgState.currentViewBox.h / svg.clientHeight);
+            layoutSvgState.currentViewBox.x -= dx;
+            layoutSvgState.currentViewBox.y -= dy;
+            layoutSvgState.panStart = { x: e.clientX, y: e.clientY };
+            applyViewBox();
+        }
+    };
+
+    const finishPointer = (e) => {
+        if (layoutSvgState.isDragging && layoutSvgState.dragTarget) {
+            const pieceEl = layoutSvgState.dragTarget;
+            pieceEl.classList.remove('is-dragging');
+            pieceEl.releasePointerCapture?.(e.pointerId);
+
+            const newX = parseFloat(pieceEl.getAttribute('data-cur-x'));
+            const newY = parseFloat(pieceEl.getAttribute('data-cur-y'));
+
+            if (!isNaN(newX) && !isNaN(newY)) {
+                const pIdx = pieceEl.getAttribute('data-piece-idx');
+                const mIdx = pieceEl.getAttribute('data-member-idx');
+                const suIdx = pieceEl.getAttribute('data-storage-idx');
+
+                if (suIdx !== null && lastLayout?.layout?.storages) {
+                    const idx = parseInt(suIdx, 10);
+                    if (lastLayout.layout.storages[idx]) {
+                        lastLayout.layout.storages[idx].x = newX;
+                        lastLayout.layout.storages[idx].y = newY;
+                        layoutSvgState.customPositions.set(`su_${idx}`, { x: newX, y: newY });
+                    }
+                } else if (pIdx !== null && mIdx !== null && lastLayout?.layout?.pieces) {
+                    const pi = parseInt(pIdx, 10);
+                    const mi = parseInt(mIdx, 10);
+                    const member = lastLayout.layout.pieces[pi]?.members?.[mi];
+                    if (member) {
+                        member.x = newX;
+                        member.y = newY;
+                        layoutSvgState.customPositions.set(`${pi}_${mi}`, { x: newX, y: newY });
+                    }
+                }
+            }
+
+            layoutSvgState.isDragging = false;
+            layoutSvgState.dragTarget = null;
+            if (lastLayout) drawLayout(lastLayout);
+        } else if (layoutSvgState.isPanning) {
+            layoutSvgState.isPanning = false;
+            svg.classList.remove('is-panning');
+            svg.releasePointerCapture?.(e.pointerId);
+        }
+    };
+
+    svg.onpointerup = finishPointer;
+    svg.onpointercancel = finishPointer;
+}
+
 function drawLayout(drawn) {
     const diagram = document.getElementById('layout-diagram');
     diagram.innerHTML = homelandSvg(drawn.layout, drawn.homeLevel);
+    const svg = diagram.querySelector('.layout-svg');
+    initLayoutInteraction(svg);
 }
 
 function renderHomelandLayout(plan) {
@@ -2342,8 +2689,8 @@ function homelandSvg(layout, homeLevel) {
         });
     }
 
-    // Top-down SVG facility tiles
-    const allMembers = layout.pieces.flatMap(p => p.members);
+    // Top-down SVG facility tiles with Drag and Drop data tags
+    const allMembers = layout.pieces.flatMap((p, pIdx) => (p.members || []).map((m, mIdx) => ({ ...m, pIdx, mIdx })));
     const shapes = allMembers.map(m => {
         const distId = m.district || getFacilityDistrict(m.facility);
         const distDef = LAYOUT_DISTRICTS.find(d => d.id === distId) || { color: '#3b82f6' };
@@ -2355,7 +2702,7 @@ function homelandSvg(layout, homeLevel) {
             color: distDef.color,
         });
 
-        return `<g class="layout-piece" ${tip}>${renderHomelandSvgFacility(m)}</g>`;
+        return `<g class="layout-piece" data-type="facility" data-piece-idx="${m.pIdx}" data-member-idx="${m.mIdx}" data-facility="${m.facility}" data-x="${m.x}" data-y="${m.y}" data-orig-x="${m.x}" data-orig-y="${m.y}" ${tip}>${renderHomelandSvgFacility(m)}</g>`;
     }).join('');
 
     // Climate coverage areas (rounded rectangle with dashed border matching AniimoGuide)
@@ -2370,7 +2717,16 @@ function homelandSvg(layout, homeLevel) {
             stroke="${tint}" stroke-opacity="0.85" stroke-dasharray="0.4 0.25" stroke-width="0.08" />`;
     }).join('');
 
-    return `<svg class="layout-svg" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" role="img" aria-label="Homeland layout">
+    const vbW = maxX - minX;
+    const vbH = maxY - minY;
+    if (!layoutSvgState.origViewBox || layoutShowsWhole !== layoutSvgState.lastWhole) {
+        layoutSvgState.origViewBox = { x: minX, y: minY, w: vbW, h: vbH };
+        layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
+        layoutSvgState.lastWhole = layoutShowsWhole;
+    }
+    const curVb = layoutSvgState.currentViewBox || { x: minX, y: minY, w: vbW, h: vbH };
+
+    return `<svg class="layout-svg" viewBox="${curVb.x} ${curVb.y} ${curVb.w} ${curVb.h}" role="img" aria-label="Homeland layout">
         <defs><pattern id="layout-locked" width="1" height="1" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="1" class="layout-hatch" /></pattern></defs>
         <g class="env-grid">${lines.join('')}</g>
@@ -2395,7 +2751,7 @@ function homelandSvg(layout, homeLevel) {
                     <!-- Crackle Generator 11x11 Square Grid -->
                     <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
                         fill="#06b6d4" fill-opacity="0.06" stroke="#06b6d4" stroke-opacity="0.6" stroke-width="0.16" stroke-dasharray="0.8 0.4" />
-                    <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.65" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Crackle Generator (11×11 Grid - Ước tính)</text>`;
+                    <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.65" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Crackle Generator (11×11 Grid)</text>`;
 
                 let lastNode = genCenter;
                 poles.forEach((pole, idx) => {
@@ -2420,7 +2776,7 @@ function homelandSvg(layout, homeLevel) {
                 const roleColors = { central: '#eab308', farm: '#10b981', workshop: '#06b6d4', forestry: '#059669', expansion: '#8b5cf6' };
                 const suColor = roleColors[su.role] || '#f59e0b';
                 const suLabel = su.label || `SU ${idx + 1}`;
-                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" ${tipAttrs(suLabel, { detail: `Thiết bị lưu trữ: ${su.role || 'All-purpose'}`, color: suColor })}>
+                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" data-type="storage" data-storage-idx="${idx}" data-x="${su.x}" data-y="${su.y}" data-orig-x="${su.x}" data-orig-y="${su.y}" ${tipAttrs(suLabel, { detail: `Thiết bị lưu trữ: ${su.role || 'All-purpose'}`, color: suColor })}>
                     <rect x="${su.x + 0.04}" y="${su.y + 0.04}" width="${su.w - 0.08}" height="${su.h - 0.08}" rx="0.22" fill="#131c17" fill-opacity="0.65" stroke="${suColor}" stroke-width="0.06" class="homeland-facility-base" />
                     <image href="${suImgUrl}" x="${su.x + 0.06}" y="${su.y + 0.04}" width="${su.w - 0.12}" height="${su.h - 0.08}" preserveAspectRatio="xMidYMid meet" class="homeland-building-sprite" onerror="this.style.display='none'" />
                     <g class="homeland-su-badge" pointer-events="none">
@@ -6681,7 +7037,6 @@ export function displayPlan(plan) {
 
     updateRateDisplay(!rateUnitChosen);
     renderGoalTargets(plan);
-    renderHomelandLayout(plan);
     renderInsights(plan);
     evaluatePlotsOptimization(plan);
 
@@ -6727,6 +7082,7 @@ export function displayPlan(plan) {
     renderLevelUp(plan);
     renderProfitBreakdown(plan);
     renderFacilityPlan(plan);
+    renderHomelandLayout(plan);
     renderAniimoSummary(plan);
     // The page stays where the player is; the results appear without scrolling to them.
 }

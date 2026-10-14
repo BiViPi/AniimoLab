@@ -42,6 +42,9 @@ const DISTRICT_PRIORITY = {
 
 export const districtOf = piece => {
     if (piece.cluster) return 'agriculture';
+    if (piece.isFieldBlock) return 'agriculture';
+    // Any facility using electricity MUST belong to industry district to gather near the Generator!
+    if (piece.members?.some(m => m.isElectric)) return 'industry';
     const fac = piece.members?.[0]?.facility;
     return getFacilityDistrict(fac);
 };
@@ -74,9 +77,13 @@ export function layOut(pieces, options = {}) {
     const weightOf = piece => membersOf(piece).reduce((sum, m) => sum + m.weight, 0);
     const areaOf = piece => membersOf(piece).reduce((sum, m) => sum + m.w * m.h, 0);
 
-    // Hard-to-place first: Clusters -> Large footprints (5.5x5.5, 5x5, 4x4) -> District grouping -> trips
+    // Hard-to-place first: Clusters -> Generator -> Electric Facilities -> Field Blocks -> Large footprints
     const piecePriority = piece => {
         if (piece.cluster) return 10000;
+        const members = membersOf(piece);
+        if (members.some(m => m.generator)) return 9500;
+        if (members.some(m => m.isElectric)) return 9000;
+        if (piece.isFieldBlock) return 8000;
         const a = areaOf(piece);
         if (a >= 16) return 5000 + a;
         if (a >= 6) return 2000 + a;
@@ -113,6 +120,10 @@ export function layOut(pieces, options = {}) {
         } else if (dId === 'gathering') {
             const fSU = storages.find(s => s.role === 'forestry');
             if (fSU) return { x: fSU.x + fSU.w / 2, y: fSU.y + fSU.h / 2 };
+        } else if (dId === 'utility') {
+            // Crackle Generator & Power Poles must anchor near workshop SU (where electric processing takes place)
+            const wsSU = storages.find(s => s.role === 'workshop');
+            if (wsSU) return { x: wsSU.x + wsSU.w / 2, y: wsSU.y + wsSU.h / 2 };
         }
         return { x: storages[0].x + storages[0].w / 2, y: storages[0].y + storages[0].h / 2 };
     };
@@ -234,12 +245,60 @@ export function layOut(pieces, options = {}) {
                     else districtCohesion -= minD * 0.25;
                 }
 
-                // 3. Hauling distance to nearest SU
+                // 3. Power Network Proximity & Coverage Bonus
+                let powerBonus = 0;
+                const hasElectric = shape.members.some(m => m.isElectric);
+                const isGenerator = shape.members.some(m => m.generator);
+                const isPole = shape.members.some(m => m.powerPole);
+
+                // Locate already placed generator if any
+                let genPos = null;
+                for (const [k, spot] of placed) {
+                    if (pieces[k].members?.some(m => m.generator)) {
+                        const r = spot.rects[0];
+                        genPos = { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
+                        break;
+                    }
+                }
+
+                if (isGenerator) {
+                    // Generator thrives near workshop SU and near any already placed electric pieces
+                    const wsSU = storages.find(s => s.role === 'workshop') || storages[0];
+                    const distToWs = Math.hypot(cx - (wsSU.x + wsSU.w / 2), cy - (wsSU.y + wsSU.h / 2));
+                    powerBonus += Math.max(0, 30 - distToWs * 3);
+                    for (const [k, spot] of placed) {
+                        if (pieces[k].members?.some(m => m.isElectric)) {
+                            for (const r of spot.rects) {
+                                const mx = r.x + r.w / 2;
+                                const my = r.y + r.h / 2;
+                                if (Math.abs(cx - mx) <= 5.0 && Math.abs(cy - my) <= 5.0) {
+                                    powerBonus += 40.0;
+                                }
+                            }
+                        }
+                    }
+                } else if (hasElectric && genPos) {
+                    // Electric facility gets massive bonus if within 11x11 square grid of Crackle Generator
+                    const dx = Math.abs(cx - genPos.cx);
+                    const dy = Math.abs(cy - genPos.cy);
+                    if (dx <= 4.8 && dy <= 4.8) {
+                        powerBonus += 150.0 - (dx + dy) * 4.0;
+                    } else {
+                        powerBonus -= 300.0 + (dx + dy) * 15.0;
+                    }
+                } else if (!hasElectric && !isGenerator && !isPole && shape.spread >= 2.0 && genPos) {
+                    // Non-electric bulky structures (Mine, Beds) shouldn't crowd inside 11x11 Generator range
+                    const dx = Math.abs(cx - genPos.cx);
+                    const dy = Math.abs(cy - genPos.cy);
+                    if (dx <= 5.5 && dy <= 5.5) powerBonus -= 35.0;
+                }
+
+                // 4. Hauling distance to nearest SU
                 const haulingCost = shape.members.reduce((sum, m) => sum + m.weight * minDistanceToStorage(m.x + x + m.w / 2, m.y + y + m.h / 2), 0)
                     + EPSILON * minDistanceToStorage(cx, cy);
 
-                // Combined cost: hauling cost minus district cohesion & grid alignment bonuses
-                const cost = haulingCost - (districtCohesion * 1.5 + alignBonus);
+                // Combined cost: hauling cost minus district cohesion & grid alignment bonuses & power bonus
+                const cost = haulingCost - (districtCohesion * 1.5 + alignBonus + powerBonus);
                 if (!best || cost < best.cost - EPSILON) best = { cost, x, y, shape, rects, sensitive: touchy };
             }
         }
@@ -458,13 +517,110 @@ export function layOutHomeland(pieces, cells, options = {}) {
     const move = r => ({ ...r, x: r.x + anchor.x, y: r.y + anchor.y });
     const movedStorages = out.storages.map(move);
 
+    const movedPieces = out.pieces.map(p => ({ ...p, members: p.members.map(move) }));
+
+    // Post-processing Power Poles & Electric Facility Power Coverage:
+    // 1. Power Pole MUST be placed inside the 11x11 boundary of Crackle Generator to receive power!
+    // 2. Its 7x7 relay boundary extends outwards to relay power to any adjacent facilities.
+    // 3. Every electric facility (Well, Simmering Pot, Carousel Mill, etc.) MUST be within coverage
+    //    of either the Generator (11x11) or a connected Power Pole (7x7). If not, reposition into coverage.
+    const allPlacedMembers = movedPieces.flatMap(p => p.members);
+    const genMember = allPlacedMembers.find(m => m.generator);
+    const poleMembers = allPlacedMembers.filter(m => m.powerPole);
+    const electricMembers = allPlacedMembers.filter(m => m.isElectric && !m.generator && !m.powerPole);
+
+    if (genMember) {
+        const gx = genMember.x + genMember.w / 2;
+        const gy = genMember.y + genMember.h / 2;
+
+        // Helper to check if a point is inside Generator 11x11 aura
+        const insideGenAura = (x, y) => Math.abs(x - gx) <= 5.2 && Math.abs(y - gy) <= 5.2;
+
+        // Helper to find a free spot for Pole INSIDE Generator 11x11 aura
+        const findFreePoleSpotInGen = (idealX, idealY, poleW, poleH) => {
+            for (let r = 0; r <= 8; r += 0.5) {
+                for (let dx = -r; dx <= r; dx += 0.5) {
+                    for (let dy = -r; dy <= r; dy += 0.5) {
+                        if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                        const px = Math.round((idealX + dx) * 2) / 2;
+                        const py = Math.round((idealY + dy) * 2) / 2;
+                        const pcx = px + poleW / 2;
+                        const pcy = py + poleH / 2;
+                        // MUST be strictly inside 11x11 Generator boundary so it receives power!
+                        if (!insideGenAura(pcx, pcy)) continue;
+                        const rect = { x: px, y: py, w: poleW, h: poleH };
+                        if (cells && cells.reduce((sum, c) => sum + overlapArea(rect, c), 0) < poleW * poleH - 1e-4) continue;
+                        const hit = allPlacedMembers.some(m => !m.powerPole && overlaps(rect, m));
+                        if (!hit) return { x: px, y: py };
+                    }
+                }
+            }
+            // Clamped position strictly inside 11x11 range
+            const cpx = Math.max(genMember.x - 4.2, Math.min(genMember.x + genMember.w + 2.7, idealX));
+            const cpy = Math.max(genMember.y - 4.2, Math.min(genMember.y + genMember.h + 2.7, idealY));
+            return { x: cpx, y: cpy };
+        };
+
+        // Position Power Poles:
+        poleMembers.forEach((pole, pIdx) => {
+            // Place pole at the edge of Generator 11x11 aura pointing towards the farm/south-east (Plot 3)
+            // so its 7x7 relay extends further towards the farm and well!
+            const idealX = gx + 3.5 - pole.w / 2;
+            const idealY = gy + 3.5 - pole.h / 2;
+            const spot = findFreePoleSpotInGen(idealX, idealY, pole.w, pole.h);
+            pole.x = spot.x;
+            pole.y = spot.y;
+        });
+
+        // SAFETY NET: Ensure every electric facility is inside the power network!
+        // Check which electric machines are NOT covered by Generator (11x11) or Pole (7x7)
+        const isCovered = (m) => {
+            const mx = m.x + m.w / 2;
+            const my = m.y + m.h / 2;
+            if (insideGenAura(mx, my)) return true;
+            return poleMembers.some(pole => {
+                const px = pole.x + pole.w / 2;
+                const py = pole.y + pole.h / 2;
+                return Math.abs(mx - px) <= 3.2 && Math.abs(my - py) <= 3.2;
+            });
+        };
+
+        const uncovered = electricMembers.filter(m => !isCovered(m));
+        if (uncovered.length > 0) {
+            // Find free spot inside Generator 11x11 or Pole 7x7 for each uncovered machine
+            uncovered.forEach(m => {
+                let placed = false;
+                for (let r = 0.5; r <= 5.0 && !placed; r += 0.5) {
+                    for (let dx = -r; dx <= r && !placed; dx += 0.5) {
+                        for (let dy = -r; dy <= r && !placed; dy += 0.5) {
+                            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                            const nx = Math.round((gx + dx - m.w / 2) * 2) / 2;
+                            const ny = Math.round((gy + dy - m.h / 2) * 2) / 2;
+                            const ncx = nx + m.w / 2;
+                            const ncy = ny + m.h / 2;
+                            if (!insideGenAura(ncx, ncy)) continue;
+                            const rect = { x: nx, y: ny, w: m.w, h: m.h };
+                            if (cells && cells.reduce((sum, c) => sum + overlapArea(rect, c), 0) < m.w * m.h - 1e-4) continue;
+                            const hit = allPlacedMembers.some(other => other !== m && overlaps(rect, other));
+                            if (!hit) {
+                                m.x = nx;
+                                m.y = ny;
+                                placed = true;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     return {
         ...out,
         tried: out.tried,
         storageAt: { x: anchor.x + storageSize.w / 2, y: anchor.y + storageSize.h / 2 },
         storage: movedStorages[0],
         storages: movedStorages,
-        pieces: out.pieces.map(p => ({ ...p, members: p.members.map(move) })),
+        pieces: movedPieces,
     };
 }
 
