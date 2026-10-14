@@ -410,6 +410,7 @@ export function validateInvariants(facility, targetMode, stepCount) {
 window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode, clickedBtn) {
     if (!lastPlan || !lastPlan.success) return;
     if (currentMode === targetMode) return;
+    if (targetMode === 'electric' && selectedHomeLevel() < 12) return;
 
     const wattsPerUnit = FACILITY_POWER_WATTS[facility] || 0;
     const generatorCapacity = getGeneratorCapacity();
@@ -578,6 +579,32 @@ function showInvariantWarning(facility, reason) {
     }
 }
 
+export function updateSpecialistQuotasLimits(homeLevel = selectedHomeLevel()) {
+    const { facilities } = simpleSetup(homeLevel);
+    const maxMines = facilities['Mine']?.[0]?.count || 0;
+    const maxWells = facilities['Well']?.[0]?.count || 0;
+
+    const earthInput = document.getElementById('quota-earth-4p');
+    if (earthInput) {
+        earthInput.max = String(maxMines);
+        const curVal = parseInt(earthInput.value, 10) || 0;
+        if (curVal > maxMines) earthInput.value = String(maxMines);
+        const stepBtns = document.querySelectorAll('.stepper-btn[data-step-specialist="earth_4p"]');
+        stepBtns.forEach(b => b.disabled = (maxMines === 0));
+        earthInput.disabled = (maxMines === 0);
+    }
+
+    const waterInput = document.getElementById('quota-water-4f');
+    if (waterInput) {
+        waterInput.max = String(maxWells);
+        const curVal = parseInt(waterInput.value, 10) || 0;
+        if (curVal > maxWells) waterInput.value = String(maxWells);
+        const stepBtns = document.querySelectorAll('.stepper-btn[data-step-specialist="water_4f"]');
+        stepBtns.forEach(b => b.disabled = (maxWells === 0));
+        waterInput.disabled = (maxWells === 0);
+    }
+}
+
 function attachSpecialistQuotaHandlers() {
     document.querySelectorAll('.stepper-btn[data-step-specialist]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -585,19 +612,26 @@ function attachSpecialistQuotaHandlers() {
             const dir = parseInt(btn.dataset.stepDir, 10) || 0;
             const inputId = key === 'earth_4p' ? 'quota-earth-4p' : 'quota-water-4f';
             const input = document.getElementById(inputId);
-            if (input) {
+            if (input && !input.disabled) {
                 const min = parseInt(input.min, 10) || 0;
                 const max = parseInt(input.max, 10) || 8;
                 let val = (parseInt(input.value, 10) || 0) + dir;
                 val = Math.max(min, Math.min(max, val));
                 input.value = val;
-                runFindPlan();
+                saveInputsToStorage();
             }
         });
     });
     ['quota-earth-4p', 'quota-water-4f'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
-            runFindPlan();
+            const input = document.getElementById(id);
+            if (input && !input.disabled) {
+                const min = parseInt(input.min, 10) || 0;
+                const max = parseInt(input.max, 10) || 8;
+                let val = parseInt(input.value, 10) || 0;
+                input.value = Math.max(min, Math.min(max, val));
+                saveInputsToStorage();
+            }
         });
     });
 }
@@ -770,6 +804,7 @@ function calculatePowerWatts(counts) {
 // (leftover-budget loop, pruning, or the re-solve keeping them manual). The gauge must show
 // only machines the final plan actually shows as E-mode.
 export function actualEmodeCounts(plan) {
+    if (selectedHomeLevel() < 12) return {};
     const counts = {};
     for (const step of (plan && plan.coin_items) || []) {
         if (step.status !== 'producing' || !step.facility) continue;
@@ -1006,11 +1041,17 @@ function attachEmodeHandlers() {
 
 function updateSimpleEmodeState() {
     const homeLevel = selectedHomeLevel();
+    const emodeSection = document.getElementById('emode-simple-section');
+    const navPill = document.querySelector('.nav-pill.pill-emode');
     const hint = document.getElementById('emode-simple-hint');
     const toggle = document.getElementById('emode-simple-on');
     const rateField = document.getElementById('emode-simple-rate-field');
     const genField = document.getElementById('emode-simple-generator-field');
     const gauge = document.getElementById('simple-power-gauge-container');
+
+    if (navPill) {
+        navPill.style.display = (homeLevel < 12) ? 'none' : '';
+    }
 
     const defaultWatts = GENERATOR_WATTS_BY_HOME_LEVEL[homeLevel] || DEFAULT_GENERATOR_WATTS;
     const simpleGen = document.getElementById('simple-generator-capacity');
@@ -1020,14 +1061,18 @@ function updateSimpleEmodeState() {
 
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (homeLevel < 12) {
+        if (emodeSection) emodeSection.style.display = 'none';
         if (toggle) toggle.disabled = true;
         if (rateField) rateField.style.opacity = '0.5';
         if (genField) genField.style.opacity = '0.5';
         if (gauge) gauge.style.opacity = '0.5';
-        if (hint) { hint.style.display = ''; hint.innerHTML = isVi
-            ? '<span style="color: var(--text-muted);">⚡ Chế độ điện mở khóa tại <strong>RV 12</strong>.</span>'
-            : '<span style="color: var(--text-muted);">⚡ Electric Mode unlocks at <strong>RV 12</strong>.</span>'; }
+        if (hint) { hint.style.display = 'none'; hint.innerHTML = ''; }
+        lastEmodeCounts = {};
+        if (typeof facilityOverrides !== 'undefined' && Array.isArray(facilityOverrides)) {
+            facilityOverrides = facilityOverrides.filter(o => !o.electric_count || o.electric_count === 0);
+        }
     } else {
+        if (emodeSection) emodeSection.style.display = '';
         if (toggle) toggle.disabled = false;
         if (rateField) rateField.style.opacity = '1';
         if (genField) genField.style.opacity = '1';
@@ -1385,11 +1430,17 @@ function attachModeHandlers() {
     const homeSelect = document.getElementById('home-level');
     if (homeSelect) {
         homeSelect.addEventListener('change', () => {
+            const level = selectedHomeLevel();
             renderSimpleSummary();
             renderStrategy();
             updateProductionAniimoCap();
             updateSimpleEmodeState();
+            updateSpecialistQuotasLimits(level);
+            renderSpecialRecipes();
             updatePowerGauge();
+            if (lastPlan && lastPlan.success) {
+                displayPlan(lastPlan);
+            }
         });
     }
 }
@@ -1406,15 +1457,18 @@ function renderSpecialRecipes() {
     const currentRv = selectedHomeLevel();
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     grid.innerHTML = SPECIAL_RECIPES.map(r => {
-        const checked = unlockedSpecial.has(r.name);
         const unlockRv = r.unlockRV || 1;
-        const isLocked = isSimpleMode() && currentRv < unlockRv;
+        const isLocked = currentRv < unlockRv;
+        if (isLocked && unlockedSpecial.has(r.name)) {
+            unlockedSpecial.delete(r.name);
+        }
+        const checked = unlockedSpecial.has(r.name);
         const rvBadgeText = isVi
-            ? `Mở khóa tại RV ${unlockRv}`
-            : `Unlocks at RV ${unlockRv}`;
+            ? (isLocked ? `🔒 Mở khóa tại RV ${unlockRv}` : `Mở khóa tại RV ${unlockRv}`)
+            : (isLocked ? `🔒 Unlocks at RV ${unlockRv}` : `Unlocks at RV ${unlockRv}`);
         return `
-        <label class="special-recipe-card ${checked ? 'active' : ''}">
-            <input type="checkbox" class="special-card-checkbox" data-special="${r.name}"${checked ? ' checked' : ''}>
+        <label class="special-recipe-card ${checked ? 'active' : ''} ${isLocked ? 'locked' : ''}">
+            <input type="checkbox" class="special-card-checkbox" data-special="${r.name}"${checked ? ' checked' : ''}${isLocked ? ' disabled' : ''}>
             <div class="special-card-thumb">
                 ${renderItemIcon(r.name)}
             </div>
@@ -4940,8 +4994,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
 
     const roles = isLargeFarm ? [
         {
-            roleVi: '1. Khai khẩn (51 ô)',
-            roleEn: '1. Reclaiming (51 plots)',
+            roleVi: `1. Khai khẩn (${totalPlots} ô)`,
+            roleEn: `1. Reclaiming (${totalPlots} plots)`,
             workers: '2× Gracewing (Sơn Lâm)',
             ability: 'Earth',
             level: 2,
@@ -4950,8 +5004,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             descEn: 'Earth Lv.2 · 100% focused (No Hauling)'
         },
         {
-            roleVi: '2. Gieo trồng (51 ô)',
-            roleEn: '2. Sowing (51 plots)',
+            roleVi: `2. Gieo trồng (${totalPlots} ô)`,
+            roleEn: `2. Sowing (${totalPlots} plots)`,
             workers: 'Irisalis + Leafy',
             ability: 'Grass',
             level: 3,
@@ -4960,8 +5014,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             descEn: 'Grass Lv.3 · Alternating sow across farm'
         },
         {
-            roleVi: '3. Tưới nước (51 ô × 2 đợt)',
-            roleEn: '3. Watering (51 plots × 2)',
+            roleVi: `3. Tưới nước (${totalPlots} ô × 2 đợt)`,
+            roleEn: `3. Watering (${totalPlots} plots × 2)`,
             workers: 'Piopiota (Đêm) + Leafy',
             ability: 'Water',
             level: 3,
@@ -4976,8 +5030,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            descVi: 'Ám Lv.3-4 · Gặt sạch 34 ô trong ~1 phút',
-            descEn: 'Dark Lv.3-4 · Clears 34 plots in ~1m'
+            descVi: `Ám Lv.3-4 · Gặt sạch ${totalFarmland} ô trong ~1 phút`,
+            descEn: `Dark Lv.3-4 · Clears ${totalFarmland} plots in ~1m`
         },
         {
             roleVi: `5. Thu hoạch Rừng cây (${totalWoodland} ô)`,
@@ -5001,8 +5055,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
         }
     ] : [
         {
-            roleVi: '1. Khai khẩn',
-            roleEn: '1. Reclaiming',
+            roleVi: `1. Khai khẩn (${totalPlots} ô)`,
+            roleEn: `1. Reclaiming (${totalPlots} plots)`,
             workers: '1× Gracewing (Sơn Lâm)',
             ability: 'Earth',
             level: 2,
@@ -5011,8 +5065,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             descEn: 'Earth Lv.2 · 100% focused'
         },
         {
-            roleVi: '2. Gieo trồng & Cây',
-            roleEn: '2. Sowing & Trees',
+            roleVi: `2. Gieo trồng & Cây (${totalPlots} ô)`,
+            roleEn: `2. Sowing & Trees (${totalPlots} plots)`,
             workers: '1× Irisalis',
             ability: 'Grass',
             level: 3,
@@ -5021,8 +5075,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             descEn: 'Grass Lv.3 · Sowing & tree harvest'
         },
         {
-            roleVi: '3. Tưới nước',
-            roleEn: '3. Watering',
+            roleVi: `3. Tưới nước (${totalPlots} ô)`,
+            roleEn: `3. Watering (${totalPlots} plots)`,
             workers: '1× Piopiota (Đêm)',
             ability: 'Water',
             level: 3,
@@ -5031,14 +5085,14 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             descEn: 'Water Lv.3 · Fast watering buffer'
         },
         {
-            roleVi: '4. Thu hoạch Nông trại',
-            roleEn: '4. Harvest Farmland',
+            roleVi: `4. Thu hoạch Nông trại (${totalFarmland} ô)`,
+            roleEn: `4. Harvest Farmland (${totalFarmland} plots)`,
             workers: '1× Pawney / Rookey',
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            descVi: 'Ám Lv.4 · Gặt nông sản',
-            descEn: 'Dark Lv.4 · Farmland harvest'
+            descVi: `Ám Lv.4 · Gặt ${totalFarmland} ô nông sản`,
+            descEn: `Dark Lv.4 · Farmland harvest (${totalFarmland} plots)`
         },
         {
             roleVi: '5. Vận chuyển',
@@ -5093,10 +5147,11 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
 
 function aniimoLabel(step) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const emodeAvailable = selectedHomeLevel() >= 12;
     const rawFac = step.facility || '';
     const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
     const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
-    const isElectric = !isSpecialist && !step.is_manual && !rawFac.includes('(Manual)') && (step.is_emode || rawFac.includes('(Electric)') || ((lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well'));
+    const isElectric = emodeAvailable && !isSpecialist && !step.is_manual && !rawFac.includes('(Manual)') && (step.is_emode || rawFac.includes('(Electric)') || ((lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well'));
 
     if (isElectric && step.status === 'producing' && !rawFac.includes('(Manual)') && !isSpecialist) {
         const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
@@ -5189,49 +5244,61 @@ function facilityPlanTableOf(groups) {
 
 function planRows(rows) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const currentHomeLevel = selectedHomeLevel();
+    const emodeAvailable = currentHomeLevel >= 12;
+
     return rows.map(step => {
         const rawFac = step.facility || '';
         const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
         const isMine = baseFac === 'Mine';
         const isWell = baseFac === 'Well';
         const facDef = FACILITIES.find(f => f.name === baseFac);
-        const supportsEmode = facDef?.supportsEmode ?? false;
+        const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
         const isSupportedMultiMode = isMine || isWell || supportsEmode;
 
         // Xác định mode hiện tại:
         let currentMode = 'manual';
         if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
             currentMode = 'specialist';
-        } else if (step.is_emode || rawFac.includes('(Electric)')) {
+        } else if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
             currentMode = 'electric';
         } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
             currentMode = 'manual';
         } else {
             const ovr = facilityOverrides.find(o => o.facility === baseFac);
             if (ovr) {
-                if (ovr.electric_count > 0) currentMode = 'electric';
+                if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
                 else if (ovr.specialist_count > 0) currentMode = 'specialist';
                 else if (ovr.manual_count > 0) currentMode = 'manual';
-            } else if ((lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+            } else if (emodeAvailable && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
                 currentMode = 'electric';
             }
         }
 
         // Tính wattage badge:
-        const wattsPerUnit = FACILITY_POWER_WATTS[baseFac] || 0;
-        const totalWatts = currentMode === 'electric' ? wattsPerUnit * step.facility_count : 0;
+        const wattsPerUnit = emodeAvailable ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
+        const totalWatts = (emodeAvailable && currentMode === 'electric') ? wattsPerUnit * step.facility_count : 0;
         const powerBadge = totalWatts > 0 ? `<span class="facility-power-badge">⚡ ${totalWatts}W</span>` : '';
 
         // Mode selector pills
         let modeControls = `<span class="mode-static">${isVi ? 'Mặc định' : 'Default'}</span>`;
-        if (isSupportedMultiMode && baseFac !== 'Farmland' && baseFac !== 'Woodland') {
-            modeControls = `
-                <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
-                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
-                    ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
-                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
-                </div>
-            `;
+        if (baseFac !== 'Farmland' && baseFac !== 'Woodland') {
+            if (emodeAvailable && isSupportedMultiMode) {
+                modeControls = `
+                    <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
+                        <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
+                        ${(isMine || isWell) ? `<button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>` : ''}
+                        <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                    </div>
+                `;
+            } else if (!emodeAvailable && (isMine || isWell)) {
+                modeControls = `
+                    <div class="mode-selector-pills" data-fac="${baseFac}" data-level="${step.facility_level || 5}" data-count="${step.facility_count}">
+                        <button type="button" class="mode-pill pill-specialist ${currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'specialist', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Specialist Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Specialist'}</button>
+                        <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this)" title="${isVi ? 'Thủ công' : 'Manual'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
+                    </div>
+                `;
+            }
         }
 
         return `
@@ -5475,7 +5542,7 @@ function renderAniimoSummary(plan) {
                 { name: 'Gracewing (Sơn Lâm)', count: 2, ability: 'Earth', level: 2, role: isVi ? `Khai khẩn (${totalFarmPlots} ô đất)` : `Reclaiming (${totalFarmPlots} plots)`, desc: isVi ? 'Đất Lv.2 · Chuyên tâm 100% (không có Vác)' : 'Earth Lv.2 · 100% focused (No Hauling)', specific: 'Gracewing' },
                 { name: 'Irisalis', count: 1, ability: 'Grass', level: 3, role: isVi ? `Gieo hạt & Gặt ${totalWoodland} Rừng cây` : `Sowing & Harvest ${totalWoodland} Trees`, desc: isVi ? 'Thảo Lv.3 · Gieo luân phiên & gặt cây khi chín' : 'Grass Lv.3 · Alternating sow & tree harvest', specific: 'Irisal' },
                 { name: 'Leafy', count: 1, ability: 'Grass', level: 3, role: isVi ? 'Gieo hạt & Tưới nước phụ' : 'Backup Sowing & Watering', desc: isVi ? 'Thảo Lv.3, Thủy Lv.2 · Bọc lót gieo & tưới' : 'Grass Lv.3, Water Lv.2 · Backup sow & water', specific: 'Leafy' },
-                { name: 'Piopiota (Đêm)', count: 1, ability: 'Water', level: 3, role: isVi ? 'Tưới nước chính & Gặt phụ' : 'Main Watering & Backup Harvest', desc: isVi ? 'Thủy Lv.3, Ám Lv.2 · Tưới 51 ô trong 2 phút' : 'Water Lv.3, Dark Lv.2 · Waters 51 plots in 2m', specific: 'Piopiota' },
+                { name: 'Piopiota (Đêm)', count: 1, ability: 'Water', level: 3, role: isVi ? 'Tưới nước chính & Gặt phụ' : 'Main Watering & Backup Harvest', desc: isVi ? `Thủy Lv.3, Ám Lv.2 · Tưới ${totalFarmPlots} ô trong 2 phút` : `Water Lv.3, Dark Lv.2 · Waters ${totalFarmPlots} plots in 2m`, specific: 'Piopiota' },
                 { name: 'Pawney', count: 1, ability: 'Dark', level: 4, role: isVi ? `Gặt ${totalFarmland} Nông trại & Vận chuyển` : `Harvest ${totalFarmland} Farmland & Hauling`, desc: isVi ? 'Ám Lv.4, Vác Lv.4 · Gặt & dọn kho sát ruộng' : 'Dark Lv.4, Hauling Lv.4 · Harvest & hauling', specific: 'Pawney' },
                 { name: 'Rookey', count: 1, ability: 'Dark', level: 3, role: isVi ? `Gặt ${totalFarmland} Nông trại & Vận chuyển` : `Harvest ${totalFarmland} Farmland & Hauling`, desc: isVi ? 'Ám Lv.3, Vác Lv.3 · Gặt & dọn kho sát ruộng' : 'Dark Lv.3, Hauling Lv.3 · Harvest & hauling', specific: 'Rookey' },
                 { name: 'Pawney (Dự phòng)', count: 1, ability: 'Hauling', level: 4, role: isVi ? 'Vận chuyển chuyên trách về SU' : 'Dedicated Hauling to SU', desc: isVi ? 'Khuân Vác Lv.4 · Giải tỏa kho sát ruộng' : 'Hauling Lv.4 · Clears field to nearby SU', specific: 'Pawney' }
@@ -5559,8 +5626,9 @@ function renderAniimoSummary(plan) {
             const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
             const ability = step.aniimo ? step.aniimo.ability : (FACILITIES.find(f => f.name === baseFac)?.ability || 'Leisure');
             const level = step.aniimo ? step.aniimo.level : 4;
+            const abName = (isVi && window.VI_ABILITIES && window.VI_ABILITIES[ability]) ? window.VI_ABILITIES[ability] : ability;
             stationaryMembers.push({
-                name: specificWorker || `${abilityTag(ability)} Lv.${level}`,
+                name: specificWorker || `${abName} Lv.${level}`,
                 count: count,
                 ability: ability,
                 level: level,
@@ -5625,9 +5693,7 @@ function renderAniimoSummary(plan) {
 
     // Render bảng phân 3 nhóm
     const renderMemberRow = m => {
-        const badge = m.specific
-            ? renderRosterWorkerBadge(m.ability, m.level, m.count, `${m.name} · ${m.desc}`, false, m.specific)
-            : `${abilityTag(m.ability)} Lv.${m.level}`;
+        const badge = renderRosterWorkerBadge(m.ability, m.level, m.count, `${m.name} · ${m.desc}`, false, m.specific || '');
         return `
             <tr>
                 <td data-label="Aniimo">
@@ -7072,6 +7138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applyConfigMode();
     updateSimpleEmodeState();
     attachSpecialistQuotaHandlers();
+    updateSpecialistQuotasLimits(selectedHomeLevel());
     initWasm();
 
     document.getElementById('optimize-btn').addEventListener('click', runFindPlan);

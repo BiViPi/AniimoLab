@@ -4658,11 +4658,12 @@ export function renderRosterWorkerBadge(ability, level, count = 1, tip = '', bon
     const theme = ABILITY_THEMES[ability] || { color: '#888888', icon: '🐾', vi: ability };
     const times = count > 1 ? `<span class="ability-times">×${count}</span>` : '';
     
+    const cleanTip = String(tip || '').replace(/<[^>]*>/g, '').replace(/"/g, '&quot;').trim();
     if (!worker) {
-        return `<span class="ability-kind"><span class="ability-dot small${bonus ? ' bonus' : ''}" style="--ability:${theme.color}" title="${tip}">${workerLevel}</span>${times}</span>`;
+        return `<span class="ability-kind"><span class="ability-dot small${bonus ? ' bonus' : ''}" style="--ability:${theme.color}" title="${cleanTip}">${workerLevel}</span>${times}</span>`;
     }
 
-    const fullTip = tip ? `${worker.name} (${theme.vi} Lv.${workerLevel}${isPrismana ? ' Prismana' : ''})${bonus ? ' (+20% tốc độ)' : ''} · ${tip}` : `${worker.name} · ${theme.vi} Lv.${workerLevel}`;
+    const fullTip = cleanTip ? `${worker.name} (${theme.vi} Lv.${workerLevel}${isPrismana ? ' Prismana' : ''})${bonus ? ' (+20% tốc độ)' : ''} · ${cleanTip}` : `${worker.name} · ${theme.vi} Lv.${workerLevel}`;
 
     return `
         <span class="roster-worker-item ${isPrismana ? 'is-prismana' : ''}" style="--ability-color:${theme.color}" title="${fullTip}">

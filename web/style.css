@@ -5209,6 +5209,28 @@ tr:hover .skip-row,
     border-color: rgba(249, 115, 22, 0.25);
 }
 
+.special-recipe-card.locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+body.light .special-recipe-card.locked {
+    opacity: 0.5;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.special-recipe-card.locked .special-rv-badge.rv-future {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
 .skip-recipes-details {
     margin-top: 1.25rem;
 }
