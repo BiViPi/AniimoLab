@@ -6,7 +6,7 @@ import {
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
 } from './facility-config.js?v=aniimolab_v25';
-import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker } from './aniimo-data.js?v=aniimolab_v25';
+import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v25';
 import { renderFacilityIcon, renderItemIcon } from './asset-map.js?v=aniimolab_v24';
 
 let wasmReady = false;
@@ -5027,131 +5027,198 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
 
     const roles = isLargeFarm ? [
         {
-            roleVi: `1. Khai khẩn (${totalPlots} ô)`,
-            roleEn: `1. Reclaiming (${totalPlots} plots)`,
-            workers: '2× Gracewing (Sơn Lâm)',
+            step: 1,
+            taskVi: 'Khai khẩn',
+            taskEn: 'Reclaiming',
+            plotsVi: `${totalPlots} ô đất`,
+            plotsEn: `${totalPlots} plots`,
+            workers: 'Gracewing (Sơn Lâm)',
+            count: '2×',
             ability: 'Earth',
             level: 2,
             specific: 'Gracewing',
-            descVi: 'Đất Lv.2 · Chuyên tâm 100% (không có Vác)',
-            descEn: 'Earth Lv.2 · 100% focused (No Hauling)'
+            reasonVi: 'Gracewing Sơn Lâm chỉ có Thổ mà không có Vận chuyển, tập trung khai khẩn nhanh chóng, không bị sao nhãng.',
+            reasonEn: 'Gracewing (Forest) has Earth with no Hauling; focuses 100% on fast tilling without distraction.'
         },
         {
-            roleVi: `2. Gieo trồng (${totalPlots} ô)`,
-            roleEn: `2. Sowing (${totalPlots} plots)`,
-            workers: 'Irisalis + Leafy',
+            step: 2,
+            taskVi: 'Gieo trồng',
+            taskEn: 'Sowing',
+            plotsVi: `${totalPlots} ô đất`,
+            plotsEn: `${totalPlots} plots`,
+            workers: 'Irisalis (Leafy phụ)',
+            count: '2×',
             ability: 'Grass',
             level: 3,
             specific: 'Irisal',
-            descVi: 'Thảo Lv.3 · Gieo luân phiên cả Nông trại & Rừng',
-            descEn: 'Grass Lv.3 · Alternating sow across farm'
+            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung gieo hạt giống, không bị sao nhãng (Leafy chỉ phụ).',
+            reasonEn: 'Irisalis has only Grass skill so stays purely focused on sowing seeds without distraction (Leafy as backup).'
         },
         {
-            roleVi: `3. Tưới nước (${totalPlots} ô × 2 đợt)`,
-            roleEn: `3. Watering (${totalPlots} plots × 2)`,
+            step: 3,
+            taskVi: 'Tưới nước',
+            taskEn: 'Watering',
+            plotsVi: `${totalPlots} ô × 2 đợt`,
+            plotsEn: `${totalPlots} plots × 2`,
             workers: 'Piopiota (Đêm) + Leafy',
+            count: '2×',
             ability: 'Water',
             level: 3,
             specific: 'Piopiota',
-            descVi: 'Thủy Lv.2-3 · Chống trễ timer, trừ 5p/lần',
-            descEn: 'Water Lv.2-3 · Auto -5m, absorbs delay'
+            reasonVi: 'Piopiota Đêm có 2 kỹ năng Tưới nước và Ám: chỉ tập trung tưới nước và phụ thu hoạch nông trại.',
+            reasonEn: 'Night Piopiota has Water and Dark skills: focuses primarily on watering and backs up farm harvest.'
         },
         {
-            roleVi: `4. Thu hoạch Nông trại (${totalFarmland} ô)`,
-            roleEn: `4. Harvest Farmland (${totalFarmland} plots)`,
+            step: 4,
+            taskVi: 'Thu hoạch Nông trại',
+            taskEn: 'Harvest Farmland',
+            plotsVi: `${totalFarmland} ô Nông trại`,
+            plotsEn: `${totalFarmland} Farmland plots`,
             workers: 'Pawney + Rookey',
+            count: '2×',
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            descVi: `Ám Lv.3-4 · Gặt sạch ${totalFarmland} ô trong ~1 phút`,
-            descEn: `Dark Lv.3-4 · Clears ${totalFarmland} plots in ~1m`
+            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất, vì chỉ có 2 kỹ năng Ám và Vận chuyển, vừa thu hoạch xong là vận chuyển ngay lập tức.',
+            reasonEn: 'Pawney and Rookey are optimal with only Dark and Hauling skills: immediately haul crops right after harvest.'
         },
         {
-            roleVi: `5. Thu hoạch Rừng cây (${totalWoodland} ô)`,
-            roleEn: `5. Harvest Trees (${totalWoodland} plots)`,
-            workers: 'Irisalis + Leafy',
+            step: 5,
+            taskVi: 'Thu hoạch Cây trồng',
+            taskEn: 'Harvest Trees',
+            plotsVi: `${totalWoodland} ô Rừng cây`,
+            plotsEn: `${totalWoodland} Woodland plots`,
+            workers: 'Irisalis (Leafy phụ)',
+            count: '2×',
             ability: 'Grass',
             level: 3,
             specific: 'Irisal',
-            descVi: 'Thảo Lv.3 · Tự động gặt cây khi chín',
-            descEn: 'Grass Lv.3 · Auto harvests trees'
+            reasonVi: 'Irisalis là tốt nhất (chỉ có kỹ năng Cỏ), Leafy chỉ phụ.',
+            reasonEn: 'Irisalis is optimal with dedicated Grass skill; Leafy acts as secondary backup.'
         },
         {
-            roleVi: '6. Vận chuyển (Về SU)',
-            roleEn: '6. Hauling (To SU)',
-            workers: 'Pawney + Rookey (Leafy phụ)',
+            step: 6,
+            taskVi: 'Vận chuyển',
+            taskEn: 'Hauling',
+            plotsVi: 'Toàn bộ nông sản & gỗ',
+            plotsEn: 'All crops & lumber',
+            workers: 'Pawney + Rookey',
+            count: '2-3×',
             ability: 'Hauling',
             level: 4,
             specific: 'Pawney',
-            descVi: 'Khuân Vác Lv.3-4 · Gom đồ về SU sát ruộng',
-            descEn: 'Hauling Lv.3-4 · Clears field to nearby SU'
+            reasonVi: 'Pawney và Rookey là tốt nhất, khi không thu hoạch thì chỉ tập trung vận chuyển các sản phẩm khác.',
+            reasonEn: 'Pawney and Rookey are best: when not harvesting, they focus entirely on hauling all other products.'
         }
     ] : [
         {
-            roleVi: `1. Khai khẩn (${totalPlots} ô)`,
-            roleEn: `1. Reclaiming (${totalPlots} plots)`,
-            workers: '1× Gracewing (Sơn Lâm)',
+            step: 1,
+            taskVi: 'Khai khẩn',
+            taskEn: 'Reclaiming',
+            plotsVi: `${totalPlots} ô đất`,
+            plotsEn: `${totalPlots} plots`,
+            workers: 'Gracewing (Sơn Lâm)',
+            count: '1×',
             ability: 'Earth',
             level: 2,
             specific: 'Gracewing',
-            descVi: 'Đất Lv.2 · Chuyên tâm 100%',
-            descEn: 'Earth Lv.2 · 100% focused'
+            reasonVi: 'Gracewing Sơn Lâm chỉ có Thổ mà không có Vận chuyển, tập trung khai khẩn nhanh chóng, không bị sao nhãng.',
+            reasonEn: 'Gracewing (Forest) has Earth with no Hauling; focuses 100% on fast tilling without distraction.'
         },
         {
-            roleVi: `2. Gieo trồng & Cây (${totalPlots} ô)`,
-            roleEn: `2. Sowing & Trees (${totalPlots} plots)`,
-            workers: '1× Irisalis',
+            step: 2,
+            taskVi: 'Gieo trồng & Cây',
+            taskEn: 'Sowing & Trees',
+            plotsVi: `${totalPlots} ô đất`,
+            plotsEn: `${totalPlots} plots`,
+            workers: 'Irisalis',
+            count: '1×',
             ability: 'Grass',
             level: 3,
             specific: 'Irisal',
-            descVi: 'Thảo Lv.3 · Gieo hạt & gặt rừng cây',
-            descEn: 'Grass Lv.3 · Sowing & tree harvest'
+            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung gieo hạt giống và thu hoạch cây, không bị sao nhãng.',
+            reasonEn: 'Irisalis has only Grass skill so stays purely focused on sowing seeds and trees without distraction.'
         },
         {
-            roleVi: `3. Tưới nước (${totalPlots} ô)`,
-            roleEn: `3. Watering (${totalPlots} plots)`,
-            workers: '1× Piopiota (Đêm)',
+            step: 3,
+            taskVi: 'Tưới nước',
+            taskEn: 'Watering',
+            plotsVi: `${totalPlots} ô đất`,
+            plotsEn: `${totalPlots} plots`,
+            workers: 'Piopiota (Đêm)',
+            count: '1×',
             ability: 'Water',
             level: 3,
             specific: 'Piopiota',
-            descVi: 'Thủy Lv.3 · Tưới siêu tốc đệm 10p',
-            descEn: 'Water Lv.3 · Fast watering buffer'
+            reasonVi: 'Piopiota Đêm có 2 kỹ năng Tưới nước và Ám: chỉ tập trung tưới nước và phụ thu hoạch nông trại.',
+            reasonEn: 'Night Piopiota has Water and Dark skills: focuses primarily on watering and backs up farm harvest.'
         },
         {
-            roleVi: `4. Thu hoạch Nông trại (${totalFarmland} ô)`,
-            roleEn: `4. Harvest Farmland (${totalFarmland} plots)`,
-            workers: '1× Pawney / Rookey',
+            step: 4,
+            taskVi: 'Thu hoạch Nông trại',
+            taskEn: 'Harvest Farmland',
+            plotsVi: `${totalFarmland} ô Nông trại`,
+            plotsEn: `${totalFarmland} Farmland plots`,
+            workers: 'Pawney / Rookey',
+            count: '1×',
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            descVi: `Ám Lv.4 · Gặt ${totalFarmland} ô nông sản`,
-            descEn: `Dark Lv.4 · Farmland harvest (${totalFarmland} plots)`
+            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất, vì chỉ có 2 kỹ năng Ám và Vận chuyển, vừa thu hoạch xong là vận chuyển ngay lập tức.',
+            reasonEn: 'Pawney and Rookey are optimal with only Dark and Hauling skills: immediately haul crops right after harvest.'
         },
         {
-            roleVi: '5. Vận chuyển',
-            roleEn: '5. Hauling',
-            workers: '1× Pawney / Rookey',
+            step: 5,
+            taskVi: 'Vận chuyển',
+            taskEn: 'Hauling',
+            plotsVi: 'Toàn bộ nông sản',
+            plotsEn: 'All crops',
+            workers: 'Pawney / Rookey',
+            count: '1×',
             ability: 'Hauling',
             level: 4,
             specific: 'Pawney',
-            descVi: 'Khuân Vác Lv.4 · Đưa đồ về SU sát ruộng',
-            descEn: 'Hauling Lv.4 · Carries to nearby SU'
+            reasonVi: 'Pawney và Rookey là tốt nhất, khi không thu hoạch thì chỉ tập trung vận chuyển các sản phẩm khác.',
+            reasonEn: 'Pawney and Rookey are best: when not harvesting, they focus entirely on hauling all other products.'
         }
     ];
 
-    const cellsHtml = roles.map(r => {
-        const title = isVi ? r.roleVi : r.roleEn;
-        const desc = isVi ? r.descVi : r.descEn;
-        const avatar = renderRosterWorkerBadge(r.ability, r.level, 1, `${r.workers} · ${desc}`, false, r.specific);
+    const rowsHtml = roles.map(r => {
+        const task = isVi ? r.taskVi : r.taskEn;
+        const plots = isVi ? r.plotsVi : r.plotsEn;
+        const reason = isVi ? r.reasonVi : r.reasonEn;
+        const avatar = renderAniimoWorkerCard(r.ability, r.level, '', true, r.specific, r.level >= 4);
+        const theme = ABILITY_THEMES[r.ability] || { color: '#888888', icon: '🐾', vi: r.ability };
+        const abilityName = isVi ? theme.vi : r.ability;
+
         return `
-            <div class="farming-crew-cell">
-                <div class="farming-crew-avatar">${avatar}</div>
-                <div class="farming-crew-role-info">
-                    <div class="farming-crew-role-title">${title}</div>
-                    <div class="farming-crew-workers-line">${r.workers}</div>
-                    <div class="farming-crew-note">${desc}</div>
-                </div>
-            </div>
+            <tr class="farming-crew-row">
+                <td class="crew-step-col">
+                    <span class="crew-step-badge">${r.step}</span>
+                </td>
+                <td class="crew-task-col">
+                    <div class="crew-task-name">${task}</div>
+                    <div class="crew-task-plots">${plots}</div>
+                </td>
+                <td class="crew-worker-col">
+                    <div class="crew-worker-wrap">
+                        ${avatar}
+                        <span class="crew-worker-name">${r.workers}</span>
+                    </div>
+                </td>
+                <td class="crew-count-col">
+                    <span class="crew-count-badge">${r.count}</span>
+                </td>
+                <td class="crew-ability-col">
+                    <span class="crew-ability-pill" style="--ability-color: ${theme.color}">
+                        <span class="elem-ico">${theme.icon}</span>
+                        <span class="elem-name">${abilityName} Lv.${r.level}</span>
+                    </span>
+                </td>
+                <td class="crew-reason-col">
+                    <div class="crew-reason-text">${reason}</div>
+                </td>
+            </tr>
         `;
     }).join('');
 
@@ -5168,8 +5235,22 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
                     <span class="farming-crew-pill">👥 ${crewCount} ${isVi ? 'Aniimo' : 'workers'}</span>
                 </div>
             </div>
-            <div class="farming-crew-grid">
-                ${cellsHtml}
+            <div class="farming-crew-table-wrapper">
+                <table class="farming-crew-table">
+                    <thead>
+                        <tr>
+                            <th class="th-step">#</th>
+                            <th class="th-task">${isVi ? 'Nhiệm vụ & Quy mô' : 'Task & Scale'}</th>
+                            <th class="th-worker">${isVi ? 'Aniimo' : 'Aniimo'}</th>
+                            <th class="th-count">${isVi ? 'Số lượng' : 'Count'}</th>
+                            <th class="th-ability">${isVi ? 'Hệ & Cấp' : 'Ability'}</th>
+                            <th class="th-reason">${isVi ? 'Lý do & Đặc tính vận hành' : 'Reason & Operational Logic'}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
             </div>
             <p class="farming-crew-footer-note">
                 💡 <em>${isVi ? 'Toàn bộ ô đất dùng chung 1 tổ đội luân phiên theo dây chuyền tuần hoàn. Không phân bổ riêng lẻ từng ô để tối ưu hóa slot đảo.' : 'All farm plots share one rotating crew pipeline. Workers are not assigned individually per plot to preserve island slots.'}</em>

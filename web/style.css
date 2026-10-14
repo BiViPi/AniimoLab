@@ -6254,56 +6254,159 @@ body.light .mode-pill.pill-manual.active {
     border-color: rgba(56, 189, 248, 0.35);
 }
 
-.farming-crew-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.farming-crew-cell {
-    background: rgba(15, 23, 42, 0.65);
-    border: 1px solid rgba(148, 163, 184, 0.12);
+.farming-crew-table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 0.85rem;
     border-radius: 8px;
-    padding: 0.65rem 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    transition: transform 0.15s ease, border-color 0.15s ease;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(15, 23, 42, 0.7);
 }
 
-.farming-crew-cell:hover {
-    border-color: rgba(74, 222, 128, 0.4);
-    transform: translateY(-1px);
+.farming-crew-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    text-align: left;
 }
 
-.farming-crew-role-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.farming-crew-role-title {
-    font-size: 0.76rem;
+.farming-crew-table thead th {
+    background: rgba(15, 23, 42, 0.9);
+    padding: 0.65rem 0.85rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(74, 222, 128, 0.25);
+    white-space: nowrap;
+}
+
+.farming-crew-table thead th.th-step {
+    text-align: center;
+    width: 40px;
+}
+
+.farming-crew-table thead th.th-count {
+    text-align: center;
+    width: 80px;
+}
+
+.farming-crew-row {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    transition: background 0.15s ease;
+}
+
+.farming-crew-row:last-child {
+    border-bottom: none;
+}
+
+.farming-crew-row:hover {
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.farming-crew-row td {
+    padding: 0.65rem 0.85rem;
+    vertical-align: middle;
+}
+
+.crew-step-col {
+    text-align: center;
+}
+
+.crew-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    font-weight: 700;
+    font-size: 0.76rem;
+    border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+.crew-task-col {
+    min-width: 150px;
+}
+
+.crew-task-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #f8fafc;
     margin-bottom: 0.15rem;
 }
 
-.farming-crew-workers-line {
+.crew-task-plots {
+    font-size: 0.73rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.crew-worker-col {
+    min-width: 170px;
+}
+
+.crew-worker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.crew-worker-name {
     font-size: 0.84rem;
     font-weight: 600;
     color: #e2e8f0;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.farming-crew-note {
-    font-size: 0.72rem;
-    color: #64748b;
-    margin-top: 0.1rem;
+.crew-count-col {
+    text-align: center;
+}
+
+.crew-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    font-weight: 700;
+    font-size: 0.8rem;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.crew-ability-col {
+    min-width: 110px;
+}
+
+.crew-ability-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--ability-color, #94a3b8);
+    color: #f1f5f9;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.crew-ability-pill .elem-name {
+    color: var(--ability-color, #f1f5f9);
+}
+
+.crew-reason-col {
+    min-width: 250px;
+}
+
+.crew-reason-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: #94a3b8;
 }
 
 .farming-crew-footer-note {
