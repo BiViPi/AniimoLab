@@ -5331,18 +5331,38 @@ function taskLabel(task, facility, tagged = false) {
     return `${ability} Lv.${task.level} · ${personality}${letter ? ` (${letter})` : ''}`;
 }
 
-function facilityPlanTable(rows) {
-    return facilityPlanTableOf([{ rows }]);
+function facilityPlanTable(rows, options = {}) {
+    return facilityPlanTableOf([{ rows }], options);
 }
 
 // One table over several labelled groups, e.g. a paired environment's three zones: each group's
 // rows follow a band naming it, so the column headers are written once.
-function facilityPlanTableOf(groups) {
+function facilityPlanTableOf(groups, options = {}) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const isFarm = options.isFarm || false;
     const hasOverrides = facilityOverrides && facilityOverrides.length > 0;
     const body = groups
-        .map(group => (group.label ? `<tr class="facility-plan-group"><td colspan="6">${group.label}</td></tr>` : '') + planRows(group.rows))
+        .map(group => (group.label ? `<tr class="facility-plan-group"><td colspan="${isFarm ? 4 : 6}">${group.label}</td></tr>` : '') + planRows(group.rows, options))
         .join('');
+
+    if (isFarm) {
+        return `
+            <div class="table-wrapper farming-plots-table-wrapper">
+                <table class="facility-plan-table farming-plots-table">
+                    <thead>
+                        <tr>
+                            <th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th>
+                            <th>${window.th ? window.th('th_count', 'Count') : 'Count'}</th>
+                            <th>${window.th ? window.th('th_producing', 'Producing') : 'Producing'}</th>
+                            <th>${window.th ? window.th('th_why', 'Why') : 'Why'}</th>
+                        </tr>
+                    </thead>
+                    <tbody>${body}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
     return `
         <div class="table-wrapper worksheet-table-wrapper">
             <div class="worksheet-toolbar">
@@ -5373,14 +5393,38 @@ function facilityPlanTableOf(groups) {
     `;
 }
 
-function planRows(rows) {
+function planRows(rows, options = {}) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const isFarm = options.isFarm || false;
     const currentHomeLevel = selectedHomeLevel();
     const emodeAvailable = currentHomeLevel >= 12;
 
     return rows.map(step => {
         const rawFac = step.facility || '';
         const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+
+        // Đối với ô đất canh tác (Nông trại, Rừng cây): loại bỏ Chế độ và Aniimo vì đã có Tổ Đội Đồng Áng
+        if (isFarm) {
+            return `
+                <tr class="status-${step.status}">
+                    <td data-label="Facility">
+                        <div class="facility-cell">
+                            ${renderFacilityIcon(baseFac)}
+                            <span class="facility-name-text">${getFacilityDisplayName(baseFac)}</span>
+                        </div>
+                    </td>
+                    <td data-label="Count">${step.facility_count}</td>
+                    <td data-label="Producing">
+                        <div class="item-cell">
+                            ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
+                            ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                        </div>
+                    </td>
+                    <td data-label="Why">${prettyReason(step.reason)}</td>
+                </tr>
+            `;
+        }
+
         const isMine = baseFac === 'Mine';
         const isWell = baseFac === 'Well';
         const facDef = FACILITIES.find(f => f.name === baseFac);
@@ -6301,7 +6345,7 @@ function renderFacilityPlan(plan) {
                 <h4 class="facility-category-title">${getFacilityDisplayName(unit.building)} ${modeTag(modes[0])}<span class="env-head-sep">|</span>${getFacilityDisplayName(unit.partner[0])} ${modeTag(modes[1])}${middle ? `<span class="env-head-sep">|</span>${overlapText} ${modeTag(middle)}` : ''}</h4>
                 <div class="env-unit">
                     ${renderEnvironmentDiagram(zones.flatMap(z => z.layout), zones[0].mode, unit.building, zones.flatMap(z => z.rows), unit, zones)}
-                    <div class="env-unit-table">${facilityPlanTableOf(zones.map(z => ({ label: modeTag(z.mode), rows: z.rows })))}</div>
+                    <div class="env-unit-table">${facilityPlanTableOf(zones.map(z => ({ label: modeTag(z.mode), rows: z.rows })), { isFarm: true })}</div>
                 </div>
             </div>
         `;
@@ -6323,7 +6367,7 @@ function renderFacilityPlan(plan) {
             return orphans.length === 0 ? '' : `
                 <div class="facility-category">
                     <h4 class="facility-category-title">${modeTag(mode)}</h4>
-                    ${facilityPlanTable(orphans)}
+                    ${facilityPlanTable(orphans, { isFarm: true })}
                 </div>`;
         }
         return `
@@ -6333,7 +6377,7 @@ function renderFacilityPlan(plan) {
                     ${units.length > 1 ? `<p class="hint small">${getFacilityDisplayName(unit.building)} ${i + 1}</p>` : ''}
                     <div class="env-unit">
                         ${renderEnvironmentDiagram(unit.layout, mode, unit.building, unit.rows, unit)}
-                        <div class="env-unit-table">${facilityPlanTable(unit.rows)}</div>
+                        <div class="env-unit-table">${facilityPlanTable(unit.rows, { isFarm: true })}</div>
                     </div>
                 `).join('')}
             </div>
@@ -6341,26 +6385,51 @@ function renderFacilityPlan(plan) {
     }).join('');
     const environmentSections = pairSections + modeSections;
 
-    const byCategory = new Map(FACILITY_CATEGORIES.map(c => [c, []]));
+    // 1. Tách riêng các ô đất nông trại & rừng cây không thuộc bộ phận điều hòa
+    const unconditionedFarmSteps = [];
+    const regularUngatedSteps = [];
     ungatedSteps.forEach(step => {
+        const baseFac = (step.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        if (baseFac === 'Farmland' || baseFac === 'Woodland') {
+            unconditionedFarmSteps.push(step);
+        } else {
+            regularUngatedSteps.push(step);
+        }
+    });
+
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+
+    // 2. Nhóm Đất trồng không thuộc bộ phận điều hòa (loại bỏ Chế độ và Aniimo, hiển thị 4 cột)
+    const activeFarmSteps = unconditionedFarmSteps.filter(step => step.status === 'producing' && Boolean(step.item_name));
+    let unconditionedFarmSection = '';
+    if (activeFarmSteps.length > 0) {
+        unconditionedFarmSection = `
+            <div class="facility-category unconditioned-farm-category">
+                <h4 class="facility-category-title">🌱 ${isVi ? 'Đất trồng không thuộc bộ phận điều hòa' : 'Unconditioned Farm & Tree Plots'}</h4>
+                ${facilityPlanTable(activeFarmSteps, { isFarm: true })}
+            </div>
+        `;
+    }
+
+    // 3. Phân bổ các cơ sở dùng Aniimo 24/7 và chế biến (tuyệt đối không còn Farmland hay Woodland ở đây)
+    const byCategory = new Map(FACILITY_CATEGORIES.map(c => [c, []]));
+    regularUngatedSteps.forEach(step => {
         const category = FACILITY_CATEGORY_BY_NAME.get(step.facility) || 'Materials Processing';
         if (!byCategory.has(category)) byCategory.set(category, []);
         byCategory.get(category).push(step);
     });
 
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    // Gộp Nguyên liệu & Nguyên liệu Aniimo thành "Sản xuất nguyên liệu" (chạy 24/7), tách riêng Gỗ & Gạch quặng và Cơ sở chế biến
+    // 4. Thứ tự hiển thị: "Sản xuất gỗ và gạch quặng" NẰM TRÊN "Sản xuất nguyên liệu", sau cùng là "Cơ sở chế biến"
     const PLAN_DISPLAY_CATEGORIES = [
-        {
-            titleVi: 'Sản xuất nguyên liệu',
-            titleEn: 'Materials Production',
-            sourceCategories: ['Materials', 'Aniimo Materials']
-        },
         {
             titleVi: 'Sản xuất gỗ và gạch quặng',
             titleEn: 'Wood & Ore Processing',
             sourceCategories: ['Wood & Ore Processing']
+        },
+        {
+            titleVi: 'Sản xuất nguyên liệu',
+            titleEn: 'Materials Production',
+            sourceCategories: ['Materials', 'Aniimo Materials']
         },
         {
             titleVi: 'Cơ sở chế biến',
@@ -6396,7 +6465,12 @@ function renderFacilityPlan(plan) {
     });
     const farmingCrewSummary = (totalFarmland + totalWoodland > 0) ? renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) : '';
 
-    container.innerHTML = farmingCrewSummary + environmentSections + categorySections;
+    // Cấu trúc phân nhóm rõ ràng:
+    // Nhóm 1: Tổ đội đồng áng tập trung
+    // Nhóm 2: Các bộ phận điều hòa
+    // Nhóm 3: Các đất trồng không thuộc bộ phận điều hòa
+    // Tiếp theo: Sản xuất gỗ và gạch quặng -> Sản xuất nguyên liệu (24/7) -> Cơ sở chế biến
+    container.innerHTML = farmingCrewSummary + environmentSections + unconditionedFarmSection + categorySections;
 }
 
 // Re-renders "Your Rate" from `lastPlan` at whichever unit is currently selected in the

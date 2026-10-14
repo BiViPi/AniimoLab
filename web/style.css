@@ -6418,21 +6418,40 @@ body.light .mode-pill.pill-manual.active {
     gap: 0.4rem;
 }
 
-/* Farm harvest single cell inside Worksheet table */
-.farm-harvest-single-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
+/* Farming Plots Table (4 columns, clean, no toolbar) */
+.farming-plots-table-wrapper {
+    margin-top: 0.5rem;
+    position: relative;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+    background: var(--surface-2, rgba(255, 255, 255, 0.02));
 }
 
-.farm-role-tag {
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.12rem 0.4rem;
-    border-radius: 4px;
-    background: rgba(74, 222, 128, 0.15);
-    color: #86efac;
-    border: 1px solid rgba(74, 222, 128, 0.25);
+.farming-plots-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.farming-plots-table thead th {
+    background: var(--surface-2, rgba(255, 255, 255, 0.04));
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted, #94a3b8);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.farming-plots-table td {
+    padding: 0.65rem 0.85rem;
+    vertical-align: middle;
+}
+
+.unconditioned-farm-category {
+    margin-top: 1.25rem;
 }
 
 /* 2. Three Roster Groups in Aniimo Team Card */
