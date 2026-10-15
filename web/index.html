@@ -404,14 +404,14 @@
                                 </span>
                             <div class="layout-toolbar">
                                 <div class="layout-zoom-controls">
-                                    <button type="button" id="layout-zoom-out" class="layout-btn zoom-btn" title="Thu nhỏ (Cuộn chuột xuống)">−</button>
+                                    <button type="button" id="layout-zoom-out" class="layout-btn zoom-btn" data-i18n-title="layout_zoom_out_title" title="Thu nhỏ (Cuộn chuột xuống)">−</button>
                                     <span id="layout-zoom-level" class="layout-zoom-text">100%</span>
-                                    <button type="button" id="layout-zoom-in" class="layout-btn zoom-btn" title="Phóng to (Cuộn chuột lên)">+</button>
-                                    <button type="button" id="layout-zoom-fit" class="layout-btn fit-btn" title="Vừa khung nhìn">FIT</button>
-                                    <button type="button" id="layout-reset-btn" class="layout-btn reset-btn" title="Đặt lại bố cục ban đầu">↺ Đặt lại</button>
+                                    <button type="button" id="layout-zoom-in" class="layout-btn zoom-btn" data-i18n-title="layout_zoom_in_title" title="Phóng to (Cuộn chuột lên)">+</button>
+                                    <button type="button" id="layout-zoom-fit" class="layout-btn fit-btn" data-i18n-title="layout_zoom_fit_title" title="Vừa khung nhìn">FIT</button>
+                                    <button type="button" id="layout-reset-btn" class="layout-btn reset-btn" data-i18n-title="layout_reset_btn_title" title="Đặt lại bố cục ban đầu" data-i18n="layout_reset_btn_text">↺ Đặt lại</button>
                                 </div>
                                 <span class="layout-interaction-hint">
-                                    💡 <em>Kéo thả vật thể để đổi vị trí · Cuộn chuột để Zoom · Kéo nền để Di chuyển bản đồ</em>
+                                    💡 <em data-i18n="layout_hint_drag">Kéo thả vật thể để đổi vị trí · Cuộn chuột để Zoom · Kéo nền để Di chuyển bản đồ</em>
                                 </span>
                             </div>
                             <div class="layout-diagram" id="layout-diagram"></div>
@@ -427,11 +427,11 @@
                                         <select id="goal-target"></select>
                                     </div>
                                     <div class="input-field">
-                                        <label for="target-amount" id="target-amount-label" data-i18n="target_coins_label">Home Coin mục tiêu</label>
+                                        <label for="target-amount" id="target-amount-label" data-i18n="target_coins_label">Xu Gia Viên mục tiêu</label>
                                         <input type="number" id="target-amount" value="1000" min="0">
                                     </div>
                                     <div class="input-field">
-                                        <label for="current-amount" id="current-amount-label" data-i18n="current_coins_label">Home Coin hiện có</label>
+                                        <label for="current-amount" id="current-amount-label" data-i18n="current_coins_label">Xu Gia Viên hiện có</label>
                                         <input type="number" id="current-amount" value="0" min="0">
                                     </div>
                                 </div>
@@ -444,7 +444,7 @@
                                         <span class="summary-value" id="total-time">-</span>
                                     </div>
                                     <div class="summary-item">
-                                        <span class="summary-label" id="amount-produced-label" data-i18n="amount_produced_label">Home Coin sản xuất được</span>
+                                        <span class="summary-label" id="amount-produced-label" data-i18n="amount_produced_label">Xu Gia Viên sản xuất được</span>
                                         <span class="summary-value" id="amount-produced">-</span>
                                     </div>
                                 </div>
@@ -457,11 +457,11 @@
                                     <table id="product-breakdown-table">
                                         <thead>
                                             <tr>
-                                                <th>Item</th>
-                                                <th>Facility</th>
-                                                <th>Amount</th>
-                                                <th id="product-breakdown-rate-header">Profit</th>
-                                                <th>Worth <span class="th-unit">Home Coins</span></th>
+                                                <th data-i18n="th_item">Vật phẩm</th>
+                                                <th data-i18n="th_facility">Cơ sở</th>
+                                                <th data-i18n="th_amount">Số lượng</th>
+                                                <th id="product-breakdown-rate-header" data-i18n="th_profit">Lợi nhuận</th>
+                                                <th data-i18n-html="th_worth">Giá trị <span class="th-unit">Xu Gia Viên</span></th>
                                                 <th id="product-breakdown-points-header" hidden>Harvest Moon Points
                                                 </th>
                                             </tr>
@@ -477,11 +477,11 @@
                                     <table id="seeds-needed-table">
                                         <thead>
                                             <tr>
-                                                <th>Crop</th>
-                                                <th>Facility</th>
-                                                <th>Plots</th>
-                                                <th>Plantings/Plot</th>
-                                                <th>Total Seeds</th>
+                                                <th data-i18n="th_crop">Cây trồng</th>
+                                                <th data-i18n="th_facility">Cơ sở</th>
+                                                <th data-i18n="th_plots">Ô đất</th>
+                                                <th data-i18n="th_plantings">Lượt trồng/ô</th>
+                                                <th data-i18n="th_total_seeds">Tổng hạt giống</th>
                                             </tr>
                                         </thead>
                                         <tbody id="seeds-needed-tbody"></tbody>
@@ -735,8 +735,10 @@
             }
         });
     </script>
-    <script src="i18n.js?v=aniimolab_v39"></script>
-    <script type="module" src="app.js?v=aniimolab_v39_centered_products"></script>
+    <script src="locales/vi.js?v=aniimolab_v40"></script>
+    <script src="locales/en.js?v=aniimolab_v40"></script>
+    <script src="i18n.js?v=aniimolab_v40"></script>
+    <script type="module" src="app.js?v=aniimolab_v40"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

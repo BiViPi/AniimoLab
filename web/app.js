@@ -942,13 +942,13 @@ function renderFacilityCards() {
         'Materials Processing': 'Chế Biến Nguyên Liệu'
     };
     grid.innerHTML = FACILITY_CATEGORIES.map(category => {
-        const catName = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
+        const catName = window.i18n ? window.i18n.getCategoryDisplayName(category) : (isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category);
         const cards = FACILITIES.filter(f => f.category === category).map(f => `
             <div class="facility-card">
                 <h4>${getFacilityDisplayName(f.name)} <span class="info-icon" data-tooltip="${f.tooltip}">?</span></h4>
                 <div class="facility-tiers" data-facility="${f.name}"></div>
-                ${f.hasLevels === false ? '' : '<button type="button" class="add-tier-btn" data-facility="' + f.name + '">+ Add level</button>'}
-                ${f.supportsEmode ? `<label class="facility-emode-toggle" title="Run in Electric Mode (automatic, no Aniimo worker needed)"><input type="checkbox" class="facility-emode-checkbox" data-facility="${f.name}" ${emodeFacilities.has(f.name) ? 'checked' : ''}> ⚡ E-mode</label>` : ''}
+                ${f.hasLevels === false ? '' : '<button type="button" class="add-tier-btn" data-facility="' + f.name + '">' + (isVi ? '+ Thêm cấp' : '+ Add level') + '</button>'}
+                ${f.supportsEmode ? `<label class="facility-emode-toggle" title="${isVi ? 'Chạy ở Chế độ điện (tự động, không cần nhân công Aniimo)' : 'Run in Electric Mode (automatic, no Aniimo worker needed)'}"><input type="checkbox" class="facility-emode-checkbox" data-facility="${f.name}" ${emodeFacilities.has(f.name) ? 'checked' : ''}> ${isVi ? '⚡ Chế độ điện' : '⚡ E-mode'}</label>` : ''}
             </div>
         `).join('');
         return `
@@ -2580,7 +2580,7 @@ function homelandSvg(layout, homeLevel) {
     const plotShapes = [...plots].sort((a, b) => (b.number <= homeLevel) - (a.number <= homeLevel)).map(p => {
         const open = p.number <= homeLevel;
         return `<g class="layout-plot${open ? '' : ' locked'}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />
-            <text x="${p.x + 0.6}" y="${p.y + 0.9}" font-size="0.85" font-weight="700" fill="${open ? '#94a3b8' : '#ef4444'}">${open ? 'Plot' : 'RV'} ${p.number}</text></g>`;
+            <text x="${p.x + 0.6}" y="${p.y + 0.9}" font-size="0.85" font-weight="700" fill="${open ? '#94a3b8' : '#ef4444'}">${open ? (isVi ? 'Lô' : 'Plot') : 'RV'} ${p.number}</text></g>`;
     }).join('');
 
     // Grid lines: major lines (1.0 tile) and minor subgrid (0.25 tile)
@@ -2608,9 +2608,13 @@ function homelandSvg(layout, homeLevel) {
         const distDef = LAYOUT_DISTRICTS.find(d => d.id === distId) || { color: '#3b82f6' };
         const su = storages.find(s => s.id === m.closestStorage) || storages[0];
         const away = su ? Math.hypot(m.x + m.w / 2 - (su.x + su.w / 2), m.y + m.h / 2 - (su.y + su.h / 2)) : 0;
-        const tip = tipAttrs(m.facility, {
-            detail: m.jobs ? m.jobs.map(j => prettyItem(j.item)).join(', ') : m.crop ? prettyItem(m.crop) : m.building && m.mode ? m.mode : (isVi ? 'Đang chờ' : 'Idle'),
-            stats: m.weight > 0 ? `${formatRate(m.weight)} trips/h · ${away.toFixed(1)} ô tới ${su?.label || 'SU'}` : '',
+        const facilityTitle = getFacilityDisplayName(m.facility);
+        const modeTitle = getModeDisplayName(m.mode);
+        const detailText = m.jobs ? m.jobs.map(j => prettyItem(j.item)).join(', ') : m.crop ? prettyItem(m.crop) : m.building && m.mode ? modeTitle : (isVi ? 'Đang chờ' : 'Idle');
+        const statsText = m.weight > 0 ? (isVi ? `${formatRate(m.weight)} chuyến/giờ · ${away.toFixed(1)} ô tới ${su?.label || 'SU'}` : `${formatRate(m.weight)} trips/h · ${away.toFixed(1)} tiles to ${su?.label || 'SU'}`) : '';
+        const tip = tipAttrs(facilityTitle, {
+            detail: detailText,
+            stats: statsText,
             color: distDef.color,
         });
 
@@ -2664,7 +2668,7 @@ function homelandSvg(layout, homeLevel) {
                         <!-- Crackle Generator #${gIdx + 1} 11x11 Square Grid -->
                         <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
                             fill="#06b6d4" fill-opacity="0.05" stroke="#06b6d4" stroke-opacity="0.65" stroke-width="0.14" stroke-dasharray="0.8 0.4" />
-                        <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.6" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Trụ điện #${gIdx + 1} (11×11 · 1000W)</text>
+                        <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.6" fill="#06b6d4" font-weight="700" text-anchor="middle">${isVi ? `⚡ Trụ điện #${gIdx + 1} (11×11 · 1000W)` : `⚡ Generator #${gIdx + 1} (11×11 · 1000W)`}</text>
                     `;
                 });
 
@@ -2677,7 +2681,7 @@ function homelandSvg(layout, homeLevel) {
                         <!-- Power Pole #${pIdx + 1} 7x7 Relay Range -->
                         <rect x="${px}" y="${py}" width="7" height="7" rx="0.25"
                             fill="#eab308" fill-opacity="0.04" stroke="#eab308" stroke-opacity="0.55" stroke-width="0.12" stroke-dasharray="0.5 0.25" />
-                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">⚡ Cột điện #${pIdx + 1} (7×7 Relay)</text>
+                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">${isVi ? `⚡ Cột điện #${pIdx + 1} (7×7 Relay)` : `⚡ Power Pole #${pIdx + 1} (7×7 Relay)`}</text>
                     `;
                 });
 
@@ -2718,7 +2722,7 @@ function homelandSvg(layout, homeLevel) {
                             <line x1="${closest.x}" y1="${closest.y}" x2="${efCenter.x}" y2="${efCenter.y}"
                                 stroke="#facc15" stroke-width="0.10" stroke-opacity="0.8" stroke-dasharray="0.3 0.15" />
                             <circle cx="${efCenter.x}" cy="${efCenter.y}" r="0.16" fill="#facc15" />
-                            <text x="${ef.x + ef.w / 2}" y="${ef.y + ef.h + 0.38}" font-size="0.34" fill="#facc15" font-weight="700" text-anchor="middle" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.8))">Đã đáp ứng yêu cầu ⚡</text>
+                            <text x="${ef.x + ef.w / 2}" y="${ef.y + ef.h + 0.38}" font-size="0.34" fill="#facc15" font-weight="700" text-anchor="middle" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.8))">${isVi ? 'Đã đáp ứng yêu cầu ⚡' : 'Power Requirement Met ⚡'}</text>
                         `;
                     }
                 });
@@ -2729,8 +2733,10 @@ function homelandSvg(layout, homeLevel) {
             const suElements = storages.map((su, idx) => {
                 const roleColors = { central: '#eab308', farm: '#10b981', workshop: '#06b6d4', forestry: '#059669', expansion: '#8b5cf6' };
                 const suColor = roleColors[su.role] || '#f59e0b';
-                const suLabel = su.label || `SU ${idx + 1}`;
-                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" data-type="storage" data-storage-idx="${idx}" data-x="${su.x}" data-y="${su.y}" data-orig-x="${su.x}" data-orig-y="${su.y}" ${tipAttrs(suLabel, { detail: `Thiết bị lưu trữ: ${su.role || 'All-purpose'}`, color: suColor })}>
+                const roleName = su.role ? (isVi ? (su.role === 'central' ? 'Trung tâm' : su.role === 'farm' ? 'Nông trại' : su.role === 'workshop' ? 'Xưởng' : su.role === 'forestry' ? 'Lâm nghiệp' : su.role === 'expansion' ? 'Mở rộng' : su.role) : (su.role[0].toUpperCase() + su.role.slice(1))) : (isVi ? 'Đa năng' : 'All-purpose');
+                const suDetail = isVi ? `Thiết bị lưu trữ: ${roleName}` : `Storage Unit: ${roleName}`;
+                const suLabel = isVi ? (su.label ? su.label.replace('Central', 'Trung tâm').replace('Farm', 'Nông trại').replace('Workshop', 'Xưởng').replace('Forestry', 'Lâm nghiệp').replace('Expansion', 'Mở rộng') : `SU ${idx + 1}`) : (su.label || `SU ${idx + 1}`);
+                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" data-type="storage" data-storage-idx="${idx}" data-x="${su.x}" data-y="${su.y}" data-orig-x="${su.x}" data-orig-y="${su.y}" ${tipAttrs(suLabel, { detail: suDetail, color: suColor })}>
                     <rect x="${su.x + 0.04}" y="${su.y + 0.04}" width="${su.w - 0.08}" height="${su.h - 0.08}" rx="0.22" fill="#131c17" fill-opacity="0.65" stroke="${suColor}" stroke-width="0.06" class="homeland-facility-base" />
                     <image href="${suImgUrl}" x="${su.x + 0.06}" y="${su.y + 0.04}" width="${su.w - 0.12}" height="${su.h - 0.08}" preserveAspectRatio="xMidYMid meet" class="homeland-building-sprite" onerror="this.style.display='none'" />
                     <g class="homeland-su-badge" pointer-events="none">
@@ -3657,32 +3663,34 @@ const ITEM_NAMES = {
 
 function getFacilityDisplayName(name) {
     if (!name) return name;
-    if (window.i18n && window.i18n.getLang() === 'vi') {
-        const dict = window.VI_FACILITY_NAMES || {};
-        const cleanName = name.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '');
-        const suffix = name.includes('(Electric)') ? ' (Điện)' : name.includes('(Manual)') ? ' (Thủ công)' : '';
-        if (dict[cleanName]) {
-            return dict[cleanName] + suffix;
-        }
+    if (window.i18n && typeof window.i18n.getFacilityDisplayName === 'function') {
+        return window.i18n.getFacilityDisplayName(name);
     }
     return name;
 }
 
+function getModeDisplayName(mode) {
+    if (!mode) return mode;
+    if (window.i18n && typeof window.i18n.getModeDisplayName === 'function') {
+        return window.i18n.getModeDisplayName(mode);
+    }
+    return mode;
+}
+
 function getModuleDisplayName(name) {
     if (!name) return name;
-    if (window.i18n && window.i18n.getLang() === 'vi') {
-        const dict = window.VI_MODULE_NAMES || {};
-        if (dict[name]) return dict[name];
+    if (window.i18n && typeof window.i18n.getModuleDisplayName === 'function') {
+        return window.i18n.getModuleDisplayName(name);
     }
     return name.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
 }
 
 function getItemDisplayName(name) {
-    if (window.i18n && window.i18n.getLang() === 'vi') {
-        const viDict = window.VI_ITEM_NAMES;
-        if (viDict && viDict[name]) return viDict[name];
+    if (!name) return name;
+    if (window.i18n && typeof window.i18n.getItemDisplayName === 'function') {
+        return window.i18n.getItemDisplayName(name);
     }
-    return ITEM_NAMES[name] || prettyItem(name);
+    return prettyItem(name);
 }
 
 function isLevelUpStrategy() {
@@ -4962,6 +4970,9 @@ window.applyOptimalPlots = function (radish, pepper) {
 // "quick_aromathyst" -> "Quick Aromathyst": the data uses snake_case names.
 function prettyItem(name) {
     if (!name) return name;
+    if (window.i18n && typeof window.i18n.getItemDisplayName === 'function') {
+        return window.i18n.getItemDisplayName(name);
+    }
     const base = name.replace(/__(specialist|manual)$/, '');
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (isVi) {
@@ -6596,7 +6607,7 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
         const initials = numbered && p.crop
             ? `<text x="${p.x + p.size / 2}" y="${p.y + p.size / 2}" font-size="${Math.min(0.9, p.size * 0.4)}">${numberOf(`${p.facility}|${p.crop}`)}</text>`
             : '';
-        return `<g class="env-plot" ${tipAttrs(p.facility, { detail: p.crop ? prettyItem(p.crop) : '', color })}>
+        return `<g class="env-plot" ${tipAttrs(getFacilityDisplayName(p.facility), { detail: p.crop ? prettyItem(p.crop) : '', color })}>
             <rect x="${p.x + inset}" y="${p.y + inset}" width="${size}" height="${size}" rx="0.25" fill="${color}" fill-opacity="0.85" stroke="${color}" stroke-width="0.06" />${initials}</g>`;
     }).join('');
 
@@ -6617,13 +6628,13 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
         ? (zones
             ? []
             : [
-                swatch(tintOf(modes[0]), `${getFacilityDisplayName(building)}: ${isVi && window.VI_ENV_MODES[modes[0]] ? window.VI_ENV_MODES[modes[0]] : modes[0]}`),
-                swatch(tintOf(modes[1]), `${getFacilityDisplayName(unit.partner[0])}: ${isVi && window.VI_ENV_MODES[modes[1]] ? window.VI_ENV_MODES[modes[1]] : modes[1]}`),
+                swatch(tintOf(modes[0]), `${getFacilityDisplayName(building)}: ${getModeDisplayName(modes[0])}`),
+                swatch(tintOf(modes[1]), `${getFacilityDisplayName(unit.partner[0])}: ${getModeDisplayName(modes[1])}`),
                 swatch(tint, zone === 1
-                    ? (isVi ? `${window.VI_ENV_MODES[mode] || mode} nơi cả hai bao phủ` : `${mode} where both reach`)
-                    : (isVi ? `${window.VI_ENV_MODES[mode] || mode}, ô đất kế hoạch này` : `${mode}, this plan's plots`)),
+                    ? (isVi ? `${getModeDisplayName(mode)} nơi cả hai bao phủ` : `${mode} where both reach`)
+                    : (isVi ? `${getModeDisplayName(mode)}, ô đất kế hoạch này` : `${mode}, this plan's plots`)),
             ])
-        : [swatch(tint, isVi ? `Phạm vi ${window.VI_ENV_MODES[mode] || mode}` : `${mode} coverage`)];
+        : [swatch(tint, isVi ? `Phạm vi ${getModeDisplayName(mode)}` : `${mode} coverage`)];
     const legend = coverageLegend.concat(Object.entries(counts).map(([key, n]) => {
         const [facility, crop] = key.split('|');
         const facName = getFacilityDisplayName(facility);
@@ -6639,7 +6650,7 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
 
     return `
         <div class="env-diagram">
-            <svg viewBox="${viewMin} ${viewMin} ${viewWidth} ${viewHeight}" role="img" aria-label="${building} layout, ${mode} coverage">
+            <svg viewBox="${viewMin} ${viewMin} ${viewWidth} ${viewHeight}" role="img" aria-label="${getFacilityDisplayName(building)} layout, ${getModeDisplayName(mode)} coverage">
                 <g class="env-grid">${gridLines.join('')}</g>
                 <rect x="${coverageMin}" y="${coverageMin}" width="${coverageSize}" height="${coverageSize}"
                       fill="${modes ? tintOf(modes[0]) : tint}" fill-opacity="${shadeOf(modes ? modes[0] : mode, 0.12)}" />
@@ -6658,12 +6669,12 @@ function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null
                       stroke="${tintOf(modes[0])}" stroke-opacity="0.55" stroke-width="0.07" />
                     <rect x="${partnerMin.x}" y="${partnerMin.y}" width="${coverageSize}" height="${coverageSize}" fill="none"
                       stroke="${tintOf(modes[1])}" stroke-opacity="0.55" stroke-width="0.07" />` : ''}
-                <g class="env-building" ${tipAttrs(building, { detail: modes ? modes[0] : mode, color: modes ? tintOf(modes[0]) : tint })}>
+                <g class="env-building" ${tipAttrs(getFacilityDisplayName(building), { detail: getModeDisplayName(modes ? modes[0] : mode), color: modes ? tintOf(modes[0]) : tint })}>
                     <rect x="0.05" y="0.05" width="${buildingSize - 0.1}" height="${buildingSize - 0.1}" rx="0.3"
                           fill="${modes ? tintOf(modes[0]) : tint}" stroke="currentColor" stroke-opacity="0.6" stroke-width="0.08" />
                     ${environmentBuildingIcon(building, modes ? modes[0] : mode, buildingCenter, buildingCenter)}
                 </g>
-                ${unit && unit.partner ? `<g class="env-building" ${tipAttrs(unit.partner[0], { detail: modes ? modes[1] : mode, color: tintOf(modes ? modes[1] : mode) })}>
+                ${unit && unit.partner ? `<g class="env-building" ${tipAttrs(getFacilityDisplayName(unit.partner[0]), { detail: getModeDisplayName(modes ? modes[1] : mode), color: tintOf(modes ? modes[1] : mode) })}>
                     <rect x="${dx + 0.05}" y="${dy + 0.05}" width="${partnerSize - 0.1}" height="${partnerSize - 0.1}" rx="0.3"
                           fill="${modes ? tintOf(modes[1]) : tint}" stroke="currentColor" stroke-opacity="0.6" stroke-width="0.08" />
                     ${environmentBuildingIcon(unit.partner[0], modes ? modes[1] : mode, dx + partnerCenter, dy + partnerCenter)}
@@ -7497,7 +7508,7 @@ function formatRecipeInputs(recipe) {
             .join(', ');
     }
     if (recipe.cost && recipe.cost > 0) {
-        return isVi ? `Chi phí hạt: ${recipe.cost} Home Coin` : `Plant cost: ${recipe.cost}`;
+        return isVi ? `Chi phí hạt: ${recipe.cost} Xu Gia Viên` : `Plant cost: ${recipe.cost} Home Coins`;
     }
     return '-';
 }
@@ -7525,12 +7536,12 @@ function formatRecipeAniimo(recipe, facility) {
         });
         if (jobs.length === 0) return '-';
         return `<span class="job-list">${jobs.map(({ job: [step, ability, level], times }) => {
-            const stepName = isVi && VI_JOB_STEPS[step] ? VI_JOB_STEPS[step] : step;
+            const stepName = window.i18n ? window.i18n.getJobStepDisplayName(step) : (isVi && VI_JOB_STEPS[step] ? VI_JOB_STEPS[step] : step);
             return `<span class="job"><span class="job-step">${stepName}${times > 1 ? ` &times;${times}` : ''}</span> ${abilityTag(ability)}${level > 1 ? ` Lv.${level}+` : ''}</span>`;
         }).join('')}</span>`;
     }
     const [ability, minLevel] = recipe.aniimo;
-    const persName = facility.personality ? (isVi && VI_PERSONALITIES[facility.personality] ? VI_PERSONALITIES[facility.personality] : facility.personality) : '';
+    const persName = facility.personality ? (window.i18n ? window.i18n.getPersonalityDisplayName(facility.personality) : facility.personality) : '';
     const best = isVi
         ? `Tối ưu Lv.${bestAniimoLevel(ability)}${persName ? ' ' + persName : ''}`
         : `best Lv.${bestAniimoLevel(ability)}${facility.personality ? ' ' + facility.personality : ''}`;
@@ -7541,14 +7552,14 @@ function formatRecipeAniimo(recipe, facility) {
 function formatRecipeSell(recipe) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     if (recipe.sell_currency === 'none') return `<span class="hint small">${isVi ? 'Nâng cấp RV' : 'RV level-ups'}</span>`;
-    return `${formatNumber(recipe.sell_value)} ${recipe.sell_value === 1 ? 'Home Coin' : 'Home Coins'}`;
+    return `${formatNumber(recipe.sell_value)} ${isVi ? 'Xu Gia Viên' : (recipe.sell_value === 1 ? 'Home Coin' : 'Home Coins')}`;
 }
 
 function formatRecipeModule(recipe) {
     if (!recipe.module_requirement) return '-';
     const [name, level] = recipe.module_requirement;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const label = (isVi && window.VI_MODULE_NAMES && window.VI_MODULE_NAMES[name]) || RECIPE_MODULE_LABELS[name] || name;
+    const label = window.i18n ? window.i18n.getModuleDisplayName(name) : (RECIPE_MODULE_LABELS[name] || name);
     return `${label} Lv.${level}`;
 }
 
