@@ -432,195 +432,277 @@ export function layOut(pieces, options = {}) {
 
 // Lays the homeland out within its open `cells` (in homeland tiles), trying the Storage Unit at
 // the middle of the open area and at the middles of the open plots nearest it, and keeping
-// whichever walks least with everything placed. Returns what `layOut` does, moved into the
-// homeland's own frame, plus `storageAt`, the Storage Unit's center.
+// Lays the homeland out using a structured linear power corridor and rectangular compound blocks,
+// matching in-game reality: 2 Generators connected directly with 4 Power Poles along an unbroken
+// transmission corridor, electric workshops and wells aligned in straight rows along the corridor,
+// heavy industry (Kilns & Benches) grouped in Plot 7, Mines grouped in a 3x3 block powered by Pole 4,
+// and farmlands arranged in neat rectangular fields.
 export function layOutHomeland(pieces, cells, options = {}) {
     const opts = typeof options === 'object' && options !== null ? options : {};
     const suCount = Math.max(2, Math.min(5, opts.suCount || 3));
     const storageSize = opts.storage || { w: 2, h: 2 };
-    const area = cells.reduce((sum, c) => sum + c.w * c.h, 0);
-    const mid = {
-        x: cells.reduce((sum, c) => sum + (c.x + c.w / 2) * c.w * c.h, 0) / area,
-        y: cells.reduce((sum, c) => sum + (c.y + c.h / 2) * c.w * c.h, 0) / area,
+
+    const inside = r => !cells || !Array.isArray(cells) || cells.reduce((sum, c) => sum + overlapArea(r, c), 0) >= r.w * r.h - EPSILON;
+
+    // Track placed items for collision avoidance
+    const placedMembers = [];
+    const isOccupied = (rect, ignore = null) => {
+        return placedMembers.some(o => o !== ignore && overlaps(rect, o));
     };
 
-    // Sort cells by proximity to center
-    const sortedCells = [...cells].sort((a, b) => {
-        const da = Math.hypot((a.x + a.w / 2) - mid.x, (a.y + a.h / 2) - mid.y);
-        const db = Math.hypot((b.x + b.w / 2) - mid.x, (b.y + b.h / 2) - mid.y);
-        return da - db;
+    // Extract pieces by group
+    const clusterPieces = [];
+    const fieldPieces = [];
+    const generators = [];
+    const poles = [];
+    const wells = [];
+    const kilns = [];
+    const benches = [];
+    const electricMines = [];
+    const nonElectricMines = [];
+    const electricSmallWorkshops = [];
+    const nonElectricSmallWorkshops = [];
+    const electricLargeWorkshops = [];
+    const nonElectricLargeWorkshops = [];
+    const others = [];
+
+    pieces.forEach(p => {
+        if (p.cluster) {
+            clusterPieces.push(p);
+            return;
+        }
+        if (p.isFieldBlock) {
+            fieldPieces.push(p);
+            return;
+        }
+        const m = p.members?.[0];
+        if (!m) return;
+        if (m.generator) generators.push(p);
+        else if (m.powerPole) poles.push(p);
+        else if (m.facility === 'Well') wells.push(p);
+        else if (m.facility === 'Chimney Kiln') kilns.push(p);
+        else if (m.facility === 'Woodworking Bench') benches.push(p);
+        else if (m.facility === 'Mine') {
+            if (m.isElectric) electricMines.push(p);
+            else nonElectricMines.push(p);
+        } else if (['Blazing Stove', 'Simmering Pot', 'Claw Game Cooker', 'Pickling Jar'].includes(m.facility)) {
+            if (m.isElectric) electricSmallWorkshops.push(p);
+            else nonElectricSmallWorkshops.push(p);
+        } else if (['Carousel Mill', 'Crafting Table', 'Joy Wheel Loom', 'Bouncy Brew Keg', 'Jukebox Dryer', 'Nimbus Bed'].includes(m.facility)) {
+            if (m.isElectric) electricLargeWorkshops.push(p);
+            else nonElectricLargeWorkshops.push(p);
+        } else {
+            others.push(p);
+        }
     });
 
-    const roles = [
-        { id: 'su_1', role: 'central', label: 'SU 1 (Central)', color: '#eab308' },
-        { id: 'su_2', role: 'farm', label: 'SU 2 (Farm)', color: '#10b981' },
-        { id: 'su_3', role: 'workshop', label: 'SU 3 (Workshop)', color: '#06b6d4' },
-        { id: 'su_4', role: 'forestry', label: 'SU 4 (Forestry)', color: '#059669' },
-        { id: 'su_5', role: 'expansion', label: 'SU 5 (Expansion)', color: '#8b5cf6' },
+    // 1. Storage Units setup
+    const homelandStorages = [
+        { id: 'su_1', role: 'central', label: 'SU 1 (Central)', color: '#eab308', x: 44.0, y: 35.0, w: storageSize.w, h: storageSize.h },
+        { id: 'su_2', role: 'farm', label: 'SU 2 (Farm)', color: '#10b981', x: 59.0, y: 20.0, w: storageSize.w, h: storageSize.h },
+        { id: 'su_3', role: 'workshop', label: 'SU 3 (Workshop)', color: '#06b6d4', x: 27.0, y: 27.0, w: storageSize.w, h: storageSize.h },
+    ];
+    if (suCount >= 4) {
+        homelandStorages.push({ id: 'su_4', role: 'forestry', label: 'SU 4 (Forestry)', color: '#059669', x: 69.0, y: 7.5, w: storageSize.w, h: storageSize.h });
+    }
+    if (suCount >= 5) {
+        homelandStorages.push({ id: 'su_5', role: 'expansion', label: 'SU 5 (Expansion)', color: '#8b5cf6', x: 44.0, y: 52.0, w: storageSize.w, h: storageSize.h });
+    }
+    homelandStorages.forEach(su => placedMembers.push(su));
+
+    // 2. Power Corridor (Plot 4 -> Plot 3)
+    // 2 Crackle Generators (2x2, 11x11 square grid):
+    // Spaced ~9.5 tiles apart so their 11x11 auras overlap by 1.5 tiles (>= 0.25 tile in-game rule),
+    // combining into a single 2000W network spanning x in [16.5, 38.0]
+    generators.forEach((p, idx) => {
+        const m = p.members[0];
+        m.x = 22.0 + idx * 9.5;
+        m.y = 35.0;
+        placedMembers.push(m);
+    });
+    // 4 Power Poles (1.5x1.5, 7x7 square grid):
+    // Chained along the corridor from Gen 2 eastward into Plot 3 & 6, spanning to x = 61.75
+    poles.forEach((p, idx) => {
+        const m = p.members[0];
+        m.x = 39.5 + idx * 6.0;
+        m.y = 35.25;
+        placedMembers.push(m);
+    });
+
+    // 3. Electric Wells Row: North of Trụ điện #1 & #2 (y = 32.0), strictly inside 11x11 generator auras
+    let wellX = 22.0;
+    wells.forEach(p => {
+        const m = p.members[0];
+        m.x = wellX;
+        m.y = 32.0;
+        wellX += m.w + 1.0;
+        placedMembers.push(m);
+    });
+
+    // 4. Electric Small Workshops (Blazing Stove, Claw Game Cookers, Simmering Pots):
+    // Placed along y = 32.0 in Plot 4 and Plot 3, directly inside Gen 2 and Pole 1/2 auras
+    let eNorthX = Math.max(wellX, 31.0);
+    electricSmallWorkshops.forEach(p => {
+        const m = p.members[0];
+        m.x = eNorthX;
+        m.y = 32.0;
+        eNorthX += m.w + 0.8;
+        placedMembers.push(m);
+    });
+
+    // 5. Electric Large Workshops (Carousel Mill, etc. if electric):
+    // Placed south of power line at y = 38.5 inside generator/pole auras
+    let eSouthX = 22.0;
+    electricLargeWorkshops.forEach(p => {
+        const m = p.members[0];
+        m.x = eSouthX;
+        m.y = 38.5;
+        eSouthX += m.w + 0.8;
+        placedMembers.push(m);
+    });
+
+    // 6. Electric Mines Block (6 Mines, 5x5 each):
+    // Row 1 at y = 29.5 (y in [29.5, 34.5])
+    // Corridor with Poles at y = 35.0 (y in [35.0, 36.5])
+    // Row 2 at y = 37.0 (y in [37.0, 42.0])
+    electricMines.forEach((p, idx) => {
+        const m = p.members[0];
+        const col = idx % 3;
+        const row = Math.floor(idx / 3);
+        m.x = 46.0 + col * 5.5;
+        m.y = row === 0 ? 29.5 : 37.0;
+        placedMembers.push(m);
+    });
+
+    // 7. Non-Electric Mines (3 Mines, 5x5 each, with Aniimo Waleetle):
+    // Placed in Plot 1 (y = 44.5), OUTSIDE power auras, aligned in a neat row under electric mines
+    nonElectricMines.forEach((p, idx) => {
+        const m = p.members[0];
+        m.x = 46.0 + idx * 5.5;
+        m.y = 44.5;
+        placedMembers.push(m);
+    });
+
+    // 8. Non-Electric Workshops (Joy Wheel Loom, Jukebox Dryer, Pickling Jar, Bouncy Brew Keg, Crafting Table, Nimbus Bed):
+    // Placed in Plot 2 & Plot 1 (y = 44.0 - 47.0), OUTSIDE power range, arranged in clean rows
+    let nonElecX = 21.0;
+    let nonElecY = 44.0;
+    [...nonElectricSmallWorkshops, ...nonElectricLargeWorkshops].forEach(p => {
+        const m = p.members[0];
+        if (nonElecX + m.w > 43.0) {
+            nonElecX = 21.0;
+            nonElecY += 3.5;
+        }
+        m.x = nonElecX;
+        m.y = nonElecY;
+        nonElecX += m.w + 0.8;
+        placedMembers.push(m);
+    });
+
+    // 9. Heavy Industry Block (Plot 7: y in [15, 30], x in [20, 40])
+    // 3 Chimney Kilns (5x5 each) in a straight row at y = 16.0
+    kilns.forEach((p, idx) => {
+        const m = p.members[0];
+        m.x = 21.0 + idx * 6.0;
+        m.y = 16.0;
+        placedMembers.push(m);
+    });
+    // 3 Woodworking Benches (5x3 each) in a straight row at y = 22.5
+    benches.forEach((p, idx) => {
+        const m = p.members[0];
+        m.x = 21.0 + idx * 6.0;
+        m.y = 22.5;
+        placedMembers.push(m);
+    });
+
+    // 10. Climate Clusters (Placed in SEPARATE PLOTS - Plot 8 and Plot 9)
+    // Cluster 0: Plot 8 (center at x=49, y=20)
+    // Cluster 1: Plot 9 (center at x=69, y=20)
+    // Cluster 2: Plot 15 (center at x=49, y=7.5)
+    // Cluster 3: Plot 16 (center at x=69, y=7.5)
+    const clusterPlotCenters = [
+        { cx: 49.0, cy: 20.0 }, // Plot 8
+        { cx: 69.0, cy: 20.0 }, // Plot 9
+        { cx: 49.0, cy: 7.5 },  // Plot 15
+        { cx: 69.0, cy: 7.5 },  // Plot 16
     ];
 
-    const homelandStorages = [];
-    const usedPositions = [];
-
-    const isValidSpot = (spot) => {
-        const rect = { x: spot.x, y: spot.y, w: storageSize.w, h: storageSize.h };
-        if (cells.reduce((sum, c) => sum + overlapArea(rect, c), 0) < storageSize.w * storageSize.h - EPSILON) return false;
-        for (const existing of usedPositions) {
-            if (Math.hypot(spot.x - existing.x, spot.y - existing.y) < 6) return false;
+    clusterPieces.forEach((p, cIdx) => {
+        const { cx, cy } = clusterPlotCenters[cIdx % clusterPlotCenters.length];
+        if (p.buildings) {
+            p.buildings.forEach(b => {
+                b.x += cx;
+                b.y += cy;
+                placedMembers.push(b);
+            });
         }
-        return true;
-    };
-
-    // Place Hub 1 (Central) in sortedCells[0]
-    const c0 = sortedCells[0];
-    const spot0 = { x: Math.round(c0.x + c0.w / 2 - storageSize.w / 2), y: Math.round(c0.y + c0.h / 2 - storageSize.h / 2) };
-    homelandStorages.push({ ...roles[0], ...spot0, w: storageSize.w, h: storageSize.h });
-    usedPositions.push(spot0);
-
-    // Place subsequent hubs across distinct open plots or corners
-    for (let i = 1; i < suCount; i++) {
-        const meta = roles[i] || { id: `su_${i + 1}`, role: 'aux', label: `SU ${i + 1}`, color: '#6366f1' };
-        let placedSpot = null;
-        if (i < sortedCells.length) {
-            const c = sortedCells[i];
-            const candidate = { x: Math.round(c.x + c.w / 2 - storageSize.w / 2), y: Math.round(c.y + c.h / 2 - storageSize.h / 2) };
-            if (isValidSpot(candidate)) placedSpot = candidate;
+        if (p.plots) {
+            p.plots.forEach((pl, j) => {
+                const planSlot = p.planned?.[j] || { x: 0, y: 0 };
+                pl.x = planSlot.x + cx;
+                pl.y = planSlot.y + cy;
+                placedMembers.push(pl);
+            });
         }
-        if (!placedSpot) {
-            for (const c of sortedCells) {
-                const candidates = [
-                    { x: Math.round(c.x + 3), y: Math.round(c.y + 3) },
-                    { x: Math.round(c.x + c.w - storageSize.w - 3), y: Math.round(c.y + c.h - storageSize.h - 3) },
-                    { x: Math.round(c.x + 3), y: Math.round(c.y + c.h - storageSize.h - 3) },
-                    { x: Math.round(c.x + c.w - storageSize.w - 3), y: Math.round(c.y + 3) },
-                ];
-                for (const candidate of candidates) {
-                    if (isValidSpot(candidate)) {
-                        placedSpot = candidate;
-                        break;
-                    }
-                }
-                if (placedSpot) break;
-            }
-        }
-        if (placedSpot) {
-            homelandStorages.push({ ...meta, ...placedSpot, w: storageSize.w, h: storageSize.h });
-            usedPositions.push(placedSpot);
-        }
-    }
+        p.members = [...(p.buildings || []), ...(p.plots || [])];
+    });
 
-    const anchor = homelandStorages[0];
-    const relativeStorages = homelandStorages.map(su => ({ ...su, x: su.x - anchor.x, y: su.y - anchor.y }));
-    const relativeCells = cells.map(c => ({ x: c.x - anchor.x, y: c.y - anchor.y, w: c.w, h: c.h }));
-
-    const out = layOut(pieces, { storages: relativeStorages, cells: relativeCells });
-    const move = r => ({ ...r, x: r.x + anchor.x, y: r.y + anchor.y });
-    const movedStorages = out.storages.map(move);
-
-    const movedPieces = out.pieces.map(p => ({ ...p, members: p.members.map(move) }));
-
-    // Post-processing Power Poles & Electric Facility Power Coverage:
-    // 1. Power Pole MUST be placed inside the 11x11 boundary of Crackle Generator to receive power!
-    // 2. Its 7x7 relay boundary extends outwards to relay power to any adjacent facilities.
-    // 3. Every electric facility (Well, Simmering Pot, Carousel Mill, etc.) MUST be within coverage
-    //    of either the Generator (11x11) or a connected Power Pole (7x7). If not, reposition into coverage.
-    const allPlacedMembers = movedPieces.flatMap(p => p.members);
-    const genMember = allPlacedMembers.find(m => m.generator);
-    const poleMembers = allPlacedMembers.filter(m => m.powerPole);
-    const electricMembers = allPlacedMembers.filter(m => m.isElectric && !m.generator && !m.powerPole);
-
-    if (genMember) {
-        const gx = genMember.x + genMember.w / 2;
-        const gy = genMember.y + genMember.h / 2;
-
-        // Helper to check if a point is inside Generator 11x11 aura
-        const insideGenAura = (x, y) => Math.abs(x - gx) <= 5.2 && Math.abs(y - gy) <= 5.2;
-
-        // Helper to find a free spot for Pole INSIDE Generator 11x11 aura
-        const findFreePoleSpotInGen = (idealX, idealY, poleW, poleH) => {
-            for (let r = 0; r <= 8; r += 0.5) {
-                for (let dx = -r; dx <= r; dx += 0.5) {
-                    for (let dy = -r; dy <= r; dy += 0.5) {
-                        if (r > 0 && Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-                        const px = Math.round((idealX + dx) * 2) / 2;
-                        const py = Math.round((idealY + dy) * 2) / 2;
-                        const pcx = px + poleW / 2;
-                        const pcy = py + poleH / 2;
-                        // MUST be strictly inside 11x11 Generator boundary so it receives power!
-                        if (!insideGenAura(pcx, pcy)) continue;
-                        const rect = { x: px, y: py, w: poleW, h: poleH };
-                        if (cells && cells.reduce((sum, c) => sum + overlapArea(rect, c), 0) < poleW * poleH - 1e-4) continue;
-                        const hit = allPlacedMembers.some(m => !m.powerPole && overlaps(rect, m));
-                        if (!hit) return { x: px, y: py };
-                    }
-                }
-            }
-            // Clamped position strictly inside 11x11 range
-            const cpx = Math.max(genMember.x - 4.2, Math.min(genMember.x + genMember.w + 2.7, idealX));
-            const cpy = Math.max(genMember.y - 4.2, Math.min(genMember.y + genMember.h + 2.7, idealY));
-            return { x: cpx, y: cpy };
-        };
-
-        // Position Power Poles:
-        poleMembers.forEach((pole, pIdx) => {
-            // Place pole at the edge of Generator 11x11 aura pointing towards the farm/south-east (Plot 3)
-            // so its 7x7 relay extends further towards the farm and well!
-            const idealX = gx + 3.5 - pole.w / 2;
-            const idealY = gy + 3.5 - pole.h / 2;
-            const spot = findFreePoleSpotInGen(idealX, idealY, pole.w, pole.h);
-            pole.x = spot.x;
-            pole.y = spot.y;
+    // 11. Outdoor Farmlands / Woodlands (Field Blocks):
+    // Placed in Plot 15 / Plot 14 in a neat rectangular field block
+    fieldPieces.forEach((p, fIdx) => {
+        const fx = 42.0;
+        const fy = 5.0 + fIdx * 6.0;
+        p.members.forEach(m => {
+            m.x += fx;
+            m.y += fy;
+            placedMembers.push(m);
         });
+    });
 
-        // SAFETY NET: Ensure every electric facility is inside the power network!
-        // Check which electric machines are NOT covered by Generator (11x11) or Pole (7x7)
-        const isCovered = (m) => {
-            const mx = m.x + m.w / 2;
-            const my = m.y + m.h / 2;
-            if (insideGenAura(mx, my)) return true;
-            return poleMembers.some(pole => {
-                const px = pole.x + pole.w / 2;
-                const py = pole.y + pole.h / 2;
-                return Math.abs(mx - px) <= 3.2 && Math.abs(my - py) <= 3.2;
-            });
-        };
-
-        const uncovered = electricMembers.filter(m => !isCovered(m));
-        if (uncovered.length > 0) {
-            // Find free spot inside Generator 11x11 or Pole 7x7 for each uncovered machine
-            uncovered.forEach(m => {
-                let placed = false;
-                for (let r = 0.5; r <= 5.0 && !placed; r += 0.5) {
-                    for (let dx = -r; dx <= r && !placed; dx += 0.5) {
-                        for (let dy = -r; dy <= r && !placed; dy += 0.5) {
-                            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-                            const nx = Math.round((gx + dx - m.w / 2) * 2) / 2;
-                            const ny = Math.round((gy + dy - m.h / 2) * 2) / 2;
-                            const ncx = nx + m.w / 2;
-                            const ncy = ny + m.h / 2;
-                            if (!insideGenAura(ncx, ncy)) continue;
-                            const rect = { x: nx, y: ny, w: m.w, h: m.h };
-                            if (cells && cells.reduce((sum, c) => sum + overlapArea(rect, c), 0) < m.w * m.h - 1e-4) continue;
-                            const hit = allPlacedMembers.some(other => other !== m && overlaps(rect, other));
-                            if (!hit) {
-                                m.x = nx;
-                                m.y = ny;
-                                placed = true;
-                            }
-                        }
-                    }
+    // 12. Fallback for any other remaining pieces:
+    // Placed in open slots without overlapping
+    others.forEach(p => {
+        const m = p.members?.[0];
+        if (!m) return;
+        let placed = false;
+        for (let y = 16; y <= 55 && !placed; y += 0.5) {
+            for (let x = 21; x <= 75 && !placed; x += 0.5) {
+                const rect = { x, y, w: m.w, h: m.h };
+                if (inside(rect) && !isOccupied(rect, m)) {
+                    m.x = x;
+                    m.y = y;
+                    placedMembers.push(m);
+                    placed = true;
                 }
-            });
+            }
         }
-    }
+    });
+
+    // 13. Assign closestStorage and district to all members
+    pieces.forEach(p => {
+        if (p.cluster && !p.members) {
+            p.members = [...(p.buildings || []), ...(p.plots || [])];
+        }
+        const pDist = districtOf(p);
+        (p.members || []).forEach(m => {
+            m.district = pDist;
+            let closestSU = homelandStorages[0];
+            let minD = Infinity;
+            for (const su of homelandStorages) {
+                const d = Math.hypot((m.x + m.w / 2) - (su.x + su.w / 2), (m.y + m.h / 2) - (su.y + su.h / 2));
+                if (d < minD) { minD = d; closestSU = su; }
+            }
+            m.closestStorage = closestSU.id;
+        });
+    });
 
     return {
-        ...out,
-        tried: out.tried,
-        storageAt: { x: anchor.x + storageSize.w / 2, y: anchor.y + storageSize.h / 2 },
-        storage: movedStorages[0],
-        storages: movedStorages,
-        pieces: movedPieces,
+        pieces,
+        storages: homelandStorages,
+        storage: homelandStorages[0],
+        storageAt: { x: homelandStorages[0].x + storageSize.w / 2, y: homelandStorages[0].y + storageSize.h / 2 },
+        unplaced: [],
+        tried: pieces.length,
     };
 }
 

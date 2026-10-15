@@ -1924,8 +1924,8 @@ function homelandPieces(plan, input) {
     const placed = {};
     const count = (facility, n = 1) => { placed[facility] = (placed[facility] || 0) + n; };
     const unplaced = new Set();
-    const steps = (plan.coin_items || []).filter(s => s.facility);
-    const envSteps = steps.filter(s => s.environment && s.status === 'producing');
+    const steps = (plan.coin_items || []).filter(s => s.facility && s.status === 'producing' && Boolean(s.item_name));
+    const envSteps = steps.filter(s => s.environment);
     const assignments = plan.environment_assignments || [];
 
     // Environment blocks, grouped as the plan's own maps are (see `renderFacilityPlan`).
@@ -2019,7 +2019,7 @@ function homelandPieces(plan, input) {
         pieces.push({ cluster: true, buildings, plots, planned });
     });
 
-    // Helper: comprehensive electric mode detection
+    // Helper: comprehensive electric mode detection (strictly per row)
     const checkIsElectric = (stepOrRow, facName) => {
         if (!stepOrRow) return false;
         if (stepOrRow.mode === 'electric' || stepOrRow.is_emode) return true;
@@ -2042,8 +2042,9 @@ function homelandPieces(plan, input) {
                 if (curRv >= 12) return true;
             }
         }
-        if (input.emode_facility_counts && (input.emode_facility_counts[baseFac] > 0 || input.emode_facility_counts[fac] > 0)) return true;
-        if (typeof lastEmodeCounts === 'object' && lastEmodeCounts && (lastEmodeCounts[baseFac] > 0 || lastEmodeCounts[fac] > 0)) return true;
+        // If step has an assigned Aniimo (like Waleetle, Cornet, Inferlupa, Turbo, Glacy, Ignitis), it is non-electric!
+        if (stepOrRow.aniimo && stepOrRow.aniimo !== 'Chế độ điện' && stepOrRow.aniimo !== 'Electric') return false;
+        if (stepOrRow.mode === 'manual' || stepOrRow.mode === 'prismana') return false;
         return false;
     };
 
@@ -2058,8 +2059,9 @@ function homelandPieces(plan, input) {
             unplaced.add(facility);
             return;
         }
-        const busy = rows.reduce((sum, r) => sum + (r.busy_units ?? r.facility_count), 0);
-        const n = Math.max(1, Math.ceil(busy - 1e-6));
+        const busy = rows.reduce((sum, r) => sum + (r.busy_units ?? r.facility_count ?? 1), 0);
+        const explicitCount = rows.reduce((sum, r) => sum + (r.facility_count || 1), 0);
+        const n = Math.max(explicitCount, Math.ceil(busy - 1e-6));
         const jobs = rows.filter(r => r.cycle_time > 0).map(r => ({ item: r.item_name, cycle: r.cycle_time, rate: (r.busy_units ?? r.facility_count) / r.cycle_time / n }));
         const weight = jobs.reduce((sum, j) => sum + j.rate * 3600, 0);
         const baseFac = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
@@ -2144,55 +2146,14 @@ function homelandPieces(plan, input) {
         count(step.facility, n);
     });
 
-    // What's owned but not in the plan at all, such as extra workshops or storage.
-    FACILITIES.forEach(f => {
-        const owned = tierCount(input.facilities[f.name]);
-        const extra = owned - (placed[f.name] || 0);
-        if (extra <= 0) return;
-        if (f.name in ENVIRONMENT_BUILDING_SIZES) return;
-        const footprint = FACILITY_FOOTPRINTS[f.name];
-        if (!footprint) {
-            unplaced.add(f.name);
-            return;
-        }
-
-        if (f.name === 'Farmland') {
-            for (let i = 0; i < extra; i++) {
-                outdoorFarmlands.push({
-                    weight: 0, cycle: 0, facility: f.name, crop: null, sensitive: false, isElectric: false, powerWatts: 0
-                });
-            }
-            return;
-        }
-        if (f.name === 'Woodland') {
-            for (let i = 0; i < extra; i++) {
-                outdoorWoodlands.push({
-                    weight: 0, cycle: 0, facility: f.name, crop: null, sensitive: false, isElectric: false, powerWatts: 0
-                });
-            }
-            return;
-        }
-
-        for (let i = 0; i < extra; i++) {
-            pieces.push({
-                members: [{
-                    x: 0, y: 0, w: footprint[0], h: footprint[1],
-                    weight: 0, facility: f.name, crop: null, building: false, mode: null, isElectric: false, powerWatts: 0
-                }]
-            });
-        }
-    });
-
     // Helper: Pack array of plots into neat rectangular grid field blocks
-    function packFieldChunk(items, slotW, slotH, maxChunkSize = 16) {
+    function packFieldChunk(items, slotW, slotH, maxChunkSize = 32) {
         if (!items.length) return;
-        // Group items by crop so identical crops are clustered together in adjacent rows/cols
         items.sort((a, b) => (b.crop || '').localeCompare(a.crop || '') || (b.weight || 0) - (a.weight || 0));
 
         for (let start = 0; start < items.length; start += maxChunkSize) {
             const chunk = items.slice(start, start + maxChunkSize);
             const total = chunk.length;
-            // Determine neat column count: 3 for 5-6 items, 4 for 7-8 or >= 11 items, 5 for 10 items
             let cols = 2;
             if (total <= 2) cols = total;
             else if (total <= 4) cols = 2;
@@ -2201,7 +2162,7 @@ function homelandPieces(plan, input) {
             else if (total === 9) cols = 3;
             else if (total === 10) cols = 5;
             else if (total >= 11 && total <= 16) cols = 4;
-            else cols = Math.min(5, Math.ceil(Math.sqrt(total)));
+            else cols = Math.min(6, Math.ceil(Math.sqrt(total)));
 
             const members = chunk.map((m, idx) => {
                 const c = idx % cols;
@@ -2219,8 +2180,9 @@ function homelandPieces(plan, input) {
     }
 
     // Pack outdoor farmlands (2x2 each) and woodlands (4x4 each)
-    packFieldChunk(outdoorFarmlands, 2, 2, 16);
-    packFieldChunk(outdoorWoodlands, 4, 4, 6);
+    // Keep in unified rectangular field blocks without splitting into small fragments
+    packFieldChunk(outdoorFarmlands, 2, 2, 32);
+    packFieldChunk(outdoorWoodlands, 4, 4, 8);
 
     // Add Crackle Generator (2x2) and Crackle Power Poles (1.5x1.5) when Electric Mode is active
     const isEmodeActive = (document.getElementById('emode-simple-on')?.checked ?? true) || !!document.getElementById('emode-on')?.checked;
@@ -2230,20 +2192,23 @@ function homelandPieces(plan, input) {
     const currentRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
 
     if ((isEmodeActive || currentRv >= 12) && hasElectricFacilities) {
-        // Crackle Generator (official 2x2 footprint, 11x11 square range)
-        pieces.push({
-            members: [{
-                x: 0, y: 0, w: 2, h: 2,
-                weight: 0,
-                facility: 'Crackle Generator',
-                generator: true,
-                sensitive: false,
-                isElectric: false,
-                powerWatts: 0
-            }]
-        });
-        // Crackle Power Poles (official 1.5x1.5 footprint, 7x7 square relay range)
-        const poleCount = currentRv >= 12 ? Math.min(3, Math.max(1, Math.floor((currentRv - 10) / 2))) : 0;
+        // At RV 16+, player unlocks 2 Crackle Generators (2000W) and 4 Power Poles
+        const genCount = currentRv >= 16 ? 2 : 1;
+        const poleCount = currentRv >= 16 ? 4 : (currentRv >= 12 ? Math.min(3, Math.max(1, Math.floor((currentRv - 10) / 2))) : 0);
+        for (let g = 0; g < genCount; g++) {
+            pieces.push({
+                members: [{
+                    x: 0, y: 0, w: 2, h: 2,
+                    weight: 0,
+                    facility: 'Crackle Generator',
+                    generator: true,
+                    genIndex: g,
+                    sensitive: false,
+                    isElectric: false,
+                    powerWatts: 0
+                }]
+            });
+        }
         for (let p = 0; p < poleCount; p++) {
             pieces.push({
                 members: [{
@@ -2251,6 +2216,7 @@ function homelandPieces(plan, input) {
                     weight: 0,
                     facility: 'Crackle Power Pole',
                     powerPole: true,
+                    poleIndex: p,
                     sensitive: false,
                     isElectric: false,
                     powerWatts: 0
@@ -2303,9 +2269,6 @@ function layoutHomeLevel() {
 function attachLayoutHandlers() {
     document.getElementById('layout-whole')?.addEventListener('change', (e) => {
         layoutShowsWhole = e.target.checked;
-        if (lastLayout) drawLayout(lastLayout);
-    });
-    document.getElementById('layout-districts-on')?.addEventListener('change', () => {
         if (lastLayout) drawLayout(lastLayout);
     });
     document.getElementById('layout-minor-grid')?.addEventListener('change', () => {
@@ -2608,10 +2571,10 @@ function homelandSvg(layout, homeLevel) {
     const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
     const placed = [...storages, ...layout.pieces.flatMap(p => p.members)];
     const whole = layoutShowsWhole;
-    const minX = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.x))) - 2;
-    const minY = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.y))) - 2;
-    const maxX = whole ? Math.max(...plots.map(p => p.x + p.w)) + 1 : Math.ceil(Math.max(...placed.map(r => r.x + r.w))) + 2;
-    const maxY = whole ? Math.max(...plots.map(p => p.y + p.h)) + 1 : Math.ceil(Math.max(...placed.map(r => r.y + r.h))) + 2;
+    const minX = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.x))) - 3;
+    const minY = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.y))) - 3;
+    const maxX = whole ? Math.max(...plots.map(p => p.x + p.w)) + 1 : Math.ceil(Math.max(...placed.map(r => r.x + r.w))) + 3;
+    const maxY = whole ? Math.max(...plots.map(p => p.y + p.h)) + 1 : Math.ceil(Math.max(...placed.map(r => r.y + r.h))) + 3;
 
     // Locked and open plots
     const plotShapes = [...plots].sort((a, b) => (b.number <= homeLevel) - (a.number <= homeLevel)).map(p => {
@@ -2637,57 +2600,6 @@ function homelandSvg(layout, homeLevel) {
     }
     for (let x = minX; x <= maxX; x++) lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
     for (let y = minY; y <= maxY; y++) lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
-
-    // District Bounding Boundaries & District Header Pills
-    const showDistricts = document.getElementById('layout-districts-on')?.checked ?? true;
-    let districtShapes = '';
-    if (showDistricts) {
-        const districtGroups = new Map();
-        layout.pieces.flatMap(p => p.members).forEach(m => {
-            const d = m.district || getFacilityDistrict(m.facility);
-            if (!districtGroups.has(d)) districtGroups.set(d, []);
-            districtGroups.get(d).push(m);
-        });
-
-        const placedPills = [];
-        districtGroups.forEach((mList, dId) => {
-            if (dId === 'utility' || mList.length === 0) return;
-            const distDef = LAYOUT_DISTRICTS.find(d => d.id === dId) || { color: '#3b82f6', icon: '📍', nameVi: dId, nameEn: dId };
-            const dx1 = Math.min(...mList.map(m => m.x));
-            const dy1 = Math.min(...mList.map(m => m.y));
-            const dx2 = Math.max(...mList.map(m => m.x + m.w));
-            const dy2 = Math.max(...mList.map(m => m.y + m.h));
-            const dw = dx2 - dx1 + 0.8;
-            const dh = dy2 - dy1 + 0.8;
-            const tagText = `${distDef.icon} ${isVi ? distDef.nameVi : distDef.nameEn}`;
-            const tagW = tagText.length * 0.32 + 0.8;
-
-            let pillX = dx1 + 0.1;
-            let pillY = dy1 - 0.75;
-            if (pillY < minY + 0.2) pillY = dy1 + 0.1;
-
-            // Collision avoidance with other district pills
-            for (let tries = 0; tries < 4; tries++) {
-                const collides = placedPills.some(p => Math.abs(p.x - pillX) < (tagW + p.w) * 0.55 && Math.abs(p.y - pillY) < 0.6);
-                if (!collides) break;
-                if (tries === 0) pillX = dx2 - tagW - 0.1; // try top-right
-                else if (tries === 1) { pillX = dx1 + 0.1; pillY = dy2 + 0.15; } // try bottom-left
-                else if (tries === 2) { pillX = dx2 - tagW - 0.1; pillY = dy2 + 0.15; } // try bottom-right
-            }
-            placedPills.push({ x: pillX, y: pillY, w: tagW, h: 0.6 });
-
-            districtShapes += `
-                <g class="layout-district-group district-${dId}" pointer-events="none">
-                    <rect x="${dx1 - 0.4}" y="${dy1 - 0.4}" width="${dw}" height="${dh}" rx="0.5"
-                        fill="${distDef.color}" fill-opacity="0.04" stroke="${distDef.color}" stroke-opacity="0.45" stroke-dasharray="0.6 0.3" stroke-width="0.09" />
-                    <g class="layout-district-pill" transform="translate(${pillX}, ${pillY})">
-                        <rect x="0" y="0" width="${tagW}" height="0.6" rx="0.3" fill="#0f172a" fill-opacity="0.95" stroke="${distDef.color}" stroke-width="0.06"/>
-                        <text x="${tagW / 2}" y="0.42" font-size="0.38" font-weight="700" fill="#f8fafc" text-anchor="middle">${tagText}</text>
-                    </g>
-                </g>
-            `;
-        });
-    }
 
     // Top-down SVG facility tiles with Drag and Drop data tags
     const allMembers = layout.pieces.flatMap((p, pIdx) => (p.members || []).map((m, mIdx) => ({ ...m, pIdx, mIdx })));
@@ -2719,56 +2631,98 @@ function homelandSvg(layout, homeLevel) {
 
     const vbW = maxX - minX;
     const vbH = maxY - minY;
-    if (!layoutSvgState.origViewBox || layoutShowsWhole !== layoutSvgState.lastWhole) {
-        layoutSvgState.origViewBox = { x: minX, y: minY, w: vbW, h: vbH };
-        layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
-        layoutSvgState.lastWhole = layoutShowsWhole;
-    }
-    const curVb = layoutSvgState.currentViewBox || { x: minX, y: minY, w: vbW, h: vbH };
+    // Always initialize fresh viewbox centered on the full compound
+    layoutSvgState.origViewBox = { x: minX, y: minY, w: vbW, h: vbH };
+    layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
+    layoutSvgState.lastWhole = layoutShowsWhole;
+    const curVb = layoutSvgState.currentViewBox;
 
     return `<svg class="layout-svg" viewBox="${curVb.x} ${curVb.y} ${curVb.w} ${curVb.h}" role="img" aria-label="Homeland layout">
         <defs><pattern id="layout-locked" width="1" height="1" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="1" class="layout-hatch" /></pattern></defs>
         <g class="env-grid">${lines.join('')}</g>
         <g class="layout-plots">${plotShapes}</g>
-        <g class="layout-districts-layer">${districtShapes}</g>
         <g class="layout-coverage">${coverageShapes}</g>
         ${shapes}
         <g class="layout-coverage-edges" pointer-events="none">${coverageEdges}</g>
         ${(() => {
             const members = layout.pieces.flatMap(p => p.members);
-            const genPiece = members.find(m => m.facility === 'Crackle Generator' || m.facility === 'Generator' || m.generator);
+            const generators = members.filter(m => m.facility === 'Crackle Generator' || m.facility === 'Generator' || m.generator);
             const poles = members.filter(m => m.facility === 'Crackle Power Pole' || m.facility === 'Power Pole' || m.powerPole);
+            const electricFacilities = members.filter(m => m.isElectric && !m.generator && !m.powerPole);
 
             let aura = '';
-            if (genPiece) {
-                // 11x11 square range for Crackle Generator (official Aniimo mechanics)
-                const gx = genPiece.x - (11 - genPiece.w) / 2;
-                const gy = genPiece.y - (11 - genPiece.h) / 2;
-                const genCenter = { x: genPiece.x + genPiece.w / 2, y: genPiece.y + genPiece.h / 2 };
+            if (generators.length > 0) {
+                aura += `<g class="generator-power-network" pointer-events="none">`;
 
-                aura += `<g class="generator-power-network" pointer-events="none">
-                    <!-- Crackle Generator 11x11 Square Grid -->
-                    <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
-                        fill="#06b6d4" fill-opacity="0.06" stroke="#06b6d4" stroke-opacity="0.6" stroke-width="0.16" stroke-dasharray="0.8 0.4" />
-                    <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.65" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Crackle Generator (11×11 Grid)</text>`;
+                // 1. Draw 11x11 square range for EACH generator
+                generators.forEach((gen, gIdx) => {
+                    const gx = gen.x - (11 - gen.w) / 2;
+                    const gy = gen.y - (11 - gen.h) / 2;
+                    const genCenter = { x: gen.x + gen.w / 2, y: gen.y + gen.h / 2 };
+                    aura += `
+                        <!-- Crackle Generator #${gIdx + 1} 11x11 Square Grid -->
+                        <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
+                            fill="#06b6d4" fill-opacity="0.05" stroke="#06b6d4" stroke-opacity="0.65" stroke-width="0.14" stroke-dasharray="0.8 0.4" />
+                        <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.6" fill="#06b6d4" font-weight="700" text-anchor="middle">⚡ Trụ điện #${gIdx + 1} (11×11 · 1000W)</text>
+                    `;
+                });
 
-                let lastNode = genCenter;
-                poles.forEach((pole, idx) => {
+                // 2. Draw 7x7 square relay range for EACH pole
+                poles.forEach((pole, pIdx) => {
                     const px = pole.x - (7 - pole.w) / 2;
                     const py = pole.y - (7 - pole.h) / 2;
                     const pCenter = { x: pole.x + pole.w / 2, y: pole.y + pole.h / 2 };
                     aura += `
-                        <!-- Power Pole #${idx + 1} 7x7 Relay Range -->
+                        <!-- Power Pole #${pIdx + 1} 7x7 Relay Range -->
                         <rect x="${px}" y="${py}" width="7" height="7" rx="0.25"
-                            fill="#eab308" fill-opacity="0.04" stroke="#eab308" stroke-opacity="0.5" stroke-width="0.12" stroke-dasharray="0.5 0.25" />
-                        <!-- Power Transmission Cable -->
-                        <line x1="${lastNode.x}" y1="${lastNode.y}" x2="${pCenter.x}" y2="${pCenter.y}"
-                            stroke="#06b6d4" stroke-width="0.14" stroke-dasharray="0.4 0.2" stroke-opacity="0.75" />
-                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">⚡ Pole #${idx + 1} (7×7 Relay)</text>
+                            fill="#eab308" fill-opacity="0.04" stroke="#eab308" stroke-opacity="0.55" stroke-width="0.12" stroke-dasharray="0.5 0.25" />
+                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">⚡ Cột điện #${pIdx + 1} (7×7 Relay)</text>
                     `;
-                    lastNode = pCenter;
                 });
+
+                // 3. Power Transmission Backbone (Yellow line connecting Gen1 -> Gen2 -> Pole1 -> Pole2 -> ...)
+                const powerSpine = [];
+                generators.forEach(g => powerSpine.push({ x: g.x + g.w / 2, y: g.y + g.h / 2 }));
+                const sortedPoles = [...poles].sort((a, b) => (a.x - b.x));
+                sortedPoles.forEach(p => powerSpine.push({ x: p.x + p.w / 2, y: p.y + p.h / 2 }));
+
+                for (let i = 0; i < powerSpine.length - 1; i++) {
+                    const n1 = powerSpine[i];
+                    const n2 = powerSpine[i + 1];
+                    aura += `
+                        <!-- Power Backbone Cable -->
+                        <line x1="${n1.x}" y1="${n1.y}" x2="${n2.x}" y2="${n2.y}"
+                            stroke="#facc15" stroke-width="0.18" stroke-linecap="round" stroke-dasharray="0.6 0.25" stroke-opacity="0.95" />
+                    `;
+                }
+
+                // 4. Yellow feed lines to EVERY electric facility + "Đã đáp ứng yêu cầu ⚡"
+                const allPowerSources = [...generators, ...poles].map(s => ({
+                    x: s.x + s.w / 2,
+                    y: s.y + s.h / 2,
+                    isGen: !!s.generator
+                }));
+
+                electricFacilities.forEach(ef => {
+                    const efCenter = { x: ef.x + ef.w / 2, y: ef.y + ef.h / 2 };
+                    let closest = null;
+                    let minD = Infinity;
+                    for (const ps of allPowerSources) {
+                        const d = Math.hypot(efCenter.x - ps.x, efCenter.y - ps.y);
+                        if (d < minD) { minD = d; closest = ps; }
+                    }
+                    if (closest) {
+                        aura += `
+                            <!-- Electric Feed Line to ${ef.facility} -->
+                            <line x1="${closest.x}" y1="${closest.y}" x2="${efCenter.x}" y2="${efCenter.y}"
+                                stroke="#facc15" stroke-width="0.10" stroke-opacity="0.8" stroke-dasharray="0.3 0.15" />
+                            <circle cx="${efCenter.x}" cy="${efCenter.y}" r="0.16" fill="#facc15" />
+                            <text x="${ef.x + ef.w / 2}" y="${ef.y + ef.h + 0.38}" font-size="0.34" fill="#facc15" font-weight="700" text-anchor="middle" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.8))">Đã đáp ứng yêu cầu ⚡</text>
+                        `;
+                    }
+                });
+
                 aura += `</g>`;
             }
             const suImgUrl = getFacilityIconUrl('Storage Unit');
