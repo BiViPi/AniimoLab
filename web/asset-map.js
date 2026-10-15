@@ -621,20 +621,38 @@ export function renderHomelandSvgFacility(m) {
             preserveAspectRatio="xMidYMid meet" class="homeland-building-sprite" onerror="this.style.display='none'" />
     `;
 
-    // Product item/crop badge at bottom-right (identical to AniimoGuide)
+    // Product item/crop badge: enlarged and centered so user clearly sees what each facility makes
     let itemBadge = '';
     const item = m.crop || (m.jobs && m.jobs[0]?.item);
     if (item) {
-        const badgeR = Math.min(0.38, Math.min(m.w, m.h) * 0.22);
-        const bx = m.x + m.w - badgeR - 0.08;
-        const by = m.y + m.h - badgeR - 0.08;
         const itemUrl = getItemIconUrl(item);
-        itemBadge = `
-            <g class="homeland-item-badge" pointer-events="none">
-                <circle cx="${bx}" cy="${by}" r="${badgeR}" fill="#0b0f14" fill-opacity="0.9" stroke="#475569" stroke-width="0.05"/>
-                <image href="${itemUrl}" x="${bx - badgeR * 0.72}" y="${by - badgeR * 0.72}" width="${badgeR * 1.44}" height="${badgeR * 1.44}" preserveAspectRatio="xMidYMid meet" onerror="this.style.display='none'"/>
-            </g>
-        `;
+        const isPlot = name === 'Farmland' || name === 'Woodland';
+        const cx = m.x + m.w / 2;
+        const cy = m.y + m.h / 2;
+
+        if (isPlot) {
+            // Farmland & Woodland: large, prominent crop in the exact center of the field
+            const cropSize = Math.min(m.w, m.h) * 0.68;
+            const halfS = cropSize / 2;
+            itemBadge = `
+                <g class="homeland-item-badge homeland-plot-crop" pointer-events="none">
+                    <circle cx="${cx}" cy="${cy}" r="${halfS * 0.95}" fill="#0f172a" fill-opacity="0.45" stroke="#facc15" stroke-opacity="0.6" stroke-width="0.04" />
+                    <image href="${itemUrl}" x="${cx - halfS}" y="${cy - halfS}" width="${cropSize}" height="${cropSize}"
+                        preserveAspectRatio="xMidYMid meet" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.85))" onerror="this.style.display='none'"/>
+                </g>
+            `;
+        } else {
+            // Production facilities (Kilns, Benches, Mines, Wells, Kitchens...):
+            // Enlarged, centered circular product badge with golden accent border
+            const badgeR = Math.min(0.85, Math.min(m.w, m.h) * 0.28);
+            itemBadge = `
+                <g class="homeland-item-badge homeland-facility-product" pointer-events="none">
+                    <circle cx="${cx}" cy="${cy}" r="${badgeR}" fill="#0b0f14" fill-opacity="0.88" stroke="#facc15" stroke-width="0.06" filter="drop-shadow(0 2px 6px rgba(0,0,0,0.9))"/>
+                    <image href="${itemUrl}" x="${cx - badgeR * 0.78}" y="${cy - badgeR * 0.78}" width="${badgeR * 1.56}" height="${badgeR * 1.56}"
+                        preserveAspectRatio="xMidYMid meet" onerror="this.style.display='none'"/>
+                </g>
+            `;
+        }
     }
 
     return `<g class="homeland-topdown-tile facility-${slug}" data-facility="${name}">

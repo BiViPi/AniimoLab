@@ -648,10 +648,11 @@ export function layOutHomeland(pieces, cells, options = {}) {
     });
 
     // 11. Outdoor Farmlands / Woodlands (Field Blocks):
-    // Placed in Plot 15 / Plot 14 in a neat rectangular field block
+    // Placed in Plot 14 (x in [20, 40], y in [0, 15]) in a neat rectangular field block,
+    // completely separate from Plot 15 (Cluster 2) and Plot 7 (Industry)
     fieldPieces.forEach((p, fIdx) => {
-        const fx = 42.0;
-        const fy = 5.0 + fIdx * 6.0;
+        const fx = 24.0;
+        const fy = 4.5 + fIdx * 6.5;
         p.members.forEach(m => {
             m.x += fx;
             m.y += fy;
