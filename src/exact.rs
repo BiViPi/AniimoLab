@@ -1138,7 +1138,7 @@ pub fn check_plan(
     }
     for (name, &sold) in &plan.sold {
         let item = find_item(name.as_str(), &all).ok_or(format!("unknown item {name}"))?;
-        *made.entry(crate::models::base_item_name(&item.name)).or_default() -= sold;
+        *made.entry(made_item(&item.name, &all)).or_default() -= sold;
         // An item sold for another currency (Aniimo EXP, Aniipods) leaves the balance the same
         // way, but earns nothing towards `currency`.
         earned += sold * item.earns(currency);

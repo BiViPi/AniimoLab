@@ -1,4 +1,4 @@
-﻿//! Production optimization algorithms for the Aniimo optimizer.
+//! Production optimization algorithms for the Aniimo optimizer.
 //!
 //! This module contains the core optimization logic that calculates
 //! production efficiencies and finds the best production paths to
@@ -1882,7 +1882,10 @@ pub(crate) fn item_lead_time(name: &str, item_map: &HashMap<&str, &ProductionIte
     if depth > 8 {
         return 0.0; // guard against unexpected circular references
     }
-    let Some(item) = item_map.get(name) else {
+    let Some(&item) = item_map.get(name).or_else(|| {
+        let quick = format!("quick_{name}");
+        item_map.get(quick.as_str())
+    }) else {
         return 0.0;
     };
     match &item.raw_materials {
