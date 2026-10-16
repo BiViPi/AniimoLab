@@ -13,10 +13,67 @@
 // `unlocks` maps each facility level to the RV (Homeland) level that unlocks it. `counts[i]` is how
 // many of the facility you can place at RV level i + 1; an RV level past the end of the list keeps
 // the last count. Simple mode uses both (see `simpleSetup`). Counts are confirmed in game up to RV
-// level 15 for the Blazing Stove, RV level 13 for the Cooling Unit, Sunlamp and Phonolfactory Table, RV level 12 for the Heat
-// Furnace and Simmering Pot and RV level 11 for the rest; past that, Farmland, Woodland and Mine
-// follow the game's pattern and the others keep their last count.
+// level 17 for Heat Furnace, Cooling Unit, Sunlamp, Dewy House, Nimbus Bed, Bouncy Brew Keg, Farmland,
+// Woodland, Mine and Well; past that, Farmland, Woodland and Mine follow the game's pattern and the others keep their last count.
 //
+// Harvest element/ability for every crop in Farmland & Woodland:
+// - Reaping (Reap) -> Dark
+// - Logging (Log) -> Dark (including Maple Syrup, Natural Rubber, Bamboo, Trees)
+// - Collecting (Collect) -> Grass (berries, nuts, flowers, cotton, beans, citrus)
+export const CROP_HARVEST_ABILITY = {
+    // Farmland - Reaping (Dark)
+    'wheat': 'Dark',
+    'quick_wheat': 'Dark',
+    'potato': 'Dark',
+    'quick_potato': 'Dark',
+    'rice': 'Dark',
+    'quick_rice': 'Dark',
+    'premium_wheat': 'Dark',
+    'lavender': 'Dark',
+    'sugarcane': 'Dark',
+    'ginseng': 'Dark',
+    'moondew_radish': 'Dark',
+    'waxing_moon_pepper': 'Dark',
+
+    // Farmland - Collecting (Grass)
+    'soybean': 'Grass',
+    'rose': 'Grass',
+    'cotton': 'Grass',
+    'strawberry': 'Grass',
+    'quick_strawberry': 'Grass',
+    'grape': 'Grass',
+    'cranberry': 'Grass',
+    'agave': 'Grass',
+
+    // Woodland - Logging (Dark)
+    'willow_wood': 'Dark',
+    'bamboo': 'Dark',
+    'quick_bamboo': 'Dark',
+    'cherry_blossom': 'Dark',
+    'apple': 'Dark',
+    'maple_syrup': 'Dark',
+    'quick_maple_syrup': 'Dark',
+    'natural_rubber': 'Dark',
+
+    // Woodland - Collecting (Grass)
+    'lemon': 'Grass',
+    'quick_lemon': 'Grass',
+    'palm_bark': 'Grass',
+    'chestnut': 'Grass',
+    'walnut': 'Grass',
+    'coconut': 'Grass',
+    'quick_coconut': 'Grass',
+    'cocoa': 'Grass',
+    'orange_flower': 'Grass',
+};
+
+export function getCropHarvestAbility(itemName, baseFac = null) {
+    if (itemName && CROP_HARVEST_ABILITY[itemName]) {
+        return CROP_HARVEST_ABILITY[itemName];
+    }
+    return baseFac === 'Woodland' ? 'Dark' : (baseFac === 'Farmland' ? 'Dark' : 'Dark');
+}
+
 // Base wattage per level for E-mode facilities:
 // - Heavy & resource facilities: 30W * level (Mine, Well, Aniipod Maker, Dance Pad Polisher)
 // - Regular processors: 15W * level (Crafting Table, Cooker, Stove, Mill, etc.)
@@ -103,13 +160,13 @@ export const FACILITIES = [
     {
         name: 'Dewy House', slug: 'dewy-house', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Instinctive',
         unlocks: { 1: 6, 2: 11 },
-        counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
         tooltip: "Lv.1: Aromathyst (Fragrancier)&#10;Lv.2: Quick Aromathyst (Fragrancier)"
     },
     {
         name: 'Nimbus Bed', slug: 'nimbus-bed', defaultCount: 0, category: 'Aniimo Materials', hasWorker: true, ability: 'Leisure', personality: 'Judicious',
         unlocks: { 1: 10, 2: 13, 3: 16 },
-        counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2],
         tooltip: "Lv.1: Wool (Turbo)&#10;Lv.2: Quick Wool (Turbo)&#10;Lv.3: Petals (Irisal)"
     },
     {
@@ -127,19 +184,19 @@ export const FACILITIES = [
     {
         name: 'Heat Furnace', slug: 'heat-furnace', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 7 },
-        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3],
         tooltip: "Provides Warm or Scorching growing conditions for crops that need one&#10;The calculator picks whichever mode is more profitable.&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
         name: 'Cooling Unit', slug: 'cooling-unit', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 7 },
-        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3],
         tooltip: "Provides Cool or Freeze growing conditions for crops that need one&#10;The calculator picks whichever mode is more profitable.&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
         name: 'Sunlamp', slug: 'sunlamp', defaultCount: 0, category: 'Environment', hasLevels: false,
         unlocks: { 1: 9 },
-        counts: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
+        counts: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2],
         tooltip: "Provides Adequate growing conditions for crops that need one&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {

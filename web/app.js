@@ -6,7 +6,8 @@ import {
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
     FACILITY_POWER_WATTS, FACILITY_BASE_WATTS, getFacilityUnitWatts, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
     LAYOUT_DISTRICTS, getFacilityDistrict,
-} from './facility-config.js?v=aniimolab_v26';
+    CROP_HARVEST_ABILITY, getCropHarvestAbility,
+} from './facility-config.js?v=aniimolab_v27';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v25';
 import { renderFacilityIcon, renderItemIcon, renderHomelandSvgFacility, getFacilityIconUrl, HOMELAND_ASSET_MANIFEST } from './asset-map.js?v=aniimolab_v39';
 
@@ -5719,23 +5720,24 @@ function abilityDot(name, level, note) {
 
 function renderCropHarvestBadge(step, tasks, baseFac, preferPrismana = true) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const isFarmland = baseFac === 'Farmland';
+    const cropAbility = getCropHarvestAbility(step?.item_name, baseFac);
     let harvestTask = (tasks || []).find(t => t.jobs && t.jobs.some(j => j === 'Reaping' || j === 'Logging' || j === 'Collecting'));
     if (!harvestTask) {
-        harvestTask = isFarmland
-            ? ((tasks || []).find(t => t.ability === 'Dark') || { ability: 'Dark', level: preferPrismana ? 4 : 3 })
-            : ((tasks || []).find(t => t.ability === 'Grass') || { ability: 'Grass', level: preferPrismana ? 4 : 3 });
+        harvestTask = (tasks || []).find(t => t.ability === cropAbility) || { ability: cropAbility, level: preferPrismana ? 4 : 3 };
     }
-    const ability = harvestTask.ability || (isFarmland ? 'Dark' : 'Grass');
+    const ability = harvestTask.ability || cropAbility;
     const level = preferPrismana ? 4 : 3;
     const workerName = preferPrismana
         ? (ability === 'Dark' ? 'Pawney' : 'Irisal')
         : (ability === 'Dark' ? 'Celestis' : 'Leaffy');
     const workerCard = renderAniimoWorkerCard(ability, level, '', true, workerName, preferPrismana);
     const roleTitle = isVi ? (preferPrismana ? 'Thu hoạch' : 'Thu hoạch (T)') : (preferPrismana ? 'Harvest' : 'Harvest (M)');
+    const actionLabel = ability === 'Dark'
+        ? (baseFac === 'Woodland' ? (isVi ? 'Đốn/Nhựa' : 'Log/Tap') : (isVi ? 'Gặt/Cắt' : 'Reap'))
+        : (isVi ? 'Thu hái' : 'Collect');
     const tip = isVi
-        ? `Thu hoạch: Hệ ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Thường Lv.3'} (${workerName})`
-        : `Harvest: ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Normal Lv.3'} (${workerName})`;
+        ? `Thu hoạch (${actionLabel}): Hệ ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Thường Lv.3'} (${workerName})`
+        : `Harvest (${actionLabel}): ${ability} Lv.${level} · ${preferPrismana ? 'Prismana Lv.4' : 'Normal Lv.3'} (${workerName})`;
 
     return `<div class="farm-harvest-single-cell" title="${tip}">
         ${workerCard}
@@ -5800,31 +5802,31 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
         },
         {
             step: 4,
-            taskVi: 'Thu hoạch Nông trại',
-            taskEn: 'Harvest Farmland',
-            plotsVi: `${totalFarmland} ô Nông trại`,
-            plotsEn: `${totalFarmland} Farmland plots`,
+            taskVi: 'Gặt & Đốn gỗ/Nhựa (Ám)',
+            taskEn: 'Harvest: Reap & Log (Dark)',
+            plotsVi: 'Lúa, khoai, mía, sâm, tre, gỗ, siro phong...',
+            plotsEn: 'Wheat, potato, cane, bamboo, timber, maple syrup...',
             workers: 'Pawney + Rookey',
             count: '2×',
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất, vì chỉ có 2 kỹ năng Ám và Vận chuyển, vừa thu hoạch xong là vận chuyển ngay lập tức.',
-            reasonEn: 'Pawney and Rookey are optimal with only Dark and Hauling skills: immediately haul crops right after harvest.'
+            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất: dùng Hệ Ám gặt nông sản và đốn gỗ/khai thác siro phong, cao su; thu hoạch xong kiêm luôn vận chuyển.',
+            reasonEn: 'Pawney and Rookey are optimal: Dark skill reaps crops & logs timber/maple syrup/rubber; immediately hauls after harvest.'
         },
         {
             step: 5,
-            taskVi: 'Thu hoạch Cây trồng',
-            taskEn: 'Harvest Trees',
-            plotsVi: `${totalWoodland} ô Rừng cây`,
-            plotsEn: `${totalWoodland} Woodland plots`,
+            taskVi: 'Hái hoa/trái/hạt (Cỏ)',
+            taskEn: 'Harvest: Collect (Grass)',
+            plotsVi: 'Dâu, đậu nành, nho, chanh, hạt dẻ, dừa...',
+            plotsEn: 'Berries, soybeans, grapes, lemons, nuts, coconut...',
             workers: 'Irisalis (Leafy phụ)',
             count: '2×',
             ability: 'Grass',
             level: 3,
             specific: 'Irisal',
-            reasonVi: 'Irisalis là tốt nhất (chỉ có kỹ năng Cỏ), Leafy chỉ phụ.',
-            reasonEn: 'Irisalis is optimal with dedicated Grass skill; Leafy acts as secondary backup.'
+            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung thu hái toàn bộ hoa, quả mọng và hạt mềm mà không bị sao nhãng.',
+            reasonEn: 'Irisalis has dedicated Grass skill: stays purely focused on collecting berries, fruits, flowers & nuts without distraction.'
         },
         {
             step: 6,
@@ -5857,8 +5859,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
         },
         {
             step: 2,
-            taskVi: 'Gieo trồng & Cây',
-            taskEn: 'Sowing & Trees',
+            taskVi: 'Gieo hạt & Hái quả (Cỏ)',
+            taskEn: 'Sowing & Collect (Grass)',
             plotsVi: `${totalPlots} ô đất`,
             plotsEn: `${totalPlots} plots`,
             workers: 'Irisalis',
@@ -5866,8 +5868,8 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
             ability: 'Grass',
             level: 3,
             specific: 'Irisal',
-            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung gieo hạt giống và thu hoạch cây, không bị sao nhãng.',
-            reasonEn: 'Irisalis has only Grass skill so stays purely focused on sowing seeds and trees without distraction.'
+            reasonVi: 'Irisalis dùng Hệ Cỏ: phụ trách gieo hạt giống và thu hái toàn bộ các cây hái quả/hoa (dâu, nho, đậu, chanh, hạt dẻ...).',
+            reasonEn: 'Irisalis uses Grass: handles seed sowing and collects all fruit, berry, flower & nut crops without distraction.'
         },
         {
             step: 3,
@@ -5885,17 +5887,17 @@ function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
         },
         {
             step: 4,
-            taskVi: 'Thu hoạch Nông trại',
-            taskEn: 'Harvest Farmland',
-            plotsVi: `${totalFarmland} ô Nông trại`,
-            plotsEn: `${totalFarmland} Farmland plots`,
+            taskVi: 'Gặt & Đốn gỗ/Nhựa (Ám)',
+            taskEn: 'Harvest: Reap & Log (Dark)',
+            plotsVi: 'Lúa mì, khoai, tre, gỗ, siro phong...',
+            plotsEn: 'Wheat, potato, bamboo, timber, maple syrup...',
             workers: 'Pawney / Rookey',
             count: '1×',
             ability: 'Dark',
             level: 4,
             specific: 'Pawney',
-            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất, vì chỉ có 2 kỹ năng Ám và Vận chuyển, vừa thu hoạch xong là vận chuyển ngay lập tức.',
-            reasonEn: 'Pawney and Rookey are optimal with only Dark and Hauling skills: immediately haul crops right after harvest.'
+            reasonVi: 'Pawney / Rookey dùng Hệ Ám: gặt nông sản và đốn gỗ/khai thác siro phong, cao su; xong việc lập tức chuyển sang vận chuyển.',
+            reasonEn: 'Pawney / Rookey uses Dark: reaps crops and logs timber/maple syrup/rubber; immediately transitions to hauling.'
         },
         {
             step: 5,
