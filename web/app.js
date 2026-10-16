@@ -4425,6 +4425,40 @@ export function getSeasonFacilityUsage(planRateEstimate = 40) {
     return usage;
 }
 
+// Bảng tra cứu điều kiện mở khóa công thức siêu tốc (quick_):
+// Cần đạt cấp tối thiểu của cơ sở và cấp tối thiểu của mô-đun tương ứng
+export const QUICK_RECIPE_UNLOCKS = {
+    sea_salt: { quick: 'quick_sea_salt', facility: 'Tidewhisper Sandcastle', minFacilityLevel: 2, module: 'resource_detector', minModuleLevel: 2 },
+    rice: { quick: 'quick_rice', facility: 'Farmland', minFacilityLevel: 6, module: 'ecological_module', minModuleLevel: 5 },
+    strawberry: { quick: 'quick_strawberry', facility: 'Farmland', minFacilityLevel: 7, module: 'ecological_module', minModuleLevel: 7 },
+    wheat: { quick: 'quick_wheat', facility: 'Farmland', minFacilityLevel: 2, module: 'ecological_module', minModuleLevel: 1 },
+    potato: { quick: 'quick_potato', facility: 'Farmland', minFacilityLevel: 4, module: 'ecological_module', minModuleLevel: 3 },
+    bamboo: { quick: 'quick_bamboo', facility: 'Woodland', minFacilityLevel: 3, module: 'ecological_module', minModuleLevel: 2 },
+    lemon: { quick: 'quick_lemon', facility: 'Woodland', minFacilityLevel: 4, module: 'ecological_module', minModuleLevel: 4 },
+    maple_syrup: { quick: 'quick_maple_syrup', facility: 'Woodland', minFacilityLevel: 5, module: 'ecological_module', minModuleLevel: 6 },
+    coconut: { quick: 'quick_coconut', facility: 'Woodland', minFacilityLevel: 6, module: 'ecological_module', minModuleLevel: 8 },
+    well_water: { quick: 'quick_well_water', facility: 'Well', minFacilityLevel: 1, module: 'resource_detector', minModuleLevel: 1 },
+    fresh_water: { quick: 'quick_fresh_water', facility: 'Well', minFacilityLevel: 3, module: 'resource_detector', minModuleLevel: 4 },
+    deep_rock_spring_water: { quick: 'quick_deep_rock_spring_water', facility: 'Well', minFacilityLevel: 4, module: 'resource_detector', minModuleLevel: 6 },
+    natural_mineral_spring_water: { quick: 'quick_natural_mineral_spring_water', facility: 'Well', minFacilityLevel: 5, module: 'resource_detector', minModuleLevel: 7 },
+    wool: { quick: 'quick_wool', facility: 'Nimbus Bed', minFacilityLevel: 2, module: 'resource_detector', minModuleLevel: 5 },
+    aromathyst: { quick: 'quick_aromathyst', facility: 'Dewy House', minFacilityLevel: 2, module: 'resource_detector', minModuleLevel: 3 },
+    scales: { quick: 'quick_scales', facility: 'Floral Windmill', minFacilityLevel: 1, module: 'resource_detector', minModuleLevel: 8 },
+};
+
+export function isQuickRecipeUnlocked(rawItem, facilities, modules) {
+    const info = QUICK_RECIPE_UNLOCKS[rawItem];
+    if (!info) return false;
+    const facLevel = facilities[info.facility]?.[0]?.level || 0;
+    const facCount = facilities[info.facility]?.[0]?.count || 0;
+    if (facCount <= 0 || facLevel < info.minFacilityLevel) return false;
+    if (info.module && info.minModuleLevel) {
+        const modLevel = modules[info.module] || 0;
+        if (modLevel < info.minModuleLevel) return false;
+    }
+    return true;
+}
+
 // Get plan-level input values from the form (facilities/modules/prioritize-byproducts, nothing
 // goal-related, since find_plan doesn't need a target). Currency is always coins: the full
 // release removed Bud Tickets, the only other sellable currency.
@@ -4459,14 +4493,25 @@ function getPlanInputValues() {
         }
     }
 
-    // 2. Block Pearl if Crafting Table Lv.6 (Pearl Necklace) is not unlocked (RV < 15)
+    // 2. Block Pearl if Crafting Table Lv.6 (Pearl Necklace) is not unlocked (RV < 16)
     // Selling raw pearl is economically unviable and forces climate wastage.
     const craftingTableLevel = facilities['Crafting Table']?.[0]?.level || 1;
     if (craftingTableLevel < 6) {
         if (!excluded.includes('pearl')) excluded.push('pearl');
     }
 
-    // 3. Deduct dedicated event plots from Farmland and reserve facilities for chosen season dishes
+    // 3. Ưu tiên công thức nhanh (Quick recipes):
+    // Nếu công thức quick_ đã được mở khóa (đạt cấp cơ sở và mô-đun yêu cầu), tự động loại trừ công thức thường tương ứng
+    // để solver luôn sử dụng công thức nhanh (sản lượng cao hơn, chu kỳ ngắn hơn).
+    for (const [rawItem, info] of Object.entries(QUICK_RECIPE_UNLOCKS)) {
+        if (isQuickRecipeUnlocked(rawItem, facilities, modules)) {
+            if (!excluded.includes(rawItem)) {
+                excluded.push(rawItem);
+            }
+        }
+    }
+
+    // 4. Deduct dedicated event plots from Farmland and reserve facilities for chosen season dishes
     if (seasonActive()) {
         const optimalDishes = selectOptimalSeasonDishes();
         const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
@@ -4481,8 +4526,6 @@ function getPlanInputValues() {
         // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn (bao gồm cả chuỗi sơ chế)
         const eventFacUsage = getSeasonFacilityUsage();
         for (const [fac, count] of Object.entries(eventFacUsage)) {
-            // Không trừ Tidewhisper Sandcastle vì Sandcastle sẽ được cập nhật mục đích sử dụng trực tiếp từ mẻ muối biển
-            if (fac === 'Tidewhisper Sandcastle') continue;
             if (facilities[fac] && facilities[fac][0]) {
                 facilities[fac][0].count = Math.max(0, facilities[fac][0].count - count);
             }
@@ -4609,20 +4652,23 @@ function integrateSeasonPlan(plan) {
         return (alreadyUsed + count) <= cap;
     }
 
-    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt
+    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt (ưu tiên công thức siêu tốc nếu đã mở khóa)
     const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.name === 'umbral_hot_pot');
     if (needsFreshWater) {
         const fwReason = isVi
             ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
             : 'Used for event dishes';
         const wellElectric = checkStepEmode('Well', 1);
+        const { facilities: curFacs, modules: curMods } = simpleSetup(selectedHomeLevel());
+        const useQuickWater = isQuickRecipeUnlocked('fresh_water', curFacs, curMods);
+        const waterItem = useQuickWater ? 'quick_fresh_water' : 'fresh_water';
 
         newSteps.push({
             facility: 'Well',
-            item_name: 'fresh_water',
+            item_name: waterItem,
             facility_count: 1,
             status: 'producing',
-            cycle_time: 2250,
+            cycle_time: useQuickWater ? 1800 : 2250,
             is_grower: false,
             is_emode: wellElectric,
             is_manual: !wellElectric,
@@ -4705,8 +4751,8 @@ function integrateSeasonPlan(plan) {
         }
     }
 
-    // Cập nhật mục đích của cơ sở sản xuất nguyên liệu phụ trợ cho sự kiện:
-    // Muối biển từ Lâu đài cát Tidewhisper dùng cho Ớt nướng trăng (hoặc Mâm cỗ trung thu, Sốt cay ngọt)
+    // Bổ sung cơ sở sản xuất Muối biển chuyên dụng cho sự kiện:
+    // Ưu tiên Muối biển nhanh (quick_sea_salt) nếu đã mở khóa, nếu chưa thì dùng Muối biển thường (sea_salt)
     const saltDishes = optimalDishes.filter(d => d.name === 'roasted_waxing_moon_pepper' || d.name === 'harvest_platter' || d.name === 'umbral_sweet_and_spicy_sauce');
     if (saltDishes.length > 0) {
         let forTextVi = 'Ớt nướng trăng';
@@ -4718,21 +4764,22 @@ function integrateSeasonPlan(plan) {
         const purposeText = isVi
             ? `Dùng cho ${forTextVi}; phần còn lại bán trực tiếp`
             : `Used for ${forTextVi}; the rest sells directly`;
-        const sandStep = newSteps.find(s => s.facility.includes('Tidewhisper Sandcastle') && s.status === 'producing');
-        if (sandStep) {
-            sandStep.reason = purposeText;
-        } else {
-            newSteps.push({
-                facility: 'Tidewhisper Sandcastle',
-                item_name: 'quick_sea_salt',
-                facility_count: 1,
-                status: 'producing',
-                cycle_time: 2250,
-                is_grower: false,
-                reason: isVi ? `Dùng cho ${forTextVi}` : `Used for ${forTextVi}`,
-                environment: null
-            });
-        }
+
+        const { facilities: curFacs, modules: curMods } = simpleSetup(selectedHomeLevel());
+        const useQuickSalt = isQuickRecipeUnlocked('sea_salt', curFacs, curMods);
+        const saltItem = useQuickSalt ? 'quick_sea_salt' : 'sea_salt';
+        const saltCycle = useQuickSalt ? 2250 : 1800;
+
+        newSteps.push({
+            facility: 'Tidewhisper Sandcastle',
+            item_name: saltItem,
+            facility_count: 1,
+            status: 'producing',
+            cycle_time: saltCycle,
+            is_grower: false,
+            reason: purposeText,
+            environment: null
+        });
     }
 
     // Nông sản thô còn dư bán trực tiếp lấy coin và điểm (giá 74 coin)
@@ -8097,12 +8144,12 @@ function renderInsights(plan) {
         }
     }
 
-    // 3. Pearl check: Only applies when Sandcastle Lv.3 (Pearl) is unlocked (RV 13-14) but Crafting Table Lv.6 (Pearl Necklace) is not yet unlocked (RV 15)
-    if (homeLevel >= 13 && homeLevel < 15) {
+    // 3. Pearl check: Only applies when Sandcastle Lv.3 (Pearl) is unlocked (RV 13-15) but Crafting Table Lv.6 (Pearl Necklace) is not yet unlocked (RV 16)
+    if (homeLevel >= 13 && homeLevel < 16) {
         if (isVi) {
-            rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 15 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu (45 phút) và lãng phí khu vực ấm áp.`);
+            rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 16 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu (45 phút) và lãng phí khu vực ấm áp.`);
         } else {
-            rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 15); raw pearls have low margins and waste warm aura slots.`);
+            rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 16); raw pearls have low margins and waste warm aura slots.`);
         }
     }
 
