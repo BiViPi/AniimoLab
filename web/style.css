@@ -6824,3 +6824,152 @@ body.light .mode-pill.pill-manual.active {
     background: rgba(18, 30, 45, 0.9) !important;
     border-left: 3px solid #38bdf8;
 }
+
+/* --- Facility Partition Modal & Worksheet Split Controls --- */
+.facility-count-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-partition-gear {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.35rem;
+    color: var(--text-muted);
+    transition: all 0.15s ease;
+}
+
+.btn-partition-gear:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #fff;
+    transform: scale(1.08);
+}
+
+.partition-modal-content {
+    max-width: 520px;
+    width: 90%;
+    background: #181926;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.partition-dialog-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+
+.partition-ctrl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.partition-ctrl-row:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.partition-ctrl-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.partition-ctrl-label .ctrl-icon {
+    font-size: 1.3rem;
+}
+
+.partition-ctrl-label .ctrl-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-bright);
+}
+
+.partition-ctrl-label .ctrl-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.partition-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.part-btn {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.part-btn:hover {
+    background: rgba(99, 102, 241, 0.3);
+    border-color: #6366f1;
+    color: #fff;
+}
+
+.part-input {
+    width: 2.8rem;
+    height: 2rem;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.partition-summary-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.partition-summary-bar strong {
+    color: var(--color-primary-light);
+}
+
+.part-dialog-warning {
+    color: #f87171;
+    font-size: 0.8rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+}
+
+.partition-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+

@@ -22,7 +22,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?v=aniimolab_v24&load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v43&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -408,11 +408,26 @@ export function validateInvariants(facility, targetMode, stepCount) {
     return { valid: true };
 }
 
-window.onWorksheetModeClick = function(facility, targetMode, stepCount, currentMode, clickedBtn, stepIndex) {
+export function getFacilityLevel(baseFac) {
+    const homeLevel = selectedHomeLevel();
+    if (typeof facilityTiers === 'object' && facilityTiers && facilityTiers[baseFac]) {
+        const tiers = facilityTiers[baseFac];
+        if (tiers && tiers.length > 0) {
+            return Math.max(...tiers.map(t => t.level || 0));
+        }
+    }
+    const { facilities } = simpleSetup(homeLevel);
+    if (facilities && facilities[baseFac] && facilities[baseFac].length > 0) {
+        return Math.max(...facilities[baseFac].map(t => t.level || 0));
+    }
+    return 1;
+}
+
+window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode, clickedBtn, stepIndex) {
     if (!lastPlan || !lastPlan.success) return;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
 
-    // Chuẩn hóa tên mode: specialist được đồng nhất với prismana
+    // 1. Chuẩn hóa tên mode
     if (targetMode === 'specialist') targetMode = 'prismana';
     if (currentMode === 'specialist') currentMode = 'prismana';
     if (currentMode === targetMode) return;
@@ -426,102 +441,97 @@ window.onWorksheetModeClick = function(facility, targetMode, stepCount, currentM
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
-    // Lấy số lượng máy chạy điện hiện tại
-    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)) };
-    const currentWatts = calculatePowerWatts(currentCounts);
+    // 2. Lấy tổng số máy của cơ sở này
+    const ownedCounts = getOwnedFacilityCounts();
+    const totalOwned = ownedCounts[baseFac] || stepCount;
 
-    // 1. Kiểm tra công suất nếu chuyển sang Điện
-    if (targetMode === 'electric') {
-        const addedWatts = wattsPerUnit * stepCount;
-        const projectedWatts = currentWatts + addedWatts;
+    // 3. Lấy phân bổ hiện tại của cơ sở này (electric, specialist, manual)
+    const existingOvr = facilityOverrides.find(o => o.facility === baseFac);
+    let curE = 0, curP = 0, curM = 0;
 
-        if (projectedWatts > maxWatts) {
-            showInvariantWarning(
-                baseFac,
-                `Vượt công suất tối đa của lưới điện: cần thêm ${addedWatts}W (tổng ${projectedWatts}W / ${maxWatts}W tối đa)!`
-            );
-            return;
-        }
-
-        currentCounts[baseFac] = (currentCounts[baseFac] || 0) + stepCount;
+    if (existingOvr) {
+        curE = existingOvr.electric_count || 0;
+        curP = existingOvr.specialist_count || 0;
+        curM = existingOvr.manual_count || 0;
     } else {
-        // 2. Chuyển từ Điện sang Thường hoặc Prismana: giảm công suất tương ứng
-        if (currentMode === 'electric') {
-            currentCounts[baseFac] = Math.max(0, (currentCounts[baseFac] || stepCount) - stepCount);
+        (lastPlan.coin_items || []).forEach(s => {
+            const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+            if (facName === baseFac) {
+                const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
+                if (m === 'electric') curE += s.facility_count || 0;
+                else if (m === 'prismana') curP += s.facility_count || 0;
+                else if (m === 'manual') curM += s.facility_count || 0;
+            }
+        });
+        if (curE === 0 && curP === 0 && curM === 0) {
+            curE = lastEmodeCounts[baseFac] || 0;
+            if (baseFac === 'Mine') {
+                curP = Math.min(totalOwned - curE, getSpecialistQuotas().earth_4p_mines ?? 3);
+                curM = Math.max(0, totalOwned - curE - curP);
+            } else if (baseFac === 'Well') {
+                curP = Math.min(totalOwned - curE, getSpecialistQuotas().water_4f_wells ?? 0);
+                curM = Math.max(0, totalOwned - curE - curP);
+            } else {
+                curM = Math.max(0, totalOwned - curE);
+            }
         }
     }
 
-    lastEmodeCounts = currentCounts;
+    // 4. Dịch chuyển stepCount máy từ currentMode sang targetMode
+    const moveCount = Math.min(stepCount, currentMode === 'electric' ? curE : (currentMode === 'prismana' ? curP : curM));
+    if (moveCount > 0) {
+        if (currentMode === 'electric') curE = Math.max(0, curE - moveCount);
+        else if (currentMode === 'prismana') curP = Math.max(0, curP - moveCount);
+        else if (currentMode === 'manual') curM = Math.max(0, curM - moveCount);
 
-    // Tìm đúng step cần cập nhật
-    let targetStep = null;
-    if (typeof stepIndex === 'number' && stepIndex >= 0 && lastPlan.coin_items && lastPlan.coin_items[stepIndex]) {
-        targetStep = lastPlan.coin_items[stepIndex];
+        if (targetMode === 'electric') curE += moveCount;
+        else if (targetMode === 'prismana') curP += moveCount;
+        else if (targetMode === 'manual') curM += moveCount;
+    } else {
+        if (targetMode === 'electric') curE = Math.min(totalOwned, curE + stepCount);
+        else if (targetMode === 'prismana') curP = Math.min(totalOwned, curP + stepCount);
+        else if (targetMode === 'manual') curM = Math.min(totalOwned, curM + stepCount);
     }
-    if (!targetStep && lastPlan.coin_items) {
-        targetStep = lastPlan.coin_items.find(s => s.facility.includes(baseFac));
+
+    // Cân bằng tổng sao cho curE + curP + curM == totalOwned
+    const sum = curE + curP + curM;
+    if (sum > totalOwned) {
+        const excess = sum - totalOwned;
+        if (targetMode !== 'manual' && curM >= excess) curM -= excess;
+        else if (targetMode !== 'electric' && curE >= excess) curE -= excess;
+        else if (targetMode !== 'prismana' && curP >= excess) curP -= excess;
+        else curM = Math.max(0, totalOwned - curE - curP);
+    } else if (sum < totalOwned) {
+        curM += (totalOwned - sum);
     }
 
-    if (targetStep) {
-        const oldMode = targetStep.mode || currentMode;
+    // 5. Kiểm tra công suất điện
+    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)), [baseFac]: curE };
+    const projectedWatts = calculatePowerWatts(currentCounts);
+    if (targetMode === 'electric' && projectedWatts > maxWatts) {
+        showInvariantWarning(
+            baseFac,
+            `Vượt công suất tối đa của lưới điện: cần tổng ${projectedWatts}W (${maxWatts}W tối đa)!`
+        );
+        return;
+    }
 
-        // Tỷ lệ tốc độ theo chế độ:
-        // - Prismana (Lv.4 + 20% personality): 1.0 (chuẩn tối ưu của solver)
-        // - Thường / Manual (Lv.3 + 20% personality): 0.80 (chậm hơn 20% theo công thức game)
-        // - Điện / Electric: 0.833 (tốc độ chuẩn máy điện tự động)
-        function getModeSpeed(m) {
-            if (m === 'electric') return 0.833;
-            if (m === 'manual') return 0.80;
-            return 1.0;
-        }
+    // 6. Cập nhật state
+    lastEmodeCounts[baseFac] = curE;
+    const facLevel = getFacilityLevel(baseFac);
+    const newOverride = {
+        facility: baseFac,
+        level: facLevel,
+        electric_count: curE,
+        specialist_count: curP,
+        manual_count: curM
+    };
 
-        const oldSpeed = getModeSpeed(oldMode);
-        const newSpeed = getModeSpeed(targetMode);
-        const speedRatio = newSpeed / oldSpeed;
-
-        // Cập nhật targetStep
-        targetStep.mode = targetMode;
-        targetStep.is_emode = (targetMode === 'electric');
-        targetStep.is_specialist = (targetMode === 'prismana');
-        targetStep.is_manual = (targetMode === 'manual');
-
-        if (targetStep.cycle_time) {
-            targetStep.cycle_time = Math.round((targetStep.cycle_time / speedRatio) * 10) / 10;
-        }
-
-        // Cập nhật Aniimo tương ứng trên step
-        if (targetMode === 'electric') {
-            targetStep.aniimo = null;
-        } else if (targetMode === 'manual') {
-            const ability = facDef?.ability || targetStep.aniimo?.ability || 'Artisanship';
-            targetStep.aniimo = { ability, level: 3, personality_bonus: true };
-            if (targetStep.aniimo_tasks) {
-                targetStep.aniimo_tasks.forEach(t => { t.level = 3; });
-            }
-        } else {
-            const ability = facDef?.ability || targetStep.aniimo?.ability || 'Artisanship';
-            targetStep.aniimo = { ability, level: 4, personality_bonus: true };
-            if (targetStep.aniimo_tasks) {
-                targetStep.aniimo_tasks.forEach(t => { t.level = 4; });
-            }
-        }
-
-        // Cập nhật income_streams cho sản phẩm này
-        if (targetStep.item_name && lastPlan.income_streams) {
-            const baseItem = targetStep.item_name.replace(/__(specialist|manual)$/, '');
-            for (const s of lastPlan.income_streams) {
-                const sBase = s.item_name.replace(/__(specialist|manual)$/, '');
-                if (sBase === baseItem || s.item_name === targetStep.item_name) {
-                    s.units_per_second *= speedRatio;
-                    s.rate_per_second *= speedRatio;
-                }
-            }
-        }
-
-        // Cập nhật lại tổng doanh thu / giây
-        if (lastPlan.income_streams && lastPlan.income_streams.length > 0) {
-            lastPlan.rate_per_second = lastPlan.income_streams.reduce((acc, s) => acc + (s.rate_per_second || 0), 0);
-        }
+    const exIdx = facilityOverrides.findIndex(o => o.facility === baseFac);
+    if (exIdx >= 0) {
+        facilityOverrides[exIdx] = newOverride;
+    } else {
+        facilityOverrides.push(newOverride);
     }
 
     // Hiển thị nút Reset Overrides
@@ -531,22 +541,8 @@ window.onWorksheetModeClick = function(facility, targetMode, stepCount, currentM
     // Cập nhật thanh điện ngay lập tức
     updatePowerGauge(lastEmodeCounts);
 
-    // Cập nhật hiển thị thu nhập / giờ
-    updateRateDisplay();
-
-    // Cập nhật bảng phân tích doanh thu
-    renderProfitBreakdown(lastPlan);
-
-    // Cập nhật lại Interactive Worksheet (giữ nguyên toàn bộ phân bổ cơ sở, chỉ render lại bảng)
-    renderFacilityPlan(lastPlan);
-
-    // Hiển thị benchmark badge thông báo
-    const badge = document.getElementById('fast-resolve-benchmark-badge');
-    if (badge) {
-        badge.style.display = 'inline-flex';
-        badge.innerHTML = `⚡ ${isVi ? 'Đã cập nhật chế độ' : 'Mode Updated'}`;
-        setTimeout(() => { badge.style.display = 'none'; }, 2000);
-    }
+    // 7. Re-solve bài toán bằng HiGHS LP Solver qua find_plan
+    await runFastReSolve();
 };
 
 export async function runFastReSolve() {
@@ -610,6 +606,278 @@ function showInvariantWarning(facility, reason) {
         }, 3000);
     }
 }
+
+// --- Facility Partitioning Modal Logic ---
+let currentPartitionFacility = null;
+
+window.openFacilityPartitionModal = function(baseFac) {
+    if (!lastPlan || !lastPlan.success) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    currentPartitionFacility = baseFac;
+
+    const ownedCounts = getOwnedFacilityCounts();
+    const totalOwned = ownedCounts[baseFac] || 1;
+    const facDef = FACILITIES.find(f => f.name === baseFac);
+    const emodeAvailable = selectedHomeLevel() >= 12;
+    const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
+    const wattsPerUnit = supportsEmode ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
+
+    // Lấy phân bổ hiện tại
+    const existingOvr = facilityOverrides.find(o => o.facility === baseFac);
+    let curE = 0, curP = 0, curM = 0;
+
+    if (existingOvr) {
+        curE = existingOvr.electric_count || 0;
+        curP = existingOvr.specialist_count || 0;
+        curM = existingOvr.manual_count || 0;
+    } else {
+        (lastPlan.coin_items || []).forEach(s => {
+            const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+            if (facName === baseFac) {
+                const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
+                if (m === 'electric') curE += s.facility_count || 0;
+                else if (m === 'prismana') curP += s.facility_count || 0;
+                else if (m === 'manual') curM += s.facility_count || 0;
+            }
+        });
+        if (curE === 0 && curP === 0 && curM === 0) {
+            curE = lastEmodeCounts[baseFac] || 0;
+            if (baseFac === 'Mine') {
+                curP = Math.min(totalOwned - curE, getSpecialistQuotas().earth_4p_mines ?? 3);
+                curM = Math.max(0, totalOwned - curE - curP);
+            } else if (baseFac === 'Well') {
+                curP = Math.min(totalOwned - curE, getSpecialistQuotas().water_4f_wells ?? 0);
+                curM = Math.max(0, totalOwned - curE - curP);
+            } else {
+                curM = Math.max(0, totalOwned - curE);
+            }
+        }
+    }
+
+    const titleEl = document.getElementById('partition-modal-title');
+    if (titleEl) {
+        titleEl.innerHTML = `⚙️ ${isVi ? 'Phân bổ cơ sở: ' : 'Partition: '} <span style="color: var(--color-primary-light);">${getFacilityDisplayName(baseFac)}</span>`;
+    }
+    const subTitleEl = document.getElementById('partition-modal-subtitle');
+    if (subTitleEl) {
+        subTitleEl.textContent = isVi 
+            ? `Tổng sở hữu: ${totalOwned} cơ sở. Hãy thiết lập số lượng cụ thể cho từng chế độ vận hành.`
+            : `Total owned: ${totalOwned}. Configure the exact count for each operating mode.`;
+    }
+
+    const bodyEl = document.getElementById('partition-modal-body');
+    if (!bodyEl) return;
+
+    let electricRowHtml = '';
+    if (supportsEmode) {
+        electricRowHtml = `
+            <div class="partition-ctrl-row">
+                <div class="partition-ctrl-label">
+                    <span class="ctrl-icon">⚡</span>
+                    <div>
+                        <div class="ctrl-title">${isVi ? 'Chế độ điện' : 'Electric Mode'}</div>
+                        <div class="ctrl-desc">${wattsPerUnit}W / ${isVi ? 'cơ sở' : 'unit'} &bull; ${isVi ? 'Tự động hóa' : 'Automated'}</div>
+                    </div>
+                </div>
+                <div class="partition-stepper">
+                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', -1)">−</button>
+                    <input type="number" id="part-val-electric" class="part-input" value="${curE}" min="0" max="${totalOwned}" readonly>
+                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', 1)">+</button>
+                </div>
+            </div>
+        `;
+    }
+
+    let prismanaRowHtml = `
+        <div class="partition-ctrl-row">
+            <div class="partition-ctrl-label">
+                <span class="ctrl-icon">🌟</span>
+                <div>
+                    <div class="ctrl-title">${isVi ? 'Chuyên gia Prismana' : 'Prismana Specialist'}</div>
+                    <div class="ctrl-desc">${isVi ? 'Cấp 4 + Tính cách tối ưu (0W, tốc độ cao nhất)' : 'Level 4 + Personality (0W, fastest)'}</div>
+                </div>
+            </div>
+            <div class="partition-stepper">
+                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', -1)">−</button>
+                <input type="number" id="part-val-prismana" class="part-input" value="${curP}" min="0" max="${totalOwned}" readonly>
+                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', 1)">+</button>
+            </div>
+        </div>
+    `;
+
+    let manualRowHtml = `
+        <div class="partition-ctrl-row">
+            <div class="partition-ctrl-label">
+                <span class="ctrl-icon">👤</span>
+                <div>
+                    <div class="ctrl-title">${isVi ? 'Thủ công thường' : 'Standard Manual'}</div>
+                    <div class="ctrl-desc">${isVi ? 'Aniimo Cấp 3 (0W)' : 'Level 3 Aniimo (0W)'}</div>
+                </div>
+            </div>
+            <div class="partition-stepper">
+                <button type="button" class="part-btn" onclick="window.stepPartition('manual', -1)">−</button>
+                <input type="number" id="part-val-manual" class="part-input" value="${curM}" min="0" max="${totalOwned}" readonly>
+                <button type="button" class="part-btn" onclick="window.stepPartition('manual', 1)">+</button>
+            </div>
+        </div>
+    `;
+
+    bodyEl.innerHTML = `
+        <div class="partition-dialog-container" data-total-owned="${totalOwned}">
+            ${electricRowHtml}
+            ${prismanaRowHtml}
+            ${manualRowHtml}
+            <div class="partition-summary-bar">
+                <div class="summary-item">
+                    <span>${isVi ? 'Đã phân bổ:' : 'Allocated:'}</span>
+                    <strong id="part-summary-total">${curE + curP + curM}</strong> / ${totalOwned}
+                </div>
+                ${supportsEmode ? `
+                <div class="summary-item">
+                    <span>${isVi ? 'Công suất cơ sở:' : 'Facility Power:'}</span>
+                    <strong id="part-summary-watts">${curE * wattsPerUnit}W</strong>
+                </div>` : ''}
+            </div>
+            <div id="part-dialog-warning" class="part-dialog-warning" style="display: none;"></div>
+        </div>
+    `;
+
+    const modal = document.getElementById('facilityPartitionModal');
+    if (modal) modal.classList.add('show');
+};
+
+window.stepPartition = function(type, delta) {
+    if (!currentPartitionFacility) return;
+    const container = document.querySelector('.partition-dialog-container');
+    if (!container) return;
+    const totalOwned = parseInt(container.dataset.totalOwned, 10) || 1;
+
+    const elE = document.getElementById('part-val-electric');
+    const elP = document.getElementById('part-val-prismana');
+    const elM = document.getElementById('part-val-manual');
+
+    let curE = elE ? parseInt(elE.value, 10) || 0 : 0;
+    let curP = elP ? parseInt(elP.value, 10) || 0 : 0;
+    let curM = elM ? parseInt(elM.value, 10) || 0 : 0;
+
+    if (type === 'electric') {
+        const next = Math.max(0, Math.min(totalOwned, curE + delta));
+        const diff = next - curE;
+        if (diff > 0) {
+            // Tăng điện: ưu tiên trừ từ manual, sau đó prismana
+            if (curM >= diff) { curM -= diff; curE = next; }
+            else if (curM + curP >= diff) { const rem = diff - curM; curM = 0; curP -= rem; curE = next; }
+        } else if (diff < 0) {
+            // Giảm điện: chuyển sang manual
+            curE = next; curM += (-diff);
+        }
+    } else if (type === 'prismana') {
+        const next = Math.max(0, Math.min(totalOwned, curP + delta));
+        const diff = next - curP;
+        if (diff > 0) {
+            // Tăng prismana: ưu tiên trừ từ manual, sau đó electric
+            if (curM >= diff) { curM -= diff; curP = next; }
+            else if (curM + curE >= diff) { const rem = diff - curM; curM = 0; curE -= rem; curP = next; }
+        } else if (diff < 0) {
+            // Giảm prismana: chuyển sang manual
+            curP = next; curM += (-diff);
+        }
+    } else if (type === 'manual') {
+        const next = Math.max(0, Math.min(totalOwned, curM + delta));
+        const diff = next - curM;
+        if (diff > 0) {
+            // Tăng manual: ưu tiên trừ từ electric, sau đó prismana
+            if (curE >= diff) { curE -= diff; curM = next; }
+            else if (curE + curP >= diff) { const rem = diff - curE; curE = 0; curP -= rem; curM = next; }
+        } else if (diff < 0) {
+            // Giảm manual: nếu có hỗ trợ điện thì chuyển sang electric, không thì prismana
+            if (elE) { curM = next; curE += (-diff); }
+            else { curM = next; curP += (-diff); }
+        }
+    }
+
+    if (elE) elE.value = curE;
+    if (elP) elP.value = curP;
+    if (elM) elM.value = curM;
+
+    const sumEl = document.getElementById('part-summary-total');
+    if (sumEl) sumEl.textContent = curE + curP + curM;
+
+    const facDef = FACILITIES.find(f => f.name === currentPartitionFacility);
+    const wattsPerUnit = (selectedHomeLevel() >= 12 && facDef?.supportsEmode) ? (FACILITY_POWER_WATTS[currentPartitionFacility] || 0) : 0;
+    const wattsEl = document.getElementById('part-summary-watts');
+    if (wattsEl) wattsEl.textContent = `${curE * wattsPerUnit}W`;
+};
+
+window.applyFacilityPartition = async function() {
+    if (!currentPartitionFacility) return;
+    const baseFac = currentPartitionFacility;
+    const elE = document.getElementById('part-val-electric');
+    const elP = document.getElementById('part-val-prismana');
+    const elM = document.getElementById('part-val-manual');
+
+    const curE = elE ? parseInt(elE.value, 10) || 0 : 0;
+    const curP = elP ? parseInt(elP.value, 10) || 0 : 0;
+    const curM = elM ? parseInt(elM.value, 10) || 0 : 0;
+
+    // Kiểm tra công suất điện
+    const generatorCapacity = getGeneratorCapacity();
+    const chosenRate = getPowerGridRate();
+    const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
+    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)), [baseFac]: curE };
+    const projectedWatts = calculatePowerWatts(currentCounts);
+
+    if (projectedWatts > maxWatts) {
+        const warnEl = document.getElementById('part-dialog-warning');
+        if (warnEl) {
+            warnEl.textContent = `⚠ Vượt công suất tối đa của lưới điện: cần tổng ${projectedWatts}W (${maxWatts}W tối đa)!`;
+            warnEl.style.display = 'block';
+        }
+        return;
+    }
+
+    // Cập nhật state
+    lastEmodeCounts[baseFac] = curE;
+    const facLevel = getFacilityLevel(baseFac);
+    const newOverride = {
+        facility: baseFac,
+        level: facLevel,
+        electric_count: curE,
+        specialist_count: curP,
+        manual_count: curM
+    };
+
+    const exIdx = facilityOverrides.findIndex(o => o.facility === baseFac);
+    if (exIdx >= 0) {
+        facilityOverrides[exIdx] = newOverride;
+    } else {
+        facilityOverrides.push(newOverride);
+    }
+
+    window.closeFacilityPartitionModal();
+
+    // Hiển thị nút Reset Overrides
+    const resetBtn = document.getElementById('btn-reset-overrides');
+    if (resetBtn) resetBtn.style.display = 'inline-flex';
+
+    // Cập nhật thanh điện ngay lập tức
+    updatePowerGauge(lastEmodeCounts);
+
+    // Re-solve bài toán qua find_plan LP solver
+    await runFastReSolve();
+};
+
+window.closeFacilityPartitionModal = function() {
+    const modal = document.getElementById('facilityPartitionModal');
+    if (modal) modal.classList.remove('show');
+    currentPartitionFacility = null;
+};
+
+window.closeFacilityPartitionOnBackdrop = function(event) {
+    if (event.target.id === 'facilityPartitionModal') {
+        window.closeFacilityPartitionModal();
+    }
+};
 
 export function updateSpecialistQuotasLimits(homeLevel = selectedHomeLevel()) {
     const { facilities } = simpleSetup(homeLevel);
@@ -5954,7 +6222,12 @@ function planRows(rows, options = {}) {
                         ${powerBadge}
                     </div>
                 </td>
-                <td data-label="Count">${step.facility_count}</td>
+                <td data-label="Count">
+                    <div class="facility-count-box">
+                        <span class="count-val">${step.facility_count}</span>
+                        ${(getOwnedFacilityCounts()[baseFac] > 1 && (supportsEmode || isMine || isWell)) ? `<button type="button" class="btn-partition-gear" onclick="window.openFacilityPartitionModal('${baseFac}')" title="${isVi ? 'Phân bổ số lượng theo chế độ (Điện / Prismana / Thường)' : 'Partition facility modes (Electric / Prismana / Manual)'}">⚙️</button>` : ''}
+                    </div>
+                </td>
                 <td data-label="Mode" class="mode-cell">${modeControls}</td>
                 <td data-label="Producing">
                     <div class="item-cell">

@@ -505,6 +505,28 @@
     </footer>
     </div>
 
+    <!-- Facility Partition Modal -->
+    <div id="facilityPartitionModal" class="modal" onclick="window.closeFacilityPartitionOnBackdrop(event)">
+        <div class="modal-content partition-modal-content">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <h2 id="partition-modal-title">⚙️ Phân bổ cơ sở</h2>
+                    <p class="modal-subtitle" id="partition-modal-subtitle">Tùy chỉnh số lượng máy chạy Điện, Chuyên gia Prismana hoặc Thủ công thường</p>
+                </div>
+                <button class="close-button" onclick="window.closeFacilityPartitionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="partition-modal-body" class="partition-modal-body">
+                    <!-- Dynamic partition controls rendered by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer partition-modal-footer">
+                <button type="button" class="btn-cancel" onclick="window.closeFacilityPartitionModal()">Đóng</button>
+                <button type="button" class="btn-primary" onclick="window.applyFacilityPartition()">Áp dụng & Tối ưu</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Facilities Modal -->
     <div id="facilitiesModal" class="modal" onclick="closeFacilitiesOnBackdrop(event)">
             <div class="modal-content wide">
@@ -735,10 +757,10 @@
             }
         });
     </script>
-    <script src="locales/vi.js?v=aniimolab_v40"></script>
-    <script src="locales/en.js?v=aniimolab_v40"></script>
-    <script src="i18n.js?v=aniimolab_v40"></script>
-    <script type="module" src="app.js?v=aniimolab_v40"></script>
+    <script src="locales/vi.js?v=aniimolab_v43"></script>
+    <script src="locales/en.js?v=aniimolab_v43"></script>
+    <script src="i18n.js?v=aniimolab_v43"></script>
+    <script type="module" src="app.js?v=aniimolab_v43"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

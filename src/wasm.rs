@@ -1731,7 +1731,7 @@ impl PreparedInput {
         let mut partitioned_mine_items = Vec::new();
 
         if total_lv5_mines > 0 {
-            let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Mine" && o.level == 5);
+            let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Mine" && (o.level == 5 || o.level == 0));
             let (e_count, p_count, std_count) = if let Some(ovr) = override_opt {
                 let e = ovr.electric_count.min(total_lv5_mines);
                 let rem1 = total_lv5_mines - e;
@@ -1742,7 +1742,7 @@ impl PreparedInput {
                 let e = emode_counts.get("Mine").copied().unwrap_or(0).min(total_lv5_mines);
                 let rem1 = total_lv5_mines - e;
                 let roster_earth_4p = crew.as_ref().map(|c| c.count_specialist("Earth", 4, "Playful")).unwrap_or(u32::MAX);
-                let quota = input.specialist_quotas.earth_4p_mines.unwrap_or(rem1);
+                let quota = input.specialist_quotas.earth_4p_mines.unwrap_or(3);
                 let p = quota.min(rem1).min(roster_earth_4p);
                 let std = rem1 - p;
                 (e, p, std)
@@ -1949,11 +1949,37 @@ impl PreparedInput {
                 requirements.apply(setup, &mut items);
                 for item in items.iter_mut() {
                     if item.facility == "Mine (Prismana)" {
-                        item.production_time = 1125.0;
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(3, |(_, level)| level);
+                        let worker = crate::models::Worker::new(4, true);
+                        let wl = item.workload.unwrap_or(2700.0);
+                        item.production_time = worker.seconds_for_item(item, wl, required);
+                        item.workload = None;
+                    } else if item.facility == "Mine (Manual)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(3, |(_, level)| level);
+                        let has_bonus = match setup {
+                            crate::models::AniimoSetup::Minimum => false,
+                            _ => true,
+                        };
+                        let worker = crate::models::Worker::new(3, has_bonus);
+                        let wl = item.workload.unwrap_or(2700.0);
+                        item.production_time = worker.seconds_for_item(item, wl, required);
                         item.workload = None;
                     } else if item.facility == "Well (Prismana)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(1, |(_, level)| level);
+                        let worker = crate::models::Worker::new(4, true);
                         if let Some(wl) = item.workload {
-                            item.production_time = wl / 2.4;
+                            item.production_time = worker.seconds_for_item(item, wl, required);
+                            item.workload = None;
+                        }
+                    } else if item.facility == "Well (Manual)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(1, |(_, level)| level);
+                        let has_bonus = match setup {
+                            crate::models::AniimoSetup::Minimum => false,
+                            _ => true,
+                        };
+                        let worker = crate::models::Worker::new(3, has_bonus);
+                        if let Some(wl) = item.workload {
+                            item.production_time = worker.seconds_for_item(item, wl, required);
                             item.workload = None;
                         }
                     }
@@ -1963,11 +1989,29 @@ impl PreparedInput {
                 workers_from(&input.workers).apply(&requirements, &mut items);
                 for item in items.iter_mut() {
                     if item.facility == "Mine (Prismana)" {
-                        item.production_time = 1125.0;
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(3, |(_, level)| level);
+                        let worker = crate::models::Worker::new(4, true);
+                        let wl = item.workload.unwrap_or(2700.0);
+                        item.production_time = worker.seconds_for_item(item, wl, required);
+                        item.workload = None;
+                    } else if item.facility == "Mine (Manual)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(3, |(_, level)| level);
+                        let worker = crate::models::Worker::new(3, true);
+                        let wl = item.workload.unwrap_or(2700.0);
+                        item.production_time = worker.seconds_for_item(item, wl, required);
                         item.workload = None;
                     } else if item.facility == "Well (Prismana)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(1, |(_, level)| level);
+                        let worker = crate::models::Worker::new(4, true);
                         if let Some(wl) = item.workload {
-                            item.production_time = wl / 2.4;
+                            item.production_time = worker.seconds_for_item(item, wl, required);
+                            item.workload = None;
+                        }
+                    } else if item.facility == "Well (Manual)" {
+                        let required = requirements.get(crate::models::base_item_name(&item.name)).map_or(1, |(_, level)| level);
+                        let worker = crate::models::Worker::new(3, true);
+                        if let Some(wl) = item.workload {
+                            item.production_time = worker.seconds_for_item(item, wl, required);
                             item.workload = None;
                         }
                     }
@@ -2046,6 +2090,17 @@ impl PreparedInput {
                         ability: ability.to_string(),
                         level: 4,
                         personality_bonus: true,
+                    })
+                } else if is_manual_variant {
+                    let ability = match step.facility.as_str() {
+                        "Well" => "Water",
+                        _ => "Earth",
+                    };
+                    let bonus = crate::models::has_personality_bonus(&step.facility);
+                    Some(JsAniimo {
+                        ability: ability.to_string(),
+                        level: 3,
+                        personality_bonus: bonus,
                     })
                 } else {
                     from_crew.or_else(|| match (&self.setup, &step.item_name) {
