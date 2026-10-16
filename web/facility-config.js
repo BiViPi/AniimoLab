@@ -17,8 +17,56 @@
 // Furnace and Simmering Pot and RV level 11 for the rest; past that, Farmland, Woodland and Mine
 // follow the game's pattern and the others keep their last count.
 //
-// Facilities marked "Not yet verified in game" in their tooltip haven't had their numbers
-// confirmed in game yet.
+// Base wattage per level for E-mode facilities:
+// - Heavy & resource facilities: 30W * level (Mine, Well, Aniipod Maker, Dance Pad Polisher)
+// - Regular processors: 15W * level (Crafting Table, Cooker, Stove, Mill, etc.)
+export const FACILITY_BASE_WATTS = {
+    'Mine': 30,
+    'Well': 30,
+    'Aniipod Maker': 30,
+    'Dance Pad Polisher': 30,
+    'Carousel Mill': 15,
+    'Crafting Table': 15,
+    'Claw Game Cooker': 15,
+    'Jukebox Dryer': 15,
+    'Simmering Pot': 15,
+    'Phonolfactory Table': 15,
+    'Bouncy Brew Keg': 15,
+    'Blazing Stove': 15,
+    'Pickling Jar': 15,
+    'Joy Wheel Loom': 15,
+    'Woodworking Bench': 15,
+    'Chimney Kiln': 15,
+};
+
+export function getFacilityUnitWatts(facilityName, facilityLevel = null, homeLevel = null) {
+    const base = FACILITY_BASE_WATTS[facilityName] || 0;
+    if (base === 0) return 0;
+    if (typeof facilityLevel === 'number' && facilityLevel > 0) {
+        return base * facilityLevel;
+    }
+    let rv = homeLevel;
+    if (!rv && typeof window !== 'undefined') {
+        if (typeof window.selectedHomeLevel === 'function') {
+            rv = window.selectedHomeLevel();
+        } else {
+            const el = document.getElementById('home-level');
+            if (el) rv = parseInt(el.value, 10) || 13;
+        }
+    }
+    if (!rv) rv = 13;
+    const facDef = FACILITIES.find(f => f.name === facilityName);
+    if (facDef && facDef.unlocks) {
+        const unlocked = Object.entries(facDef.unlocks)
+            .filter(([, need]) => need <= rv)
+            .map(([lvl]) => Number(lvl));
+        if (unlocked.length > 0) {
+            return base * Math.max(...unlocked);
+        }
+    }
+    return base;
+}
+
 export const FACILITIES = [
     {
         name: 'Farmland', slug: 'farmland', defaultCount: 1, category: 'Materials',
@@ -33,14 +81,14 @@ export const FACILITIES = [
         tooltip: "Lv.1: Willow Wood&#10;Lv.2: Bamboo, Lemon&#10;Lv.3: Cherry Blossom, Apple, Maple Syrup, Quick Bamboo&#10;Lv.4: Palm Bark, Chestnut, Walnut, Quick Lemon&#10;Lv.5: Natural Rubber, Coconut, Quick Maple Syrup&#10;Lv.6: Cocoa, Orange Flower, Quick Coconut&#10;Also yields Wood Blocks."
     },
     {
-        name: 'Mine', slug: 'mine', defaultCount: 1, category: 'Materials', hasWorker: true, ability: 'Earth', personality: 'Playful', supportsEmode: true, powerWatts: 150,
+        name: 'Mine', slug: 'mine', defaultCount: 1, category: 'Materials', hasWorker: true, ability: 'Earth', personality: 'Playful', supportsEmode: true, baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         specialist: { ability: 'Earth', minLevel: 4, personality: 'Playful', cycleSeconds: 1125, item: 'quartz_ore', label: 'Prismana Thổ Lv.4 Playful (18p45s)' },
         unlocks: { 1: 3, 2: 6, 3: 9, 4: 12, 5: 15, 6: 18 },
         counts: [0, 0, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10],
         tooltip: "Lv.1: Rock&#10;Lv.2: Clay&#10;Lv.3: Shell&#10;Lv.4: Copper Ore&#10;Lv.5: Quartz Ore&#10;Lv.6: Gem&#10;Also yields Mineral Sand."
     },
     {
-        name: 'Well', slug: 'well', defaultCount: 0, category: 'Materials', hasWorker: true, ability: 'Water', personality: 'Faithful', supportsEmode: true, powerWatts: 120,
+        name: 'Well', slug: 'well', defaultCount: 0, category: 'Materials', hasWorker: true, ability: 'Water', personality: 'Faithful', supportsEmode: true, baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         specialist: { ability: 'Water', minLevel: 4, personality: 'Faithful', cycleSeconds: 1125, item: 'deep_rock_spring_water', label: 'Prismana Thủy Lv.4 Faithful (18p45s)' },
         unlocks: { 1: 4, 2: 8, 3: 11, 4: 13, 5: 17 },
         counts: [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3],
@@ -95,109 +143,116 @@ export const FACILITIES = [
         tooltip: "Provides Adequate growing conditions for crops that need one&#10;Covers a 9x9 area around itself; how many plots fit depends on what shares it."
     },
     {
-        name: 'Carousel Mill', slug: 'carousel-mill', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Wind', personality: 'Tenacious', supportsEmode: true, powerWatts: 60,
+        name: 'Carousel Mill', slug: 'carousel-mill', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Wind', personality: 'Tenacious', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 2, 2: 5, 3: 9, 4: 13, 5: 16, 6: 18 },
         counts: [0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Wheatmeal&#10;Lv.2: Tofu, Milled Rice&#10;Lv.3: Lavender Powder&#10;Lv.4: Rice Drink, Ginseng Powder&#10;Lv.5: Refined Flour, Coconut Oil&#10;Lv.6: Cocoa Powder, Coconut Milk"
     },
     {
-        name: 'Crafting Table', slug: 'crafting-table', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Artisanship', personality: 'Judicious', supportsEmode: true, powerWatts: 90,
+        name: 'Crafting Table', slug: 'crafting-table', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Artisanship', personality: 'Judicious', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 3, 2: 5, 3: 7, 4: 9, 5: 12, 6: 15, 7: 18, 8: 20 },
         counts: [0, 0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Wood Sculpture&#10;Lv.2: Bamboo Ware, River-Washed Stones, Premium River-Washed Stones&#10;Lv.3: Rose Freshener, Pottery, Premium Rose Freshener&#10;Lv.4: Bouquet, Shell Ornament, Lavender Sachet&#10;Lv.5: Wind Chime, Star Wish Lantern, Dream Catcher, Advanced Wind Chime&#10;Lv.6: Rubber Duck, Pearl Necklace, Woven Toy, Porcelain&#10;Lv.7: Dye, Gemstone Dust, Flowers in a Bottle, Advanced Gemstone Dust&#10;Lv.8: Doll"
     },
     {
-        name: 'Claw Game Cooker', slug: 'claw-game-cooker', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, powerWatts: 75,
+        name: 'Claw Game Cooker', slug: 'claw-game-cooker', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 4, 2: 5, 3: 7, 4: 9, 5: 12, 6: 16, 7: 19 },
         counts: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Bread, Premium Bread&#10;Lv.2: Roasted Soybeans&#10;Lv.3: Maple Candy Roasted Potatoes, Apple Tart, Rose Shortbread&#10;Lv.4: Lavender Cookies, Apple Candy&#10;Lv.5: Grape Candy, Caramel Nut Chips&#10;Lv.6: Maple Candy Star, Coconut Cookie&#10;Lv.7: Flower Bread, Berry Chocolate Coconut Pudding, Premium Berry Chocolate Coconut Pudding"
     },
     {
-        name: 'Jukebox Dryer', slug: 'jukebox-dryer', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Dark', personality: 'Nimble', supportsEmode: true, powerWatts: 90,
+        name: 'Jukebox Dryer', slug: 'jukebox-dryer', defaultCount: 1, category: 'Materials Processing', hasWorker: true, ability: 'Dark', personality: 'Nimble', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 4, 2: 5, 3: 7, 4: 10, 5: 12, 6: 14, 7: 18 },
         counts: [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Potato Chips&#10;Lv.2: Dried Lemon Slices&#10;Lv.3: Dried Cherry Blossom, Dried Bean Curd&#10;Lv.4: Dried Apple Slices, Dried Strawberries&#10;Lv.5: Nuts, Dried Ginseng&#10;Lv.6: Dried Grapes, Shredded Coconut&#10;Lv.7: Dried Cranberries, Dried Flowers"
     },
     {
-        name: 'Simmering Pot', slug: 'simmering-pot', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Tenacious', supportsEmode: true, powerWatts: 75,
+        name: 'Simmering Pot', slug: 'simmering-pot', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Tenacious', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 5, 2: 7, 3: 9, 4: 12, 5: 15, 6: 18 },
         counts: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Plain Rice Porridge&#10;Lv.2: Rose Concentrate&#10;Lv.3: Rock Candy, Strawberry Jam, Maple Candy Apple Jam&#10;Lv.4: Chestnut Puree, Grape Jam, Ginseng Porridge&#10;Lv.5: Maple Sugar Chunk, Malt Sugar&#10;Lv.6: Cocoa Spread, Cranberry Jam, Agave Syrup"
     },
     {
-        name: 'Phonolfactory Table', slug: 'phonolfactory-table', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Perfumery', personality: 'Instinctive', supportsEmode: true, powerWatts: 60,
+        name: 'Phonolfactory Table', slug: 'phonolfactory-table', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Perfumery', personality: 'Instinctive', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 6, 2: 7, 3: 10, 4: 14, 5: 17, 6: 19 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Bamboo Joss Stick&#10;Lv.2: Rose Incense, Cherry Incense&#10;Lv.3: Lavender Incense, Lemon Incense, Advanced Lemon Incense&#10;Lv.4: Herbal Ginseng Aroma&#10;Lv.5: Soap, Premium Soap&#10;Lv.6: Orange Flower Incense, Mixed Perfume, Lotion, Premium Mixed Perfume"
     },
     {
-        name: 'Bouncy Brew Keg', slug: 'bouncy-brew-keg', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Water', personality: 'Energetic', supportsEmode: true, powerWatts: 45,
+        name: 'Bouncy Brew Keg', slug: 'bouncy-brew-keg', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Water', personality: 'Energetic', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 6, 2: 9, 3: 13, 4: 17, 5: 19 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2],
         tooltip: "Lv.1: Wheat Tea, Toasted Rice Green Tea&#10;Lv.2: Potato Kvass, Strawberry Juice, Apple Juice, Sugarcane Juice&#10;Lv.3: Grape Juice, Ginseng Water, Grape Lemon Drink, Walnut Milk&#10;Lv.4: Cranberry Juice, Coconut Cooler&#10;Lv.5: Agave Drink, Hot Cocoa, Coconut Cocoa, Orange Flower Dew"
     },
     {
-        name: 'Blazing Stove', slug: 'blazing-stove', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Nimble', supportsEmode: true, powerWatts: 45,
+        name: 'Blazing Stove', slug: 'blazing-stove', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Fire', personality: 'Nimble', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 8, 2: 10, 3: 13, 4: 16, 5: 18 },
         counts: [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
         tooltip: "Lv.1: Soy Sauce Fried Rice, Creamy Potato Soup, Cherry Blossom Rice Ball, Premium Potato Soup&#10;Lv.2: Tanghulu, Soy Sauce Tofu, Sugar-Roasted Chestnuts&#10;Lv.3: Steamed Vermicelli Roll, Ginseng Chestnut Cake, Walnut Cake&#10;Lv.4: Jello, Strawberry Candy, Rich Grape Compote, Premium Jello&#10;Lv.5: Strawberry Cream Puff, Cranberry Chocolate"
     },
     {
-        name: 'Pickling Jar', slug: 'pickling-jar', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Dark', personality: 'Playful', supportsEmode: true, powerWatts: 45,
+        name: 'Pickling Jar', slug: 'pickling-jar', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Dark', personality: 'Playful', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 8, 2: 10, 3: 13, 4: 16, 5: 19 },
         counts: [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         tooltip: "Lv.1: Soy Sauce, Salted Cherry Blossom&#10;Lv.2: Sweet Rice Drink, Cider Vinegar, Premium Sweet Rice Wine&#10;Lv.3: Rice Vinegar, Salted Lemon, Premium Salted Lemon&#10;Lv.4: Candied Strawberries&#10;Lv.5: Candied Orange Flower"
     },
     {
-        name: 'Joy Wheel Loom', slug: 'joy-wheel-loom', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Wind', personality: 'Faithful', supportsEmode: true, powerWatts: 45,
+        name: 'Joy Wheel Loom', slug: 'joy-wheel-loom', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Wind', personality: 'Faithful', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 7, 2: 10, 3: 15, 4: 19 },
         counts: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2],
         tooltip: "Lv.1: Cotton Thread&#10;Lv.2: Woolen Yarn, Cotton Fabric&#10;Lv.3: Palm Rope, Wool Fabric&#10;Lv.4: Dyed Cotton Fabric"
     },
     {
-        name: 'Dance Pad Polisher', slug: 'dance-pad-polisher', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', powerWatts: 90,
+        name: 'Dance Pad Polisher', slug: 'dance-pad-polisher', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 2, 2: 5, 3: 7 },
         counts: [0, 1],
         tooltip: "Lv.1: Growth Bud&#10;Lv.2: Growth Flower&#10;Lv.3: Growth Fruit&#10;Makes Aniimo EXP, not Home Coins.&#10;Unlock levels not yet confirmed in game."
     },
     {
-        name: 'Aniipod Maker', slug: 'aniipod-maker', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', powerWatts: 90,
+        name: 'Aniipod Maker', slug: 'aniipod-maker', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 3, 2: 6, 3: 9 },
         counts: [0, 0, 1],
         tooltip: "Lv.1: Aniipod&#10;Lv.2: Aniipod Pro&#10;Lv.3: Aniipod Mega&#10;Aniipods are for catching Aniimo, not for selling.&#10;Unlock levels not yet confirmed in game."
     },
     {
-        name: 'Woodworking Bench', slug: 'woodworking-bench', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Artisanship', personality: 'Energetic', supportsEmode: true, powerWatts: 30,
+        name: 'Woodworking Bench', slug: 'woodworking-bench', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Artisanship', personality: 'Energetic', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 6, 2: 10, 3: 14, 4: 18 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Rough Lumber&#10;Lv.2: Standard Planks&#10;Lv.3: Laminated Beams&#10;Lv.4: Densified Timber Component&#10;Turns Wood Blocks into RV level-up materials."
     },
     {
-        name: 'Chimney Kiln', slug: 'chimney-kiln', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, powerWatts: 30,
+        name: 'Chimney Kiln', slug: 'chimney-kiln', defaultCount: 0, category: 'Wood & Ore Processing', hasWorker: true, ability: 'Fire', personality: 'Practical', supportsEmode: true, baseWatts: 15, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 6, 2: 10, 3: 14, 4: 18 },
         counts: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2],
         tooltip: "Lv.1: Coarse-Sifted Ore&#10;Lv.2: Sintered Ore Brick&#10;Lv.3: Refined Ore&#10;Lv.4: Microcrystalline Ore Plate&#10;Turns Mineral Sand into RV level-up materials."
     },
 ];
 
-export const FACILITY_POWER_WATTS = {
-    'Joy Wheel Loom': 45,
-    'Woodworking Bench': 30,
-    'Chimney Kiln': 30,
-    'Phonolfactory Table': 60,
-    'Pickling Jar': 45,
-    'Bouncy Brew Keg': 45,
-    'Simmering Pot': 75,
-    'Carousel Mill': 60,
-    'Blazing Stove': 45,
-    'Jukebox Dryer': 90,
-    'Claw Game Cooker': 75,
-    'Crafting Table': 90,
-    'Dance Pad Polisher': 90,
-    'Aniipod Maker': 90,
-    'Well': 120,
-    'Mine': 150,
-};
+export const FACILITY_POWER_WATTS = new Proxy(FACILITY_BASE_WATTS, {
+    get(target, prop) {
+        if (typeof prop === 'string' && prop in target) {
+            return getFacilityUnitWatts(prop);
+        }
+        return target[prop];
+    },
+    has(target, prop) {
+        return prop in target;
+    },
+    ownKeys(target) {
+        return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+        if (typeof prop === 'string' && prop in target) {
+            return {
+                value: getFacilityUnitWatts(prop),
+                writable: false,
+                enumerable: true,
+                configurable: true
+            };
+        }
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+    }
+});
 
 export const DEFAULT_GENERATOR_WATTS = 600;
 

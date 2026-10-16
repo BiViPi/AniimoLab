@@ -1,4 +1,5 @@
-name, raw_materials, required_amount, sell_value, sell_currency, workload, yield, facility_level, module_requirement
-aniipod, rock, 12, 1, aniipods, 1800, 1, 1,
-aniipod_pro, clay, 10, 1, aniipods, 2250, 1, 2,
-aniipod_mega, shell, 6, 1, aniipods, 2700, 1, 3,
+name, raw_materials, required_amount, sell_value, sell_currency, workload, emode_base_time, yield, facility_level, module_requirement
+aniipod, rock, 12, 1, aniipods, 1800, 1800, 1, 1,
+aniipod_pro, clay, 10, 1, aniipods, 2250, 1800, 1, 2,
+aniipod_mega, shell, 6, 1, aniipods, 2700, 1800, 1, 3,
+

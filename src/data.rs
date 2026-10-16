@@ -109,13 +109,16 @@ struct SeasonRow {
     production_time: Option<f64>,
     /// For a recipe an Aniimo works.
     workload: Option<f64>,
+    /// E-mode base time in seconds if electric mode is available.
+    #[serde(default)]
+    emode_base_time: Option<f64>,
     #[serde(rename = "yield")]
     yield_amount: u32,
     facility_level: u32,
 }
 
 /// Parses a season's recipes (columns `name, facility, raw_materials, required_amount, seed_cost,
-/// sell_value, points, production_time, workload, yield, facility_level`; see
+/// sell_value, points, production_time, workload, emode_base_time, yield, facility_level`; see
 /// [`crate::models::SeasonTerms`]). Crops are watered like any other; call
 /// [`crate::models::apply_watering`] on them.
 pub fn parse_season(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
@@ -143,7 +146,7 @@ pub fn parse_season(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error
             facility_level: row.facility_level,
             module_requirement: None,
             workload: row.workload,
-            emode_base_time: None,
+            emode_base_time: row.emode_base_time,
             byproduct: None,
             environment: None,
             season: Some(crate::models::SeasonTerms {

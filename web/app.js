@@ -4,7 +4,7 @@ import {
     FACILITIES, FACILITY_CATEGORIES, FACILITY_CATEGORY_BY_NAME, FACILITY_FOOTPRINTS, HOMELAND_PLOTS, HOMELAND_PLOT_SIZE,
     MAX_HOME_LEVEL, ANIIMO_MAX, simpleSetup,
     LEVEL_UP_COSTS, LEVEL_UP_CHAINS, SPECIAL_RECIPES, SEASON, SEASON_RECIPES, ANIIPOD_TIERS, PERSONALITY_PAIRS, personalityLetter, opposedPersonality,
-    FACILITY_POWER_WATTS, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
+    FACILITY_POWER_WATTS, FACILITY_BASE_WATTS, getFacilityUnitWatts, DEFAULT_GENERATOR_WATTS, GENERATOR_WATTS_BY_HOME_LEVEL, GENERATOR_CAPACITY_OPTIONS,
     LAYOUT_DISTRICTS, getFacilityDistrict,
 } from './facility-config.js?v=aniimolab_v25';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v25';
@@ -681,8 +681,8 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     const emodeCounts = {};
     let usedWatts = 0;
 
-    // BƯỚC 1: HẦM MỎ (Mine - 150W/mỏ)
-    // 1 hầm mỏ điện (150W, 25 phút) = 1 Aniimo Thổ 3/P.
+    // BƯỚC 1: HẦM MỎ (Mine - 30W * level)
+    // 1 hầm mỏ điện (25 phút) = 1 Aniimo Thổ 3/P.
     // Tách Quota Prismana Thổ 4P (chạy thủ công 18p45s, 0W).
     // Số mỏ còn lại ưu tiên cấp điện toàn bộ nếu lưới điện đủ tải!
     const totalMines = ownedCounts['Mine'] || 0;
@@ -691,18 +691,19 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
 
     const mineOverride = facilityOverrides.find(o => o.facility === 'Mine');
     const desiredMineElectric = mineOverride ? mineOverride.electric_count : targetElectricMines;
+    const mineWatts = getFacilityUnitWatts('Mine', null, homeLevel);
 
     let mineElectric = 0;
-    while (mineElectric < desiredMineElectric && usedWatts + 150 <= maxWatts) {
+    while (mineElectric < desiredMineElectric && usedWatts + mineWatts <= maxWatts) {
         mineElectric++;
-        usedWatts += 150;
+        usedWatts += mineWatts;
     }
     if (mineElectric > 0) {
         emodeCounts['Mine'] = mineElectric;
     }
 
-    // BƯỚC 2: GIẾNG NƯỚC (Well - 120W/giếng)
-    // 1 giếng điện (120W, 25 phút) = 1 Aniimo Thủy 3/F.
+    // BƯỚC 2: GIẾNG NƯỚC (Well - 30W * level)
+    // 1 giếng điện (25 phút) = 1 Aniimo Thủy 3/F.
     // Tách Quota Prismana Thủy 4F (chạy thủ công 18p45s, 0W).
     // Số giếng còn lại ưu tiên cấp điện toàn bộ để giải phóng Aniimo Thủy đi tưới cây!
     const totalWells = ownedCounts['Well'] || 0;
@@ -711,11 +712,12 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
 
     const wellOverride = facilityOverrides.find(o => o.facility === 'Well');
     const desiredWellElectric = wellOverride ? wellOverride.electric_count : targetElectricWells;
+    const wellWatts = getFacilityUnitWatts('Well', null, homeLevel);
 
     let wellElectric = 0;
-    while (wellElectric < desiredWellElectric && usedWatts + 120 <= maxWatts) {
+    while (wellElectric < desiredWellElectric && usedWatts + wellWatts <= maxWatts) {
         wellElectric++;
-        usedWatts += 120;
+        usedWatts += wellWatts;
     }
     if (wellElectric > 0) {
         emodeCounts['Well'] = wellElectric;
@@ -781,7 +783,7 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
         if (name === 'Woodworking Bench' || name === 'Chimney Kiln') continue;
         const fac = FACILITIES.find(f => f.name === name);
         if (!fac || !fac.supportsEmode) continue;
-        const wattsPerUnit = FACILITY_POWER_WATTS[name] || 0;
+        const wattsPerUnit = getFacilityUnitWatts(name, null, homeLevel);
         if (wattsPerUnit <= 0) continue;
 
         let availableUnits = name === 'Mine'
@@ -823,11 +825,21 @@ function activeEmodeFacilities(activeProducingCounts = null) {
     return Object.keys(activeEmodeFacilityCounts(activeProducingCounts));
 }
 
-function calculatePowerWatts(counts) {
+export function calculatePowerWatts(counts, homeLevel = null) {
     let total = 0;
-    for (const [name, count] of Object.entries(counts || {})) {
-        const w = FACILITY_POWER_WATTS[name] || 0;
-        total += w * count;
+    const rv = homeLevel || (typeof selectedHomeLevel === 'function' ? selectedHomeLevel() : 13);
+    for (const [name, val] of Object.entries(counts || {})) {
+        if (!val) continue;
+        if (typeof val === 'object' && val !== null) {
+            const count = val.count || 0;
+            const level = val.level || null;
+            const w = getFacilityUnitWatts(name, level, rv);
+            total += w * count;
+        } else {
+            const count = typeof val === 'number' ? val : 0;
+            const w = getFacilityUnitWatts(name, null, rv);
+            total += w * count;
+        }
     }
     return total;
 }
@@ -1384,6 +1396,9 @@ function isSimpleMode() {
 
 function selectedHomeLevel() {
     return numberOrDefault(document.getElementById('home-level')?.value, MAX_HOME_LEVEL);
+}
+if (typeof window !== 'undefined') {
+    window.selectedHomeLevel = selectedHomeLevel;
 }
 
 function populateHomeLevels() {
