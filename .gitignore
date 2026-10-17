@@ -23,8 +23,6 @@ target
 web/pkg/
 scratch/
 research/
-# Only track approved test suites in tests/
-tests/*
 __pycache__/
 *.py[cod]
 *$py.class
