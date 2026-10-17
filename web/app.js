@@ -331,9 +331,14 @@ function emodeMineUnits(homeLevel, tiers) {
     return (tiers || []).filter(t => t.level === 5).reduce((sum, t) => sum + t.count, 0);
 }
 
-// Each power pole (1000W from RV 16; one pole at RV 12-15) needs an Aniimo on guard 24/7.
+// Each generator unit / power pole setup needs an Aniimo on guard 24/7.
+// RV 12-15: 1 unit (600W / 800W)
+// RV 16-17: 2 units (2000W)
+// RV 18-20: 3 units (3600W / 4500W)
 export function getPowerPoleCount(generatorCapacity = getGeneratorCapacity()) {
-    return Math.max(1, Math.round(generatorCapacity / 1000));
+    if (generatorCapacity >= 3600) return 3;
+    if (generatorCapacity >= 2000) return 2;
+    return 1;
 }
 
 
@@ -2476,8 +2481,8 @@ function homelandPieces(plan, input) {
     const currentRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
 
     if ((isEmodeActive || currentRv >= 12) && hasElectricFacilities) {
-        // At RV 16+, player unlocks 2 Crackle Generators (2000W) and 4 Power Poles
-        const genCount = currentRv >= 16 ? 2 : 1;
+        // At RV 16+, 2 Crackle Generators (2000W); at RV 18+, 3 Crackle Generators (3600W / 4500W)
+        const genCount = currentRv >= 18 ? 3 : (currentRv >= 16 ? 2 : 1);
         const poleCount = currentRv >= 16 ? 4 : (currentRv >= 12 ? Math.min(3, Math.max(1, Math.floor((currentRv - 10) / 2))) : 0);
         for (let g = 0; g < genCount; g++) {
             pieces.push({

@@ -320,17 +320,17 @@ export const GENERATOR_WATTS_BY_HOME_LEVEL = {
     15: 800,
     16: 2000,
     17: 2000,
-    18: 3000,
-    19: 3000,
-    20: 4000,
+    18: 3600,
+    19: 3600,
+    20: 4500,
 };
 
 export const GENERATOR_CAPACITY_OPTIONS = [
     { watts: 600, level: 1, minHomeLevel: 12, label: '600W (Lv.1: RV 12–13)' },
     { watts: 800, level: 2, minHomeLevel: 14, label: '800W (Lv.2: RV 14–15)' },
     { watts: 2000, level: 3, minHomeLevel: 16, label: '2000W (Lv.3: RV 16–17, 2 power poles)' },
-    { watts: 3000, level: 4, minHomeLevel: 18, label: '3000W (Lv.4: RV 18–19, 3 power poles)' },
-    { watts: 4000, level: 5, minHomeLevel: 20, label: '4000W (Lv.5: RV 20, 4 power poles)' },
+    { watts: 3600, level: 4, minHomeLevel: 18, label: '3600W (Lv.4: RV 18–19, 3 power poles)' },
+    { watts: 4500, level: 5, minHomeLevel: 20, label: '4500W (Lv.5: RV 20, 3 power poles)' },
 ];
 
 
