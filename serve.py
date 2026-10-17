@@ -33,12 +33,6 @@ Handler.extensions_map.update({
 })
 
 port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-try:
-    with DualStackServer(("", port), Handler) as httpd:
-        print(f"Serving on port {port} (dual-stack IPv4/IPv6)...", flush=True)
-        httpd.serve_forever()
-except Exception as e:
-    print(f"Fallback to IPv4 due to: {e}", flush=True)
-    with http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler) as httpd:
-        print(f"Serving on port {port} (IPv4 0.0.0.0)...", flush=True)
-        httpd.serve_forever()
+with http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler) as httpd:
+    print(f"Serving on port {port} (IPv4 0.0.0.0 / 127.0.0.1)...", flush=True)
+    httpd.serve_forever()

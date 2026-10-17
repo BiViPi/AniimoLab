@@ -4422,8 +4422,9 @@ function renderProfitBreakdown(plan) {
         </tr>`).join('');
     const profitUntilHeader = (window.th ? window.th('th_profit_until_rv', 'Profit until RV {rv}') : 'Profit until RV {rv}').replace('{rv}', planContext?.target || '');
     document.getElementById('profit-breakdown').innerHTML = `
-        <div class="table-wrapper">
-            <table class="facility-plan-table">
+        <span class="worksheet-scroll-hint">👉 ${isVi ? 'Vuốt ngang để xem đủ 6 cột dữ liệu' : 'Swipe horizontally to view all columns'}</span>
+        <div class="table-wrapper profit-table-wrapper">
+            <table class="facility-plan-table profit-plan-table">
                 <thead><tr><th>${window.th ? window.th('th_product', 'Product') : 'Product'}</th><th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th><th>${window.th ? window.th('th_sold_hour', 'Sold per hour') : 'Sold per hour'}</th><th>${window.th ? window.th('th_profit_hour', 'Profit per hour') : 'Profit per hour'}</th><th>${window.th ? window.th('th_share', 'Share') : 'Share'}</th><th>${profitUntilHeader}</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
@@ -6100,6 +6101,7 @@ function facilityPlanTableOf(groups, options = {}) {
             <div class="worksheet-toolbar">
                 <div class="worksheet-toolbar-left">
                     <span class="worksheet-toolbar-title">⚡ Interactive Worksheet</span>
+                    <span class="worksheet-scroll-hint">${isVi ? '👉 Vuốt ngang để chỉnh Chế độ & xem Aniimo' : '👉 Swipe horizontally for Modes & Aniimo'}</span>
                     <span id="fast-resolve-benchmark-badge" class="benchmark-badge" style="display: none;"></span>
                 </div>
                 <div class="worksheet-toolbar-actions">
