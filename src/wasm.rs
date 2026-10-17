@@ -1272,6 +1272,12 @@ pub struct JsProductionPlan {
     /// building kind a member staffs.
     #[serde(default)]
     pub staffing: Vec<(String, usize, f64)>,
+    /// Number of power pole guards reserved by the power grid when E-mode is active.
+    #[serde(default)]
+    pub guards: u32,
+    /// With the player's roster, `[member, share of its day]` assigned as power pole guards.
+    #[serde(default)]
+    pub guard_staffing: Vec<(usize, f64)>,
 }
 
 /// What a plan makes of one priority.
@@ -1334,6 +1340,8 @@ fn empty_production_plan(success: bool, error: Option<String>) -> JsProductionPl
         priorities: vec![],
         season_points: None,
         staffing: Vec::new(),
+        guards: 0,
+        guard_staffing: Vec::new(),
     }
 }
 
@@ -1577,6 +1585,7 @@ pub fn exact_plan(input_json: &str, stage_json: &str, solution_json: &str) -> St
     let mut js = prepared.to_js(plan, Some(proof));
     js.level_up = report;
     js.staffing = exact.staffing.clone();
+    js.guard_staffing = exact.guard_staffing.clone();
     if prepared.input.season {
         js.season_points = Some(crate::exact::target_rate(&exact, &prepared.items, crate::models::SEASON_POINTS));
     }
@@ -2019,6 +2028,13 @@ impl PreparedInput {
             }
         }
         let guards = if input.emode_facility_counts.values().any(|&count| count > 0) { input.power_poles } else { 0 };
+        let roster_guards = if crew.is_some() && guards > 0 {
+            guards
+        } else {
+            0
+        };
+        facility_counts.set_guards(guards);
+        facility_counts.set_roster_guards(roster_guards);
         facility_counts.set_worker_cap(input.production_aniimo_cap.map(|cap| cap.saturating_sub(guards)));
         Ok(PreparedInput { input, facility_counts, module_levels, items, setup, crew, requirements, grower_steps })
     }
@@ -2156,6 +2172,8 @@ impl PreparedInput {
             priorities: vec![],
             season_points,
             staffing: Vec::new(),
+            guards: self.facility_counts.guards(),
+            guard_staffing: Vec::new(),
         }
     }
 }

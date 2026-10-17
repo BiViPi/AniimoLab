@@ -23,4 +23,6 @@ target
 web/pkg/
 scratch/
 research/
-tests/
+# Only track approved test suites in tests/
+tests/*
+!tests/rv16_solver_tests.rs

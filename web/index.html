@@ -79,11 +79,12 @@
                                 <div class="input-field emode-simple-generator" id="emode-simple-generator-field">
                                     <label for="simple-generator-capacity" data-i18n="emode_generator">Máy phát điện</label>
                                     <select id="simple-generator-capacity">
-                                        <option value="600">600W (Lv.1: RV 12–13)</option>
-                                        <option value="800">800W (Lv.2: RV 14–15)</option>
+                                        <option value="600">600W (Lv.1: RV 12–13, 1 trụ)</option>
+                                        <option value="800">800W (Lv.2: RV 14, 1 trụ)</option>
+                                        <option value="1600">1600W (Lv.2: RV 15, 2 trụ)</option>
                                         <option value="2000">2000W (Lv.3: RV 16–17, 2 trụ)</option>
                                         <option value="3600">3600W (Lv.4: RV 18–19, 3 trụ)</option>
-                                        <option value="4500">4500W (Lv.5: RV 20, 3 trụ)</option>
+                                        <option value="4500">4500W (Lv.5: RV 20, 3 trụ - tạm thời)</option>
                                     </select>
                                 </div>
                                 <div class="input-field emode-simple-rate" id="emode-simple-rate-field">
@@ -296,6 +297,10 @@
                         <p class="plan-proof" id="plan-explored-hint"></p>
                         <p class="plan-unverified" id="plan-unverified" style="display: none;"></p>
                         <p class="plan-skipped" id="plan-skipped" style="display: none;"></p>
+                        <div class="plan-solver-info" id="plan-solver-info" style="display: none;">
+                            <span class="solver-badge" id="plan-solver-badge"></span>
+                            <span class="benchmark-badge" id="fast-resolve-benchmark-badge" style="display: none;"></span>
+                        </div>
                     </div>
 
                         <div class="card aniimo-card" id="aniimo-card">

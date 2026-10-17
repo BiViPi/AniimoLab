@@ -313,11 +313,28 @@ export const FACILITY_POWER_WATTS = new Proxy(FACILITY_BASE_WATTS, {
 
 export const DEFAULT_GENERATOR_WATTS = 600;
 
+export const POWER_PROFILES_BY_RV = {
+    12: { rv: 12, capacity: 600, poleCount: 1, moduleLevel: 1, wattsPerPole: 600, status: 'verified', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    13: { rv: 13, capacity: 600, poleCount: 1, moduleLevel: 1, wattsPerPole: 600, status: 'verified', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    14: { rv: 14, capacity: 800, poleCount: 1, moduleLevel: 2, wattsPerPole: 800, status: 'verified', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    15: { rv: 15, capacity: 1600, poleCount: 2, moduleLevel: 2, wattsPerPole: 800, status: 'confirmed_user', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    16: { rv: 16, capacity: 2000, poleCount: 2, moduleLevel: 3, wattsPerPole: 1000, status: 'confirmed_user', guardSkillRequired: 'Lightning Lv.3', guardSkillStatus: 'unverified' },
+    17: { rv: 17, capacity: 2000, poleCount: 2, moduleLevel: 3, wattsPerPole: 1000, status: 'repo_derived', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    18: { rv: 18, capacity: 3600, poleCount: 3, moduleLevel: 4, wattsPerPole: 1200, status: 'repo_derived', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    19: { rv: 19, capacity: 3600, poleCount: 3, moduleLevel: 4, wattsPerPole: 1200, status: 'repo_derived', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+    20: { rv: 20, capacity: 4500, poleCount: 3, moduleLevel: 5, wattsPerPole: 1500, status: 'provisional', guardSkillRequired: null, guardSkillStatus: 'unverified' },
+};
+
+export function getPowerProfile(homeLevel) {
+    const rv = Math.max(12, Math.min(20, Number(homeLevel) || 12));
+    return POWER_PROFILES_BY_RV[rv] || POWER_PROFILES_BY_RV[12];
+}
+
 export const GENERATOR_WATTS_BY_HOME_LEVEL = {
     12: 600,
     13: 600,
     14: 800,
-    15: 800,
+    15: 1600,
     16: 2000,
     17: 2000,
     18: 3600,
@@ -326,11 +343,12 @@ export const GENERATOR_WATTS_BY_HOME_LEVEL = {
 };
 
 export const GENERATOR_CAPACITY_OPTIONS = [
-    { watts: 600, level: 1, minHomeLevel: 12, label: '600W (Lv.1: RV 12–13)' },
-    { watts: 800, level: 2, minHomeLevel: 14, label: '800W (Lv.2: RV 14–15)' },
-    { watts: 2000, level: 3, minHomeLevel: 16, label: '2000W (Lv.3: RV 16–17, 2 power poles)' },
-    { watts: 3600, level: 4, minHomeLevel: 18, label: '3600W (Lv.4: RV 18–19, 3 power poles)' },
-    { watts: 4500, level: 5, minHomeLevel: 20, label: '4500W (Lv.5: RV 20, 3 power poles)' },
+    { watts: 600, level: 1, minHomeLevel: 12, label: '600W (Lv.1: RV 12–13, 1 trụ)' },
+    { watts: 800, level: 2, minHomeLevel: 14, label: '800W (Lv.2: RV 14, 1 trụ)' },
+    { watts: 1600, level: 2, minHomeLevel: 15, label: '1600W (Lv.2: RV 15, 2 trụ)' },
+    { watts: 2000, level: 3, minHomeLevel: 16, label: '2000W (Lv.3: RV 16–17, 2 trụ)' },
+    { watts: 3600, level: 4, minHomeLevel: 18, label: '3600W (Lv.4: RV 18–19, 3 trụ)' },
+    { watts: 4500, level: 5, minHomeLevel: 20, label: '4500W (Lv.5: RV 20, 3 trụ - tạm thời)' },
 ];
 
 
@@ -597,5 +615,5 @@ export function simpleSetup(homeLevel) {
 export const GENERATOR_POWER_RANGE = 11;
 export const POLE_POWER_RANGE = 7;
 export const POWER_POLE_COUNTS_BY_RV = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 6, 12, 12, 18, 18, 24, 24, 30
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3
 ];

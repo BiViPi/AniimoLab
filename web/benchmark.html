@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniimoLab - Benchmark Suite & Instrumentation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 0.5rem;
+        }
+        .desc {
+            color: #94a3b8;
+            margin-bottom: 1.5rem;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0f172a;
+            background: #38bdf8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #7dd3fc;
+        }
+        button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+        #log {
+            margin-top: 1.5rem;
+            background: #1e293b;
+            padding: 1.25rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            font-family: Consolas, monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-left: 0.5rem;
+        }
+        .badge-running { background: #f59e0b; color: #000; }
+        .badge-done { background: #10b981; color: #000; }
+        .badge-fail { background: #ef4444; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>⚡ AniimoLab - Smart Two-Stage Solver Benchmark</h1>
+    <p class="desc">Kiểm thử tự động các yêu cầu: Canonical Power Profile, Guard Activation, Latency (p50/p95), FAST_RE_SOLVE baseline, Exhaustive Reference Quality Gap và Overrides/Quotas.</p>
+    <button id="run-btn">Chạy Toàn Bộ Benchmark</button>
+    <span id="status-badge" class="status-badge" style="display: none;"></span>
+
+    <div id="log">Nhấn "Chạy Toàn Bộ Benchmark" để bắt đầu...</div>
+
+    <script type="module">
+        import { runAllBenchmarks } from './benchmark-runner.js';
+
+        const runBtn = document.getElementById('run-btn');
+        const logEl = document.getElementById('log');
+        const badgeEl = document.getElementById('status-badge');
+
+        function appendLog(msg) {
+            logEl.textContent += msg + '\n';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        async function start() {
+            runBtn.disabled = true;
+            logEl.textContent = '';
+            badgeEl.style.display = 'inline-block';
+            badgeEl.className = 'status-badge badge-running';
+            badgeEl.textContent = 'Đang chạy...';
+
+            try {
+                const report = await runAllBenchmarks(appendLog);
+                window.BENCHMARK_REPORT = report;
+                badgeEl.className = 'status-badge badge-done';
+                badgeEl.textContent = 'HOÀN TẤT (DONE)';
+                appendLog('\n[JSON Artifact]: window.BENCHMARK_REPORT đã sẵn sàng.');
+            } catch (err) {
+                console.error(err);
+                badgeEl.className = 'status-badge badge-fail';
+                badgeEl.textContent = 'LỖI (FAIL)';
+                appendLog('\n❌ LỖI: ' + (err.stack || err.message));
+            } finally {
+                runBtn.disabled = false;
+            }
+        }
+
+        runBtn.addEventListener('click', start);
+        window.startBenchmark = start;
+        // Tự động chạy nếu có ?autorun trong URL
+        if (new URLSearchParams(window.location.search).has('autorun')) {
+            start();
+        }
+    </script>
+</body>
+</html>

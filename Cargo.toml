@@ -26,3 +26,7 @@ features = ["js"]
 [profile.release]
 opt-level = "s"
 lto = true
+
+[profile.test]
+opt-level = 2
+

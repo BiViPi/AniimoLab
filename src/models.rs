@@ -1283,6 +1283,10 @@ pub struct FacilityCounts {
     crew: Option<Crew>,
     /// Optional cap on total production Aniimo workers allowed in the plan.
     worker_cap: Option<u32>,
+    /// Guard workers reserved for power poles when E-mode is active (1 Aniimo per pole).
+    guards: u32,
+    /// Number of power pole guards that must be drawn from the roster.
+    roster_guards: u32,
 }
 
 impl Default for FacilityCounts {
@@ -1292,6 +1296,8 @@ impl Default for FacilityCounts {
             default_tier: (1, 1),
             crew: None,
             worker_cap: None,
+            guards: 0,
+            roster_guards: 0,
         }
     }
 }
@@ -1317,6 +1323,28 @@ impl FacilityCounts {
     /// The maximum number of production Aniimo workers allowed, if set.
     pub fn worker_cap(&self) -> Option<u32> {
         self.worker_cap
+    }
+
+    /// Sets the number of guard Aniimo reserved for power poles.
+    pub fn set_guards(&mut self, guards: u32) -> &mut Self {
+        self.guards = guards;
+        self
+    }
+
+    /// The number of guard Aniimo reserved for power poles.
+    pub fn guards(&self) -> u32 {
+        self.guards
+    }
+
+    /// Sets the number of guard Aniimo drawn specifically from the roster.
+    pub fn set_roster_guards(&mut self, roster_guards: u32) -> &mut Self {
+        self.roster_guards = roster_guards;
+        self
+    }
+
+    /// The number of guard Aniimo drawn specifically from the roster.
+    pub fn roster_guards(&self) -> u32 {
+        self.roster_guards
     }
 
     /// Creates an empty `FacilityCounts` (every facility defaults to count=1, level=1).
@@ -1354,6 +1382,8 @@ impl FacilityCounts {
             default_tier: (0, 1),
             crew: None,
             worker_cap: None,
+            guards: 0,
+            roster_guards: 0,
         };
         for (name, count, level) in pairs {
             fc.set(name, *count, *level);
@@ -1369,6 +1399,8 @@ impl FacilityCounts {
             default_tier: (1, 99),
             crew: None,
             worker_cap: None,
+            guards: 0,
+            roster_guards: 0,
         }
     }
 

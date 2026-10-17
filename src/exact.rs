@@ -135,6 +135,9 @@ pub struct ExactPlan {
     /// When planning with the player's roster, `(building, member, share of its day)` for each
     /// environment building kind a member staffs (see [`crate::models::Crew`]).
     pub staffing: Vec<(String, usize, f64)>,
+    /// When planning with the player's roster and E-mode is active, `(member, share of its day)`
+    /// for each roster member assigned as a power pole guard.
+    pub guard_staffing: Vec<(usize, f64)>,
 }
 
 /// What a plan optimizes.
@@ -249,6 +252,8 @@ enum VarKind<'a> {
     /// How much of a roster member's day goes to staffing environment buildings of one kind
     /// (see [`crate::models::Crew`]).
     Staff { building: String, member: usize },
+    /// How much of a roster member's day goes to power pole guard duty when E-mode is active.
+    Guard { member: usize },
 }
 
 /// One linear constraint: `(variable, coefficient)` terms, comparison, right-hand side.
@@ -314,12 +319,7 @@ impl<'a> Model<'a> {
         }
         let solution = match problem.solve() {
             Ok(s) => s,
-            Err(e) => {
-                #[cfg(target_arch = "wasm32")]
-                web_sys::console::log_1(&format!("microlp solve failed: {:?}", e).into());
-                eprintln!("microlp solve failed: {:?}", e);
-                return None;
-            }
+            Err(_) => return None,
         };
         Some((solution.objective(), vars.iter().map(|v| solution[*v]).collect()))
     }
@@ -721,9 +721,52 @@ fn build_model<'a>(
             }
             model.constrain(staffed, ComparisonOp::Ge, 0.0);
         }
-        for (member, terms) in busy.into_iter().enumerate() {
+        // Dedicated guard assignment and reservation for roster:
+        // When E-mode is active and roster_guards > 0, reserve exactly `roster_guards` Aniimo slots assigned
+        // to specific roster members. Members assigned to guard cannot concurrently perform
+        // production or environment work.
+        let roster_guards = facility_counts.roster_guards();
+        if roster_guards > 0 {
+            let total_roster: u32 = crew.members.iter().map(|m| m.count).sum();
+            if total_roster < roster_guards {
+                // Not enough roster members to staff guards: immediately infeasible.
+                model.constrain(vec![], ComparisonOp::Ge, 1.0);
+            } else {
+                let mut guard_terms = Vec::new();
+                for (member, aniimo) in crew.members.iter().enumerate() {
+                    if aniimo.count > 0 {
+                        let g_var = model.add(
+                            0.0,
+                            (0.0, aniimo.count as f64),
+                            true,
+                            VarKind::Guard { member },
+                        );
+                        guard_terms.push((g_var, 1.0));
+                        busy[member].push((g_var, 1.0));
+                    }
+                }
+                model.constrain(guard_terms, ComparisonOp::Eq, roster_guards as f64);
+            }
+        }
+        for (member, terms) in busy.iter().enumerate() {
             if !terms.is_empty() {
-                model.constrain(terms, ComparisonOp::Le, crew.members[member].count as f64);
+                model.constrain(terms.clone(), ComparisonOp::Le, crew.members[member].count as f64);
+            }
+        }
+        if roster_guards > 0 {
+            if let Some(cap) = facility_counts.worker_cap() {
+                // If there's an external worker_cap, enforce it on production + environment (excluding guard vars)
+                let mut prod_busy: Vec<(usize, f64)> = Vec::new();
+                for terms in &busy {
+                    for &(var, coeff) in terms {
+                        if !matches!(model.kinds[var], VarKind::Guard { .. }) {
+                            prod_busy.push((var, coeff));
+                        }
+                    }
+                }
+                if !prod_busy.is_empty() {
+                    model.constrain(prod_busy, ComparisonOp::Le, cap as f64);
+                }
             }
         }
     } else if let Some(cap) = facility_counts.worker_cap() {
@@ -1015,10 +1058,12 @@ fn plan_from(model: &Model, value: f64, upper_bound: f64, proven_optimal: bool, 
     let mut pairs: Vec<ExactPair> = Vec::new();
     let mut pace = None;
     let mut staffing = Vec::new();
+    let mut guard_staffing = Vec::new();
     for (kind, &v) in model.kinds.iter().zip(values) {
         match kind {
             VarKind::Pace => pace = Some(v),
             VarKind::Staff { building, member } if v > 1e-9 => staffing.push((building.clone(), *member, v)),
+            VarKind::Guard { member } if v > 1e-9 => guard_staffing.push((*member, v)),
             VarKind::Rate(recipe) if v > 1e-9 => {
                 recipe_rates.insert(recipe.name.clone(), v);
             }
@@ -1083,6 +1128,7 @@ fn plan_from(model: &Model, value: f64, upper_bound: f64, proven_optimal: bool, 
         pairs,
         pace,
         staffing,
+        guard_staffing,
     }
 }
 
@@ -1233,9 +1279,26 @@ pub fn check_plan(
                 return Err(format!("{used} {building} set up but only {have} staffed"));
             }
         }
+        let roster_guards = facility_counts.roster_guards();
+        if roster_guards > 0 {
+            let total_assigned_guard: f64 = plan.guard_staffing.iter().map(|&(_, v)| v).sum();
+            if (total_assigned_guard - roster_guards as f64).abs() > TOLERANCE {
+                return Err(format!("plan requires {roster_guards} roster guards but assigned {total_assigned_guard:.2}"));
+            }
+            for &(member, g_val) in &plan.guard_staffing {
+                let slot = busy.get_mut(member).ok_or(format!("guard assigned to roster member {member}, who isn't there"))?;
+                *slot += g_val;
+            }
+        }
         for (member, (&used, aniimo)) in busy.iter().zip(&crew.members).enumerate() {
             if used > aniimo.count as f64 + TOLERANCE {
-                return Err(format!("roster member {member} works {used} days a day but there are {} of it", aniimo.count));
+                return Err(format!("roster member {member} works {used:.2} days a day (including guards) but there are {} of it", aniimo.count));
+            }
+        }
+        if let Some(cap) = facility_counts.worker_cap() {
+            let total_busy_prod = (busy.iter().sum::<f64>() - roster_guards as f64).max(0.0);
+            if total_busy_prod > cap as f64 + TOLERANCE {
+                return Err(format!("plan uses {total_busy_prod:.2} workers but max allowed for production is {cap}"));
             }
         }
     }
