@@ -25,4 +25,6 @@ scratch/
 research/
 # Only track approved test suites in tests/
 tests/*
-!tests/rv16_solver_tests.rs
+__pycache__/
+*.py[cod]
+*$py.class

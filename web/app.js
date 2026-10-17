@@ -434,13 +434,20 @@ export function validateInvariants(facility, targetMode, stepCount) {
 }
 
 export function getFacilityLevel(baseFac) {
-    const homeLevel = selectedHomeLevel();
+    const inputFacs = lastPlanInput?.facilities || (typeof getPlanInputValues === 'function' ? getPlanInputValues()?.facilities : null);
+    if (inputFacs && inputFacs[baseFac]) {
+        const activeTiers = inputFacs[baseFac].filter(t => (t.count || 0) > 0);
+        if (activeTiers.length > 0) {
+            return Math.max(...activeTiers.map(t => t.level || 0));
+        }
+    }
     if (typeof facilityTiers === 'object' && facilityTiers && facilityTiers[baseFac]) {
-        const tiers = facilityTiers[baseFac];
-        if (tiers && tiers.length > 0) {
+        const tiers = facilityTiers[baseFac].filter(t => (t.count || 0) > 0);
+        if (tiers.length > 0) {
             return Math.max(...tiers.map(t => t.level || 0));
         }
     }
+    const homeLevel = selectedHomeLevel();
     const { facilities } = simpleSetup(homeLevel);
     if (facilities && facilities[baseFac] && facilities[baseFac].length > 0) {
         return Math.max(...facilities[baseFac].map(t => t.level || 0));
@@ -448,14 +455,40 @@ export function getFacilityLevel(baseFac) {
     return 1;
 }
 
-window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentMode, clickedBtn, stepIndex) {
+export function defaultEmodeBaseTime(workload) {
+    if (workload <= 45) return 27;
+    if (workload <= 90) return 54;
+    if (workload <= 180) return 108;
+    if (workload <= 250) return 162;
+    if (workload <= 350) return 216;
+    if (workload <= 450) return 270;
+    if (workload <= 600) return 378;
+    return Math.round(workload / 1.5 / 27) * 27;
+}
+
+export function calculateWorkerSpeed(workerLevel, reqLevel = 1, isGathering = false, hasPersonality = true) {
+    const required = Math.max(1, reqLevel);
+    const level = Math.max(required, workerLevel);
+    const above = level - required;
+    let baseSpeed = 1.0;
+    if (isGathering) {
+        const baseWorkRate = required === 1 ? 1.0 : (required === 2 ? 1.25 : 1.5);
+        baseSpeed = 1.0 + (0.5 * above) / baseWorkRate;
+    } else {
+        baseSpeed = above === 0 ? 1.0 : (2.0 + above);
+    }
+    if (hasPersonality) {
+        baseSpeed *= 1.2;
+    }
+    return baseSpeed;
+}
+
+window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentModeParam, clickedBtn, stepIndex) {
     if (!lastPlan || !lastPlan.success) return;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
 
-    // 1. Chuẩn hóa tên mode
+    // 1. Chuẩn hóa targetMode
     if (targetMode === 'specialist') targetMode = 'prismana';
-    if (currentMode === 'specialist') currentMode = 'prismana';
-    if (currentMode === targetMode) return;
     if (targetMode === 'electric' && selectedHomeLevel() < 12) return;
 
     const rawFac = facility || '';
@@ -466,74 +499,75 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
-    // 2. Lấy tổng số máy của cơ sở này
-    const ownedCounts = getOwnedFacilityCounts();
-    const totalOwned = ownedCounts[baseFac] || stepCount;
+    // 2. Tìm step tương ứng trong lastPlan
+    const step = (lastPlan.coin_items && lastPlan.coin_items[stepIndex])
+        || (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '') === baseFac && s.status === 'producing');
 
-    // 3. Lấy phân bổ hiện tại của cơ sở này (electric, specialist, manual)
-    const existingOvr = facilityOverrides.find(o => o.facility === baseFac);
-    let curE = 0, curP = 0, curM = 0;
-
-    if (existingOvr) {
-        curE = existingOvr.electric_count || 0;
-        curP = existingOvr.specialist_count || 0;
-        curM = existingOvr.manual_count || 0;
-    } else {
-        (lastPlan.coin_items || []).forEach(s => {
-            const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-            if (facName === baseFac) {
-                const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
-                if (m === 'electric') curE += s.facility_count || 0;
-                else if (m === 'prismana') curP += s.facility_count || 0;
-                else if (m === 'manual') curM += s.facility_count || 0;
-            }
-        });
-        if (curE === 0 && curP === 0 && curM === 0) {
-            curE = lastEmodeCounts[baseFac] || 0;
-            if (baseFac === 'Mine') {
-                curP = Math.min(totalOwned - curE, getSpecialistQuotas().earth_4p_mines ?? 3);
-                curM = Math.max(0, totalOwned - curE - curP);
-            } else if (baseFac === 'Well') {
-                curP = Math.min(totalOwned - curE, getSpecialistQuotas().water_4f_wells ?? 0);
-                curM = Math.max(0, totalOwned - curE - curP);
-            } else {
-                curM = Math.max(0, totalOwned - curE);
-            }
+    // 3. Xác định actualCurrentMode ĐỘNG từ DOM (.mode-pill.active) hoặc step.mode
+    let actualCurrentMode = '';
+    const container = clickedBtn?.parentElement;
+    if (container) {
+        const activeBtn = container.querySelector('.mode-pill.active');
+        if (activeBtn) {
+            if (activeBtn.classList.contains('pill-electric')) actualCurrentMode = 'electric';
+            else if (activeBtn.classList.contains('pill-specialist')) actualCurrentMode = 'prismana';
+            else if (activeBtn.classList.contains('pill-manual')) actualCurrentMode = 'manual';
         }
     }
+    if (!actualCurrentMode && step) {
+        actualCurrentMode = step.mode || (step.is_emode ? 'electric' : (step.is_specialist ? 'prismana' : (step.is_manual ? 'manual' : 'prismana')));
+    }
+    if (actualCurrentMode === 'specialist') actualCurrentMode = 'prismana';
+    if (!actualCurrentMode) actualCurrentMode = currentModeParam || 'prismana';
 
-    // 4. Dịch chuyển stepCount máy từ currentMode sang targetMode
-    const moveCount = Math.min(stepCount, currentMode === 'electric' ? curE : (currentMode === 'prismana' ? curP : curM));
-    if (moveCount > 0) {
-        if (currentMode === 'electric') curE = Math.max(0, curE - moveCount);
-        else if (currentMode === 'prismana') curP = Math.max(0, curP - moveCount);
-        else if (currentMode === 'manual') curM = Math.max(0, curM - moveCount);
+    // Nếu đã ở đúng targetMode thì không cần xử lý
+    if (actualCurrentMode === targetMode) return;
 
-        if (targetMode === 'electric') curE += moveCount;
-        else if (targetMode === 'prismana') curP += moveCount;
-        else if (targetMode === 'manual') curM += moveCount;
-    } else {
-        if (targetMode === 'electric') curE = Math.min(totalOwned, curE + stepCount);
-        else if (targetMode === 'prismana') curP = Math.min(totalOwned, curP + stepCount);
-        else if (targetMode === 'manual') curM = Math.min(totalOwned, curM + stepCount);
+    // 4. Cập nhật chế độ của step
+    const prevMode = actualCurrentMode;
+    if (step) {
+        step.mode = targetMode;
+        step.is_emode = (targetMode === 'electric');
+        step.is_specialist = (targetMode === 'prismana');
+        step.is_manual = (targetMode === 'manual');
     }
 
-    // Cân bằng tổng sao cho curE + curP + curM == totalOwned
-    const sum = curE + curP + curM;
-    if (sum > totalOwned) {
-        const excess = sum - totalOwned;
-        if (targetMode !== 'manual' && curM >= excess) curM -= excess;
-        else if (targetMode !== 'electric' && curE >= excess) curE -= excess;
-        else if (targetMode !== 'prismana' && curP >= excess) curP -= excess;
-        else curM = Math.max(0, totalOwned - curE - curP);
-    } else if (sum < totalOwned) {
-        curM += (totalOwned - sum);
+    // 5. Đảm bảo lastEmodeCounts có dữ liệu của toàn bộ plan ban đầu
+    if (!lastEmodeCounts || Object.keys(lastEmodeCounts).length === 0) {
+        lastEmodeCounts = { ...actualEmodeCounts(lastPlan) };
     }
 
-    // 5. Kiểm tra công suất điện
-    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)), [baseFac]: curE };
+    // 6. Tính tổng số máy của cơ sở này theo từng chế độ từ tất cả các hàng
+    let curE = 0, curP = 0, curM = 0;
+    (lastPlan.coin_items || []).forEach(s => {
+        const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        if (facName === baseFac) {
+            const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
+            const cnt = s.facility_count || 1;
+            if (m === 'electric') curE += cnt;
+            else if (m === 'prismana') curP += cnt;
+            else if (m === 'manual') curM += cnt;
+        }
+    });
+
+    if (curE === 0 && curP === 0 && curM === 0) {
+        if (targetMode === 'electric') curE = stepCount;
+        else if (targetMode === 'prismana') curP = stepCount;
+        else if (targetMode === 'manual') curM = stepCount;
+    }
+
+    // 7. Kiểm tra công suất điện nếu chuyển sang hoặc tăng điện
+    const currentCounts = { ...lastEmodeCounts, [baseFac]: curE };
+    if (curE === 0) delete currentCounts[baseFac];
     const projectedWatts = calculatePowerWatts(currentCounts);
     if (targetMode === 'electric' && projectedWatts > maxWatts) {
+        // Rollback mode của step
+        if (step) {
+            step.mode = prevMode;
+            step.is_emode = (prevMode === 'electric');
+            step.is_specialist = (prevMode === 'prismana');
+            step.is_manual = (prevMode === 'manual');
+        }
         showInvariantWarning(
             baseFac,
             `Vượt công suất tối đa của lưới điện: cần tổng ${projectedWatts}W (${maxWatts}W tối đa)!`
@@ -541,12 +575,20 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         return;
     }
 
-    // 6. Cập nhật state
-    lastEmodeCounts[baseFac] = curE;
+    // 8. Cập nhật state điện & power gauge (chỉ thay đổi đúng cơ sở này, giữ nguyên 100% các cơ sở khác)
+    if (curE > 0) {
+        lastEmodeCounts[baseFac] = curE;
+    } else {
+        delete lastEmodeCounts[baseFac];
+    }
+    updatePowerGauge(lastEmodeCounts);
+
+    // 9. Cập nhật overrides
     const facLevel = getFacilityLevel(baseFac);
     const newOverride = {
         facility: baseFac,
         level: facLevel,
+        target_mode: targetMode,
         electric_count: curE,
         specialist_count: curP,
         manual_count: curM
@@ -563,11 +605,105 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // Cập nhật thanh điện ngay lập tức
-    updatePowerGauge(lastEmodeCounts);
+    // 10. Tính toán lại thời gian chu kỳ & sản lượng bán theo giờ của cơ sở đó
+    if (step && step.item_name) {
+        let recipe = window.ALL_RECIPES_MAP ? window.ALL_RECIPES_MAP.get(step.item_name) : null;
+        if (!recipe && window.ALL_RECIPES_MAP) {
+            const cleanName = step.item_name.replace(/__(specialist|manual)$/, '');
+            recipe = window.ALL_RECIPES_MAP.get(cleanName);
+        }
+        const workload = recipe?.workload || (recipe?.production_time ? recipe.production_time * 1.5 : (step.cycle_time ? step.cycle_time * 1.5 : 108));
+        const yieldAmount = recipe?.yield_amount || 1;
+        const sellValue = recipe?.sell_value || (lastPlan.income_streams?.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === step.item_name.replace(/__(specialist|manual)$/, ''))?.sell_value) || 0;
+        const reqLevel = recipe?.aniimo?.[1] || 1;
+        const isGathering = ['Farmland', 'Woodland', 'Mine', 'Well', 'Tidewhisper Sandcastle', 'Dewy House', 'Nimbus Bed', 'Starfall Hammock', 'Floral Windmill'].includes(baseFac);
+        const hasPersonality = !['Dance Pad Polisher', 'Aniipod Maker'].includes(baseFac);
 
-    // 7. Re-solve bài toán bằng HiGHS LP Solver qua find_plan
-    await runFastReSolve();
+        let cycleTime = step.cycle_time || 60;
+        if (targetMode === 'electric') {
+            const emodeBaseTime = recipe?.emode_base_time || defaultEmodeBaseTime(workload);
+            const powerRate = Math.max(0.1, getPowerGridRate());
+            cycleTime = emodeBaseTime / powerRate;
+        } else if (targetMode === 'prismana') {
+            const speed = calculateWorkerSpeed(4, reqLevel, isGathering, hasPersonality);
+            cycleTime = workload / Math.max(0.001, speed);
+        } else if (targetMode === 'manual') {
+            const speed = calculateWorkerSpeed(3, reqLevel, isGathering, hasPersonality);
+            cycleTime = workload / Math.max(0.001, speed);
+        }
+
+        step.mode = targetMode;
+        step.cycle_time = cycleTime;
+        step.units_per_second = (step.facility_count * yieldAmount) / cycleTime;
+        step.rate_per_second = step.units_per_second * sellValue;
+
+        // Cập nhật income_streams
+        if (lastPlan.income_streams) {
+            const stream = lastPlan.income_streams.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === step.item_name.replace(/__(specialist|manual)$/, ''));
+            if (stream) {
+                stream.units_per_second = step.units_per_second;
+                stream.rate_per_second = step.rate_per_second;
+            }
+        }
+    }
+
+    // 8. Cập nhật tổng thu nhập theo giờ cho cả kế hoạch
+    const newTotalRate = (lastPlan.income_streams || []).reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
+    lastPlan.rate_per_second = newTotalRate;
+    lastPlan.measure_top = newTotalRate;
+    if (typeof updateRateDisplay === 'function') {
+        updateRateDisplay(!rateUnitChosen);
+    }
+
+    // 9. Cập nhật DOM trực quan ngay lập tức
+    if (clickedBtn && clickedBtn.parentElement) {
+        clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
+        clickedBtn.classList.add('active');
+    }
+
+    const row = clickedBtn?.closest('tr');
+    if (row) {
+        // Cập nhật Badge công suất
+        const facCell = row.querySelector('.facility-cell');
+        if (facCell) {
+            let badge = facCell.querySelector('.facility-power-badge');
+            const totalWatts = targetMode === 'electric' ? wattsPerUnit * stepCount : 0;
+            if (totalWatts > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'facility-power-badge';
+                    facCell.appendChild(badge);
+                }
+                badge.textContent = `⚡ ${totalWatts}W`;
+                badge.style.display = 'inline-block';
+            } else if (badge) {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Cập nhật Aniimo Worker
+        const aniimoTd = row.querySelector('td[data-label="Aniimo"]');
+        if (aniimoTd && step) {
+            aniimoTd.innerHTML = aniimoLabel(step);
+        }
+
+        // Cập nhật Producing Cell (Chu kỳ & Số lượng bán theo giờ)
+        const itemCell = row.querySelector('.item-cell');
+        if (itemCell && step && step.cycle_time) {
+            const unitsPerHour = Math.round(step.units_per_second * 3600);
+            const coinsPerHour = Math.round(step.rate_per_second * 3600);
+            let cycleSpan = itemCell.querySelector('.item-cycle-info');
+            if (!cycleSpan) {
+                cycleSpan = document.createElement('div');
+                cycleSpan.className = 'item-cycle-info';
+                itemCell.appendChild(cycleSpan);
+            }
+            cycleSpan.innerHTML = `<span class="cycle-time-badge">⏱️ ${step.cycle_time.toFixed(1)}s</span> · <span class="rate-badge">📦 ${unitsPerHour.toLocaleString()}/h</span>${coinsPerHour > 0 ? ` · <span class="coins-badge">💰 ${formatNumber(coinsPerHour)}/h</span>` : ''}`;
+        }
+    }
+
+    // 10. Cập nhật bảng phân tích doanh thu
+    renderProfitBreakdown(lastPlan);
 };
 
 export async function runFastReSolve() {
@@ -607,10 +743,16 @@ export async function runFastReSolve() {
                 badge.style.display = 'inline-flex';
                 badge.innerHTML = `⚡ ${elapsed}ms`;
             }
+            return true;
+        } else {
+            window.__lastFastResolveError = plan?.error || 'Plan unfeasible';
+            console.warn('Fast re-solve returned unsuccessful plan:', plan?.error);
+            return false;
         }
     } catch (err) {
+        window.__lastFastResolveError = err?.message || String(err);
         console.error('runFastReSolve error:', err);
-        runFindPlan();
+        return false;
     }
 }
 
@@ -688,7 +830,7 @@ window.openFacilityPartitionModal = function(baseFac) {
     }
     const subTitleEl = document.getElementById('partition-modal-subtitle');
     if (subTitleEl) {
-        subTitleEl.textContent = isVi 
+        subTitleEl.textContent = isVi
             ? `Tổng sở hữu: ${totalOwned} cơ sở. Hãy thiết lập số lượng cụ thể cho từng chế độ vận hành.`
             : `Total owned: ${totalOwned}. Configure the exact count for each operating mode.`;
     }
@@ -972,7 +1114,6 @@ function attachSpecialistQuotaHandlers() {
 export function estimateFacilityMarginalValue(facility, level, basePlan, options = {}) {
     const homeLevel = options.homeLevel || 15;
     const powerGridRate = options.powerGridRate || (typeof getPowerGridRate === 'function' ? getPowerGridRate() : 1.2) || 1.2;
-    const productionAniimoCap = options.productionAniimoCap || 26;
     const unitWatts = getFacilityUnitWatts(facility, level, homeLevel);
 
     if (unitWatts <= 0) {
@@ -984,86 +1125,150 @@ export function estimateFacilityMarginalValue(facility, level, basePlan, options
             workforceReliefPerHr: 0,
             totalScore: 0,
             scorePerWatt: 0,
-            reason: 'unpowered_facility'
+            reason: 'unpowered_facility',
+            status: 'unpowered',
+            diagnostics: {
+                metricSource: 'power_rules',
+                reason: 'Facility does not require electric power'
+            }
         };
     }
 
-    // 1. Analyze active production rate from basePlan
+    // Helper chuẩn hóa suffix Manual/Electric/Prismana
+    const normFac = (name) => (name || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+
+    // 1. Phân tích doanh thu trực tiếp từ basePlan.income_streams (schema canonical của Rust WASM)
+    // Mỗi entry trong income_streams: { item_name, facility, rate_per_second, sell_value, units_per_second }
+    // rate_per_second đã là coins/sec. Tuyệt đối không nhân lại sell_value và không lấy 1.0 làm fallback.
     let activeRevenuePerSec = 0;
-    let activeFacilityUnits = 0;
-    let primaryItem = null;
+    const matchedStreams = [];
+    const seenItems = new Set();
 
+
+    if (basePlan && Array.isArray(basePlan.income_streams)) {
+        for (const stream of basePlan.income_streams) {
+            if (normFac(stream.facility) === facility) {
+                // Tránh cộng lặp nếu cùng một item xuất hiện nhiều lần
+                if (seenItems.has(stream.item_name)) continue;
+                seenItems.add(stream.item_name);
+
+                const streamRate = typeof stream.rate_per_second === 'number' ? stream.rate_per_second : 0;
+                if (streamRate > 0) {
+                    activeRevenuePerSec += streamRate;
+                    matchedStreams.push({
+                        item_name: stream.item_name,
+                        facility: stream.facility,
+                        rate_per_second: streamRate,
+                        sell_value: stream.sell_value,
+                        units_per_second: stream.units_per_second
+                    });
+                }
+            }
+        }
+    }
+
+    // Xác định số unit sở hữu thực tế của facility để giới hạn mẫu số vật lý
+    let ownedUnits = null;
+    if (options.facilities) {
+        if (typeof options.facilities[facility] === 'number') {
+            ownedUnits = options.facilities[facility];
+        } else if (Array.isArray(options.facilities[facility])) {
+            ownedUnits = options.facilities[facility].reduce((sum, t) => sum + (t.count || 0), 0);
+        }
+    } else if (typeof facilityTiers === 'object' && facilityTiers && facilityTiers[facility]) {
+        ownedUnits = facilityTiers[facility].reduce((sum, t) => sum + (t.count || 0), 0);
+    }
+
+    // PlanStep is one row per product. Dedicated rows represent disjoint capacity,
+    // while time-share rows can repeat the whole shared capacity. Avoid counting
+    // shared physical units once for every competing product row.
+    let rawActiveUnits = 0;
     if (basePlan && Array.isArray(basePlan.coin_items)) {
-        const matchingSteps = basePlan.coin_items.filter(s =>
-            s.status === 'producing' &&
-            s.facility &&
-            s.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') === facility
-        );
-
-        for (const step of matchingSteps) {
-            const count = Math.max(1, step.facility_count || 1);
-            activeFacilityUnits += count;
-            if (!primaryItem) primaryItem = step.item_name;
-
-            const incomeStream = basePlan.income_streams?.find(inc => inc.item_name === step.item_name);
-            const price = step.price || incomeStream?.price || 1.0;
-            activeRevenuePerSec += (step.rate_per_second || 0) * price;
-        }
+        const activeRows = basePlan.coin_items.filter(step =>
+            normFac(step.facility) === facility && step.status === 'producing' && (step.facility_count || 0) > 0);
+        const sharedRows = activeRows.filter(step => /takes turns with/i.test(step.reason || ''));
+        const dedicatedRows = activeRows.filter(step => !/takes turns with/i.test(step.reason || ''));
+        rawActiveUnits = dedicatedRows.reduce((sum, step) => sum + (step.facility_count || 0), 0)
+            + (sharedRows.length ? Math.max(...sharedRows.map(step => step.facility_count || 0)) : 0);
     }
+    const effectiveOwned = (typeof ownedUnits === 'number' && ownedUnits > 0)
+        ? ownedUnits
+        : (rawActiveUnits > 0 ? rawActiveUnits : 1);
+    const activeFacilityUnits = rawActiveUnits > 0 ? Math.min(effectiveOwned, rawActiveUnits) : effectiveOwned;
 
-    // Special handling for Mine (Quartz sold directly or raw byproduct output)
-    if (facility === 'Mine') {
-        const quartzSold = basePlan?.sold?.['quartz'] || basePlan?.sold?.['raw_quartz'] || 0;
-        const quartzPrice = 250; // Quartz base sell price
-        if (quartzSold > 0) {
-            activeRevenuePerSec += (quartzSold * quartzPrice);
-            if (activeFacilityUnits === 0) activeFacilityUnits = 1;
+    // Helper kiểm tra xem cơ sở có đang tham gia chuỗi sản xuất thượng nguồn (upstream supplier) không
+    const isUpstreamSupplier = (() => {
+        if (!basePlan) return false;
+        if (Array.isArray(basePlan.coin_items) && basePlan.coin_items.some(item => normFac(item.facility) === facility && item.status === 'producing' && (item.facility_count || 0) > 0)) {
+            return true;
         }
-    }
+        return false;
+    })();
 
-    // If facility produces 0 in basePlan and has no byproduct/resource value, marginal value is 0
-    if (activeFacilityUnits <= 0 && activeRevenuePerSec <= 0) {
+    // Nếu không có income stream nào khớp hoặc doanh thu = 0, phân biệt rõ upstream supplier vs unused
+    if (activeRevenuePerSec <= 0 || matchedStreams.length === 0) {
         return {
             facility,
             level,
+            primaryItem: null,
             unitWatts,
             marginalRevenuePerHr: 0,
             workforceReliefPerHr: 0,
             totalScore: 0,
             scorePerWatt: 0,
-            reason: 'inactive_in_base_plan'
+            measurement_type: 'direct_sold_output',
+            reason: isUpstreamSupplier ? 'upstream_supplier_intermediate_inputs' : 'no_matching_income_stream_or_zero_revenue',
+            status: isUpstreamSupplier ? 'upstream_supplier' : 'unknown',
+            diagnostics: {
+                metricSource: 'basePlan.income_streams',
+                matchedStreamsCount: matchedStreams.length,
+                activeFacilityUnits,
+                ownedUnits,
+                activeRevenuePerSec: 0,
+                isUpstreamSupplier,
+                reason: isUpstreamSupplier
+                    ? 'Facility active as upstream supplier for intermediate inputs; direct sold output revenue is 0'
+                    : 'Facility produces 0 revenue or has no valid income stream in base plan'
+            }
         };
     }
 
-    const unitBaseRevenuePerSec = activeRevenuePerSec / Math.max(1, activeFacilityUnits);
-    // E-mode speedup: production rate scales with powerGridRate (e.g. 1.2 rate gives +20% output)
+    const unitBaseRevenuePerSec = activeRevenuePerSec / activeFacilityUnits;
     const speedupFactor = Math.max(1.0, powerGridRate);
     const marginalRevenuePerSec = unitBaseRevenuePerSec * (speedupFactor - 1.0);
-    const marginalRevenuePerHr = marginalRevenuePerSec * 3600;
+    const marginalRevenuePerHr = Math.round(marginalRevenuePerSec * 3600 * 100) / 100;
 
-    // 2. Workforce opportunity cost (relief of 1 Aniimo laborer):
-    // Measured empirically from farm productivity in basePlan (coins/hr per active worker)
-    const totalFarmRevenuePerHr = (basePlan?.rate_per_second || 0) * 3600;
-    const effectiveWorkers = Math.max(1, productionAniimoCap);
-    const farmProductivityPerWorkerHr = totalFarmRevenuePerHr > 0 ? (totalFarmRevenuePerHr / effectiveWorkers) : 0;
-
-    // Only facilities worked by Aniimo free up labor when converted to E-mode
-    const hasWorker = facility !== 'Sunlamp' && facility !== 'Heat Furnace' && facility !== 'Cooling Unit';
-    const workforceReliefPerHr = hasWorker ? farmProductivityPerWorkerHr : 0;
-
-    const totalScore = marginalRevenuePerHr + workforceReliefPerHr;
+    // Yêu cầu File 19 & 20: Loại bỏ workforceReliefPerHr khỏi totalScore chính
+    // (score phản ánh đúng direct marginal revenue thực tế đo đạc được từ base plan)
+    const totalScore = marginalRevenuePerHr;
     const scorePerWatt = unitWatts > 0 ? totalScore / unitWatts : 0;
 
     return {
         facility,
         level,
-        primaryItem,
+        primaryItem: matchedStreams[0]?.item_name || null,
         unitWatts,
         marginalRevenuePerHr,
-        workforceReliefPerHr,
+        workforceReliefPerHr: 0,
         totalScore,
         scorePerWatt,
-        reason: 'empirical_base_plan_metric'
+        measurement_type: 'direct_sold_output',
+        reason: 'empirical_base_plan_income_stream',
+        status: 'measured',
+        diagnostics: {
+            metricSource: 'basePlan.income_streams',
+            matchedStreams,
+            activeFacilityUnits,
+            ownedUnits,
+            activeRevenuePerSec,
+            unitBaseRevenuePerSec,
+            speedupFactor,
+            marginalRevenuePerHr,
+            scorePerWatt,
+                tierAttribution: 'PlanStep has no facility-level field; facility-wide average is applied to each tier',
+            isUpstreamSupplier: false,
+            workforceReliefNote: 'Excluded from score per Audit 19 requirement'
+        }
     };
 }
 
@@ -1074,9 +1279,11 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
 
     // 1. Resolve owned counts properly per tier
     const effectiveFacilities = options.facilities || (
-        typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0
-            ? facilityTiers
-            : simpleSetup(homeLevel).facilities
+        (typeof isSimpleMode === 'function' && isSimpleMode())
+            ? simpleSetup(homeLevel).facilities
+            : (typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0
+                ? facilityTiers
+                : simpleSetup(homeLevel).facilities)
     );
 
     const ownedCounts = {};
@@ -1086,33 +1293,53 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     ownedCounts['Mine'] = emodeMineUnits(homeLevel, effectiveFacilities['Mine']);
 
     const currentOverrides = options.overrides || (typeof facilityOverrides !== 'undefined' ? facilityOverrides : []) || [];
+    const overrideLevel = (ovr) => {
+        if (ovr.level > 0) return ovr.level;
+        const tiers = effectiveFacilities[ovr.facility] || [];
+        return tiers.length ? Math.max(...tiers.map(t => t.level || 1)) : 1;
+    };
+    const overrideForTier = (fac, level) => currentOverrides.find(ovr =>
+        ovr.facility === fac && overrideLevel(ovr) === level);
 
     // =========================================================================
-    // STEP 0: STRICT VALIDATION OF USER OVERRIDES (NO SILENT CLAMPING!)
+    // STEP 0: STRICT VALIDATION OF USER OVERRIDES (TIER-AWARE, NO SILENT CLAMPING!)
     // =========================================================================
     let totalFixedWatts = 0;
+    const seenOverrideTiers = new Set();
     for (const ovr of currentOverrides) {
         const fac = ovr.facility;
-        const owned = ownedCounts[fac] || 0;
         const eCount = ovr.electric_count || 0;
         const mCount = ovr.manual_count || 0;
         const sCount = ovr.specialist_count || 0;
         const totalLocked = eCount + mCount + sCount;
 
-        if (totalLocked > owned) {
+        const facTiers = effectiveFacilities[fac] || [];
+        const level = overrideLevel(ovr);
+        const overrideKey = `${fac}:${level}`;
+        if (seenOverrideTiers.has(overrideKey)) {
+            return { validation_error: true, error: `Có nhiều fixed override cho ${fac} Lv.${level}; hãy gộp thành một dòng.` };
+        }
+        seenOverrideTiers.add(overrideKey);
+        const tierObj = facTiers.find(t => (t.level || 1) === level);
+        const ownedAtLevel = tierObj ? (tierObj.count || 0) : 0;
+        if (ownedAtLevel === 0) {
             return {
                 validation_error: true,
-                error: `Facility ${fac}: Tổng số lượng gán (${totalLocked}) vượt quá số lượng sở hữu (${owned})!`
+                error: `Facility ${fac}: Cấp độ ${level} không có đơn vị nào được sở hữu!`
             };
         }
-        if (eCount > owned) {
+        if (![eCount, mCount, sCount].every(n => Number.isInteger(n) && n >= 0)) {
+            return { validation_error: true, error: `Facility ${fac} Lv.${level}: số lượng override phải là số nguyên không âm.` };
+        }
+        if (totalLocked > ownedAtLevel) {
             return {
                 validation_error: true,
-                error: `Facility ${fac}: Số lượng điện khóa (${eCount}) vượt quá số lượng sở hữu (${owned})!`
+                error: `Facility ${fac} Lv.${level}: Tổng số lượng gán (${totalLocked}) vượt quá số lượng sở hữu tại cấp này (${ownedAtLevel})!`
             };
         }
+
         if (eCount > 0) {
-            const w = getFacilityUnitWatts(fac, ovr.level, homeLevel);
+            const w = getFacilityUnitWatts(fac, level, homeLevel);
             totalFixedWatts += eCount * w;
         }
     }
@@ -1128,22 +1355,24 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     const diagnostics = [];
     let usedWatts = 0;
 
-    function isLockedManual(fac) {
-        const ovr = currentOverrides.find(o => o.facility === fac);
+    function isLockedManual(fac, level) {
+        const ovr = overrideForTier(fac, level);
         if (!ovr) return false;
         if (ovr.electric_count === 0 && (ovr.manual_count > 0 || ovr.specialist_count > 0)) return true;
         if (ovr.electric_count === 0 && ovr.manual_count === 0 && ovr.specialist_count === 0) return true;
         return false;
     }
 
-    function fixedElectricCount(fac) {
-        const ovr = currentOverrides.find(o => o.facility === fac);
+    function fixedElectricCount(fac, level) {
+        const ovr = overrideForTier(fac, level);
         if (!ovr) return null;
         if (typeof ovr.electric_count === 'number' && ovr.electric_count > 0) {
             return ovr.electric_count;
         }
         return null;
     }
+
+    const tierCountMap = new Map();
 
     // =========================================================================
     // STEP 1: INITIALIZE FIXED OVERRIDES (HONOR EXACT USER SELECTIONS)
@@ -1152,12 +1381,19 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         const fac = ovr.facility;
         const count = ovr.electric_count || 0;
         if (count > 0) {
-            const w = getFacilityUnitWatts(fac, ovr.level, homeLevel);
-            emodeCounts[fac] = count;
+            const lvl = overrideLevel(ovr);
+            const w = getFacilityUnitWatts(fac, lvl, homeLevel);
+            emodeCounts[fac] = (emodeCounts[fac] || 0) + count;
             usedWatts += count * w;
+            const tierKey = `${fac}:${lvl}`;
+            if (!tierCountMap.has(tierKey)) {
+                tierCountMap.set(tierKey, { facility: fac, level: lvl, count: 0 });
+            }
+            tierCountMap.get(tierKey).count += count;
+
             diagnostics.push({
                 facility: fac,
-                level: ovr.level,
+                level: lvl,
                 units: count,
                 unitWatts: w,
                 scorePerWatt: 99999.0,
@@ -1174,9 +1410,6 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     const quotas = typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : {};
 
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
-        if (isLockedManual(fac)) continue;
-        if (fixedElectricCount(fac) !== null) continue;
-
         let quotaDeduction = 0;
         if (fac === 'Mine' && quotas.earth_4p_mines) quotaDeduction = quotas.earth_4p_mines;
         if (fac === 'Well' && quotas.water_4f_wells) quotaDeduction = quotas.water_4f_wells;
@@ -1188,14 +1421,19 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             quotaDeduction = Math.max(0, quotaDeduction - tCount);
 
             if (availableInTier <= 0) continue;
+            if (isLockedManual(fac, tLevel) || fixedElectricCount(fac, tLevel) !== null) continue;
 
             const estimate = estimateFacilityMarginalValue(fac, tLevel, basePlan, {
                 homeLevel,
                 powerGridRate: powerRate,
-                productionAniimoCap: options.productionAniimoCap
+                productionAniimoCap: options.productionAniimoCap,
+                facilities: effectiveFacilities
             });
 
-            if (estimate.scorePerWatt > 0 && estimate.unitWatts > 0) {
+            // Upstream suppliers have no directly attributable sold-output score.
+            // Keep their value explicitly unknown and consider them only after
+            // measured candidates, so available grid capacity is not stranded.
+            if ((estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier') && estimate.unitWatts > 0) {
                 for (let u = 0; u < availableInTier; u++) {
                     candidates.push({
                         facility: fac,
@@ -1206,7 +1444,10 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                         workforceReliefPerHr: estimate.workforceReliefPerHr,
                         score: estimate.totalScore,
                         scorePerWatt: estimate.scorePerWatt,
-                        item: estimate.primaryItem
+                        item: estimate.primaryItem,
+                        measurementType: estimate.measurement_type || 'unknown',
+                        estimateStatus: estimate.status,
+                        tierAttribution: estimate.diagnostics?.tierAttribution || 'unknown'
                     });
                 }
             }
@@ -1236,6 +1477,12 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             if (current < owned) {
                 emodeCounts[cand.facility] = current + 1;
                 usedWatts += cand.unitWatts;
+                const tierKey = `${cand.facility}:${cand.level}`;
+                if (!tierCountMap.has(tierKey)) {
+                    tierCountMap.set(tierKey, { facility: cand.facility, level: cand.level, count: 0 });
+                }
+                tierCountMap.get(tierKey).count += 1;
+
                 diagnostics.push({
                     facility: cand.facility,
                     level: cand.level,
@@ -1245,36 +1492,23 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                     scorePerWatt: Math.round(cand.scorePerWatt * 10) / 10,
                     marginalRevenuePerHr: Math.round(cand.marginalRevenuePerHr),
                     workforceReliefPerHr: Math.round(cand.workforceReliefPerHr),
-                    reason: 'smart_marginal_score'
+                    reason: cand.estimateStatus === 'upstream_supplier'
+                        ? 'upstream_supplier_unknown_value_grid_remainder'
+                        : 'smart_marginal_score',
+                    measurement_type: cand.measurementType,
+                    estimate_status: cand.estimateStatus,
+                    tier_attribution: cand.tierAttribution
                 });
             }
         }
     }
 
-    // Backfill remaining budget
-    const remainingWatts = maxWatts - usedWatts;
-    if (remainingWatts > 0) {
-        for (const cand of candidates) {
-            if (cand.unitWatts <= remainingWatts) {
-                const current = emodeCounts[cand.facility] || 0;
-                const owned = ownedCounts[cand.facility] || 0;
-                if (current < owned && usedWatts + cand.unitWatts <= maxWatts) {
-                    emodeCounts[cand.facility] = current + 1;
-                    usedWatts += cand.unitWatts;
-                    diagnostics.push({
-                        facility: cand.facility,
-                        level: cand.level,
-                        item: cand.item,
-                        units: 1,
-                        unitWatts: cand.unitWatts,
-                        scorePerWatt: Math.round(cand.scorePerWatt * 10) / 10,
-                        marginalRevenuePerHr: Math.round(cand.marginalRevenuePerHr),
-                        reason: 'backfill_remaining_budget'
-                    });
-                }
-            }
-        }
-    }
+    const emodeTierCounts = Array.from(tierCountMap.values()).filter(t => t.count > 0);
+    Object.defineProperty(emodeCounts, '_tier_counts', {
+        value: emodeTierCounts,
+        enumerable: false,
+        writable: true
+    });
 
     Object.defineProperty(emodeCounts, '_diagnostics', {
         value: diagnostics,
@@ -3093,7 +3327,7 @@ function homelandSvg(layout, homeLevel) {
     const coverage = layout.pieces.flatMap(p => p.members)
         .filter(m => m.building && m.mode)
         .map(m => ({ x: m.x + m.w / 2 - ENVIRONMENT_COVERAGE_RADIUS, y: m.y + m.h / 2 - ENVIRONMENT_COVERAGE_RADIUS, w: ENVIRONMENT_COVERAGE_RADIUS * 2, h: ENVIRONMENT_COVERAGE_RADIUS * 2, mode: m.mode }));
-    
+
     const plots = homelandPlots();
     const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
     const placed = [...storages, ...layout.pieces.flatMap(p => p.members)];
@@ -3789,21 +4023,86 @@ function attachRosterHandlers() {
 }
 
 // The Aniimo Team card for a roster plan: how busy each card's Aniimo are and where. A resident
+// The Aniimo Team card for a roster plan: how busy each card's Aniimo are and where. A resident
 // facility keeps its Aniimo all day; environment buildings too (see `staffing`).
-function renderRosterSummary(plan) {
-    const busy = roster.map(() => 0);
-    const where = roster.map(() => new Map());
+export function renderRosterSummary(plan, options = {}) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const activeRoster = options.roster || options.crew?.members || (typeof roster !== 'undefined' ? roster : []);
+    const busy = activeRoster.map(() => 0);
+    const where = activeRoster.map(() => new Map());
+    const guardDoubleCountingViolations = [];
+    const guardMappingErrors = [];
+
     (plan.coin_items || []).forEach(step => {
-        if (step.crew == null || step.status !== 'producing' || !roster[step.crew]) return;
+        if (step.crew == null || step.status !== 'producing' || !activeRoster[step.crew]) return;
         busy[step.crew] += RESIDENT_FACILITIES.has(step.facility) ? step.facility_count : (step.busy_units ?? step.facility_count);
         const place = `${step.facility} (${prettyItem(step.item_name)})`;
         where[step.crew].set(place, (where[step.crew].get(place) || 0) + step.facility_count);
     });
     (plan.staffing || []).forEach(([building, member, share]) => {
-        if (!roster[member]) return;
+        if (!activeRoster[member]) return;
         busy[member] += share;
         where[member].set(building, (where[member].get(building) || 0) + share);
     });
+
+    // Process guard_staffing directly for the active roster
+    if (Array.isArray(plan.guard_staffing) && plan.guard_staffing.length > 0) {
+        plan.guard_staffing.forEach((entry) => {
+            let memberIdx, count;
+            if (Array.isArray(entry)) {
+                [memberIdx, count] = entry;
+            } else if (entry && typeof entry === 'object') {
+                memberIdx = entry.aniimo_index ?? entry.member ?? entry.index;
+                count = entry.count ?? 1;
+            } else {
+                return;
+            }
+            if (!Number.isInteger(memberIdx) || memberIdx < 0 || memberIdx >= activeRoster.length) {
+                guardMappingErrors.push({
+                    index: memberIdx,
+                    count,
+                    message: isVi
+                        ? `Lỗi mapping: Solver gán guard cho index #${memberIdx} nhưng roster chỉ có ${activeRoster.length} thành viên`
+                        : `Mapping error: Solver assigned guard to index #${memberIdx} but roster has only ${activeRoster.length} members`
+                });
+                return;
+            }
+
+            const memberObj = activeRoster[memberIdx];
+        const parsedMemberCount = Number(memberObj?.count);
+        const memberCount = Number.isFinite(parsedMemberCount) && parsedMemberCount >= 0 ? parsedMemberCount : 1;
+            const validGuardCount = Number.isFinite(count) && count > 0 ? count : 0;
+            if (validGuardCount === 0) {
+                guardMappingErrors.push({
+                    index: memberIdx,
+                    count,
+                    message: isVi
+                        ? `Lỗi mapping: số Aniimo trực trụ không hợp lệ tại index #${memberIdx}`
+                        : `Mapping error: invalid guard count at index #${memberIdx}`
+                });
+                return;
+            }
+
+            // A roster row may represent multiple physical Aniimo. Only report a
+            // collision when existing work plus guards exceeds that group capacity.
+            if (busy[memberIdx] + validGuardCount > memberCount + 1e-6) {
+                const label = typeof rosterLabel === 'function' ? rosterLabel(memberObj, memberIdx) : `Member #${memberIdx}`;
+                guardDoubleCountingViolations.push({
+                    index: memberIdx,
+                    name: label,
+                    existingBusy: busy[memberIdx],
+                    guardCount: validGuardCount,
+                    memberCount
+                });
+            }
+            busy[memberIdx] += validGuardCount;
+            const guardPlace = isVi
+                ? (validGuardCount > 1 ? `⚡ Trực trạm điện ×${validGuardCount}` : '⚡ Trực trạm điện')
+                : (validGuardCount > 1 ? `⚡ Power Pole Guard ×${validGuardCount}` : '⚡ Power Pole Guard');
+            where[memberIdx].set(guardPlace, (where[memberIdx].get(guardPlace) || 0) + validGuardCount);
+        });
+    }
+
     // The growing jobs (sowing, reaping and the like) take seconds a harvest, so they don't count
     // as busy time, but someone has to do them: each goes to the least busy Aniimo able to.
     const jobs = new Map();
@@ -3814,34 +4113,74 @@ function renderRosterSummary(plan) {
         });
     });
     jobs.forEach(({ job, ability, level, facility }) => {
-        const able = roster.map((a, i) => i).filter(i => (roster[i].abilities[ability] || 0) >= level);
+        const able = activeRoster.map((a, i) => i).filter(i => (activeRoster[i].abilities[ability] || 0) >= level);
         if (!able.length) return;
-        const pick = able.reduce((a, b) => (busy[b] / roster[b].count < busy[a] / roster[a].count ? b : a));
+        const pick = able.reduce((a, b) => (busy[b] / activeRoster[b].count < busy[a] / activeRoster[a].count ? b : a));
         const place = `${job} on ${facility}`;
         if (!where[pick].has(place)) where[pick].set(place, 1);
     });
-    const have = roster.reduce((sum, a) => sum + a.count, 0);
-    const working = roster.reduce((sum, a, i) => sum + Math.min(a.count, Math.ceil(busy[i] - 1e-6)), 0);
-    const rows = roster.map((aniimo, i) => {
+    const have = activeRoster.reduce((sum, a) => sum + a.count, 0);
+    const working = activeRoster.reduce((sum, a, i) => sum + Math.min(a.count, Math.ceil(busy[i] - 1e-6)), 0);
+    const rows = activeRoster.map((aniimo, i) => {
         const places = [...where[i]].map(([place, n]) => Number.isInteger(n) && n > 1 ? `${place} ×${n}` : place).join(', ');
-        const abilities = Object.entries(aniimo.abilities).map(([ability, level]) => `${abilityTag(ability)} ${level}`).join(' ');
-        const letters = aniimo.personalities.map(personalityLetter).join('');
-        return `<tr><td data-label="Aniimo">${rosterLabel(aniimo, i)}<div class="hint small">${abilities} · ${letters}</div></td><td data-label="How many">${aniimo.count}</td><td data-label="Busy on average">${busy[i].toFixed(1)}</td><td data-label="Where">${places || '<span class="hint small">idle</span>'}</td></tr>`;
+        const abilities = Object.entries(aniimo.abilities || {}).map(([ability, level]) => `${abilityTag ? abilityTag(ability) : ability} ${level}`).join(' ');
+        const letters = (aniimo.personalities || []).map(p => typeof personalityLetter === 'function' ? personalityLetter(p) : p[0]).join('');
+        const label = typeof rosterLabel === 'function' ? rosterLabel(aniimo, i) : (aniimo.name || `Aniimo #${i + 1}`);
+        return `<tr><td data-label="Aniimo">${label}<div class="hint small">${abilities} · ${letters}</div></td><td data-label="How many">${aniimo.count}</td><td data-label="Busy on average">${busy[i].toFixed(1)}</td><td data-label="Where">${places || '<span class="hint small">idle</span>'}</td></tr>`;
     }).join('');
-    document.getElementById('aniimo-summary').innerHTML = roster.length
-        ? `<table class="aniimo-table"><thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead><tbody>${rows}</tbody></table>
-           <p class="hint small">${working} of your ${have} Aniimo have work in this plan.</p>`
-        : '<p class="hint">Add the Aniimo you have under My Aniimo to plan with them.</p>';
-    document.getElementById('aniimo-collapsed-summary').textContent = '';
-    document.getElementById('aniimo-abilities').innerHTML = '';
+
+    let warningsHtml = '';
+    if (guardDoubleCountingViolations.length > 0) {
+        warningsHtml += `
+            <div class="guard-invariant-warning" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 4px; color: #fca5a5; font-size: 0.85rem;">
+                ⚠️ <strong>${isVi ? 'Vi phạm bất biến phân công Guard' : 'Guard Assignment Invariant Violation'}:</strong>
+                ${guardDoubleCountingViolations.map(v => isVi
+                    ? `Thành viên <strong>${v.name}</strong> có tổng việc và trực trụ vượt số lượng trong nhóm (${v.existingBusy} việc + ${v.guardCount} trụ / ${v.memberCount} Aniimo).`
+                    : `Member <strong>${v.name}</strong> has more assigned work and guard duty than the group size (${v.existingBusy} work + ${v.guardCount} poles / ${v.memberCount} Aniimo).`
+                ).join('<br>')}
+            </div>`;
+    }
+    if (guardMappingErrors.length > 0) {
+        warningsHtml += `
+            <div class="guard-mapping-warning" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 4px; color: #fcd34d; font-size: 0.85rem;">
+                ⚠️ <strong>${isVi ? 'Cảnh báo ánh xạ Guard' : 'Guard Mapping Warning'}:</strong>
+                ${guardMappingErrors.map(e => e.message).join('<br>')}
+            </div>`;
+    }
+
+    const container = document.getElementById('aniimo-summary');
+    if (container) {
+        container.innerHTML = activeRoster.length
+            ? `<table class="aniimo-table"><thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead><tbody>${rows}</tbody></table>
+               <p class="hint small">${working} of your ${have} Aniimo have work in this plan.</p>
+               ${warningsHtml}`
+            : `<p class="hint">Add the Aniimo you have under My Aniimo to plan with them.</p>${warningsHtml}`;
+    }
+    const collapsedSummary = document.getElementById('aniimo-collapsed-summary');
+    if (collapsedSummary) collapsedSummary.textContent = '';
+    const abilitiesEl = document.getElementById('aniimo-abilities');
+    if (abilitiesEl) abilitiesEl.innerHTML = '';
     const count = document.getElementById('aniimo-count');
-    document.getElementById('aniimo-count-have').textContent = working;
-    const of = document.getElementById('aniimo-count-of');
-    of.textContent = have;
-    of.hidden = false;
-    count.hidden = false;
-    count.classList.remove('over');
-    count.title = `${working} of your ${have} Aniimo have work in this plan`;
+    if (count) {
+        const haveEl = document.getElementById('aniimo-count-have');
+        if (haveEl) haveEl.textContent = working;
+        const of = document.getElementById('aniimo-count-of');
+        if (of) {
+            of.textContent = have;
+            of.hidden = false;
+        }
+        count.hidden = false;
+        count.classList.remove('over');
+        count.title = `${working} of your ${have} Aniimo have work in this plan`;
+    }
+    return {
+        working,
+        have,
+        busy,
+        where,
+        guardDoubleCountingViolations,
+        guardMappingErrors
+    };
 }
 
 // --- Season (Lễ hội Trung Thu) -------------------------------------------------------------
@@ -3988,7 +4327,9 @@ function recipeLabel(recipe) {
 
 async function loadRecipeIndex() {
     try {
-        recipeIndex = JSON.parse(await callWorker('get_all_items'))
+        const rawItems = JSON.parse(await callWorker('get_all_items'));
+        window.ALL_RECIPES_MAP = new Map(rawItems.map(r => [r.name, r]));
+        recipeIndex = rawItems
             .map(r => ({ name: r.name, facility: r.facility, cost: r.cost || 0, seasonSeedCost: r.season_seed_cost || 0, environment: r.environment || null, jobs: r.jobs || [], ingredients: r.raw_materials || [], amounts: r.required_amount || [], yieldAmount: r.yield_amount || 1, byproduct: r.byproduct_item || null, byproductAmount: r.byproduct?.[1] || 0, turns: r.sell_currency === 'none' }))
             .sort((a, b) => a.facility.localeCompare(b.facility) || a.name.localeCompare(b.name));
         document.getElementById('skip-options').innerHTML =
@@ -6243,7 +6584,8 @@ function aniimoLabel(step) {
     const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
 
     // Xác định chế độ hiện tại của step
-    let mode = step.mode;
+    const ovr = facilityOverrides.find(o => o.facility === baseFac);
+    let mode = step.mode || (ovr && ovr.target_mode);
     if (!mode) {
         if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
             mode = 'electric';
@@ -6251,6 +6593,11 @@ function aniimoLabel(step) {
             mode = 'manual';
         } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
             mode = 'prismana';
+        } else if (ovr) {
+            if (emodeAvailable && ovr.electric_count > 0) mode = 'electric';
+            else if (ovr.specialist_count > 0) mode = 'prismana';
+            else if (ovr.manual_count > 0) mode = 'manual';
+            else mode = 'prismana';
         } else {
             const facDef = FACILITIES.find(f => f.name === baseFac);
             const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
@@ -6258,8 +6605,8 @@ function aniimoLabel(step) {
                 ? 'electric'
                 : 'prismana';
         }
-        step.mode = mode;
     }
+    step.mode = mode;
 
     if (mode === 'electric' && emodeAvailable) {
         const title = isVi ? 'Chế độ điện (tự động, không cần công nhân Aniimo)' : 'Operating in Electric Mode (automatic, no Aniimo worker needed)';
@@ -6409,7 +6756,8 @@ function planRows(rows, options = {}) {
         const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
 
         // Xác định mode hiện tại:
-        let currentMode = step.mode;
+        const ovr = facilityOverrides.find(o => o.facility === baseFac);
+        let currentMode = (ovr && ovr.target_mode) ? ovr.target_mode : step.mode;
         if (!currentMode) {
             if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
                 currentMode = 'electric';
@@ -6417,20 +6765,18 @@ function planRows(rows, options = {}) {
                 currentMode = 'manual';
             } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
                 currentMode = 'prismana';
+            } else if (ovr) {
+                if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
+                else if (ovr.specialist_count > 0) currentMode = 'prismana';
+                else if (ovr.manual_count > 0) currentMode = 'manual';
+                else currentMode = 'prismana';
+            } else if (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+                currentMode = 'electric';
             } else {
-                const ovr = facilityOverrides.find(o => o.facility === baseFac);
-                if (ovr) {
-                    if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
-                    else if (ovr.specialist_count > 0) currentMode = 'prismana';
-                    else if (ovr.manual_count > 0) currentMode = 'manual';
-                } else if (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
-                    currentMode = 'electric';
-                } else {
-                    currentMode = 'prismana';
-                }
+                currentMode = 'prismana';
             }
-            step.mode = currentMode;
         }
+        step.mode = currentMode;
 
         // Tính wattage badge:
         const wattsPerUnit = emodeAvailable ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
@@ -6481,6 +6827,18 @@ function planRows(rows, options = {}) {
                     <div class="item-cell">
                         ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
                         ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                        ${(() => {
+                            if (!step.item_name || !step.cycle_time) return '';
+                            const uSec = step.units_per_second || (step.facility_count * (step.yield_amount || 1) / step.cycle_time);
+                            const uHour = Math.round(uSec * 3600);
+                            const rSec = step.rate_per_second || 0;
+                            const cHour = Math.round(rSec * 3600);
+                            return `
+                                <div class="item-cycle-info">
+                                    <span class="cycle-time-badge">⏱️ ${step.cycle_time.toFixed(1)}s</span> · <span class="rate-badge">📦 ${uHour.toLocaleString()}/h</span>${cHour > 0 ? ` · <span class="coins-badge">💰 ${formatNumber(cHour)}/h</span>` : ''}
+                                </div>
+                            `;
+                        })()}
                     </div>
                 </td>
                 <td data-label="Aniimo">${aniimoLabel(step)}</td>
@@ -6534,10 +6892,10 @@ function aniimoNeeds(g) {
 // A row asks for enough Aniimo to cover its work on average (a facility waiting on ingredients
 // frees its Aniimo), rounded up; facilities with a resident Aniimo (Sandcastle and the like) are
 // always busy, so they count one each.
-function renderAniimoSummary(plan) {
-    if (selectedSetupTab() === 'custom') {
-        renderRosterSummary(plan);
-        return;
+export function renderAniimoSummary(plan, options = {}) {
+    const isCustom = options.tab === 'custom' || (typeof selectedSetupTab === 'function' && selectedSetupTab() === 'custom');
+    if (isCustom) {
+        return renderRosterSummary(plan, options);
     }
     const container = document.getElementById('aniimo-summary');
     const groups = new Map();
@@ -6761,32 +7119,64 @@ function renderAniimoSummary(plan) {
     const profile = getPowerProfile(homeLevel);
     const provTag = profile.status === 'provisional' ? (isVi ? ' - Tạm thời' : ' - Provisional') : '';
 
+    const activeRoster = options.roster || options.crew || (typeof getRosterInput === 'function' ? getRosterInput() : null) || (typeof readStorage === 'function' ? readStorage()?.roster : null);
+
     // Guard Aniimo determination: strictly from solver plan.guards and plan.guard_staffing
     const guardCount = typeof plan.guards === 'number' ? plan.guards : (plan.guard_staffing ? plan.guard_staffing.reduce((sum, [, v]) => sum + v, 0) : 0);
 
     if (guardCount > 0) {
-        if (Array.isArray(plan.guard_staffing) && plan.guard_staffing.length > 0 && typeof crew === 'object' && crew && Array.isArray(crew.members)) {
-            // Roster mode: Display specific roster members assigned to guard duty
-            for (const [memberIdx, count] of plan.guard_staffing) {
-                const member = crew.members[memberIdx];
-                const ab = member?.ability || (member?.abilities ? Object.keys(member.abilities)[0] : 'Unverified');
-                const abName = (isVi && window.VI_ABILITIES && window.VI_ABILITIES[ab]) ? window.VI_ABILITIES[ab] : ab;
-                const personalityList = (member?.personalities || []).join(', ');
-                const label = member?.name || `Aniimo #${memberIdx + 1} (${abName}${personalityList ? ' - ' + personalityList : ''})`;
+        if (Array.isArray(plan.guard_staffing) && plan.guard_staffing.length > 0) {
+            // Có guard_staffing từ solver: Ánh xạ với roster thực tế
+            if (activeRoster && Array.isArray(activeRoster.members)) {
+                for (const [memberIdx, count] of plan.guard_staffing) {
+                    if (typeof memberIdx === 'number' && memberIdx >= 0 && memberIdx < activeRoster.members.length) {
+                        const member = activeRoster.members[memberIdx];
+                        const ab = member?.ability || (member?.abilities ? Object.keys(member.abilities)[0] : 'Unverified');
+                        const abName = (isVi && window.VI_ABILITIES && window.VI_ABILITIES[ab]) ? window.VI_ABILITIES[ab] : ab;
+                        const personalityList = (member?.personalities || []).join(', ');
+                        const label = member?.name || `Aniimo #${memberIdx + 1} (${abName}${personalityList ? ' - ' + personalityList : ''})`;
 
-                stationaryMembers.push({
-                    name: `⚡ ${count}× ${label}`,
-                    count: count,
-                    ability: ab,
-                    level: member?.level || 4,
-                    guard_eligibility: 'unverified',
-                    role: isVi ? `${count}× Trực trụ điện (Lưới ${profile.capacity}W${provTag})` : `${count}× Power Pole Guard (${profile.capacity}W Grid${provTag})`,
-                    desc: isVi ? 'Trực lưới điện 24/7 (Kỹ năng yêu cầu đang kiểm chứng trong game)' : 'Maintains 24/7 grid for E-mode (Required skill unverified in-game)',
-                    specific: isVi ? 'Kỹ năng chưa xác minh' : 'Skill unverified'
-                });
+                        stationaryMembers.push({
+                            name: `⚡ ${count}× ${label}`,
+                            count: count,
+                            ability: ab,
+                            level: member?.level || 4,
+                            guard_eligibility: 'unverified',
+                            role: isVi ? `${count}× Trực trụ điện (Lưới ${profile.capacity}W${provTag})` : `${count}× Power Pole Guard (${profile.capacity}W Grid${provTag})`,
+                            desc: isVi ? 'Trực lưới điện 24/7 (Kỹ năng yêu cầu đang kiểm chứng trong game)' : 'Maintains 24/7 grid for E-mode (Required skill unverified in-game)',
+                            specific: isVi ? 'Kỹ năng chưa xác minh' : 'Skill unverified'
+                        });
+                    } else {
+                        // Index không hợp lệ hoặc ngoài phạm vi roster: Báo lỗi mapping rõ ràng, không che giấu
+                        stationaryMembers.push({
+                            name: isVi ? `⚡ ${count}× Thành viên #${memberIdx} (Lỗi mapping / Ngoài phạm vi roster)` : `⚡ ${count}× Member #${memberIdx} (Mapping Error / Out of roster bounds)`,
+                            count: count,
+                            ability: 'Unverified',
+                            level: 1,
+                            guard_eligibility: 'invalid_index',
+                            role: isVi ? `${count}× Trực trụ điện (Lỗi index)` : `${count}× Power Pole Guard (Index error)`,
+                            desc: isVi ? `Lỗi ánh xạ: Roster có ${activeRoster.members.length} thành viên nhưng solver gán index ${memberIdx}` : `Mapping error: Roster has ${activeRoster.members.length} members but solver assigned index ${memberIdx}`,
+                            specific: isVi ? 'Lỗi index' : 'Index error'
+                        });
+                    }
+                }
+            } else {
+                // Có guard_staffing nhưng không có roster data
+                for (const [memberIdx, count] of plan.guard_staffing) {
+                    stationaryMembers.push({
+                        name: isVi ? `⚡ ${count}× Thành viên #${memberIdx} (Thiếu dữ liệu roster)` : `⚡ ${count}× Member #${memberIdx} (Missing roster data)`,
+                        count: count,
+                        ability: 'Unverified',
+                        level: 1,
+                        guard_eligibility: 'missing_roster',
+                        role: isVi ? `${count}× Trực trụ điện` : `${count}× Power Pole Guard`,
+                        desc: isVi ? 'Trực lưới điện 24/7 (Thiếu dữ liệu roster để hiển thị tên)' : 'Maintains 24/7 grid for E-mode (Missing roster data)',
+                        specific: isVi ? 'Thiếu roster' : 'Missing roster'
+                    });
+                }
             }
         } else {
-            // Generic mode (no individual roster members)
+            // Generic mode (không có individual roster members)
             stationaryMembers.push({
                 name: isVi ? `⚡ ${guardCount}× Trực trụ điện (Kỹ năng yêu cầu đang kiểm chứng trong game)` : `⚡ ${guardCount}× Power Pole Guard (Skill requirement unverified in-game)`,
                 count: guardCount,
@@ -6805,11 +7195,11 @@ function renderAniimoSummary(plan) {
         const rawFac = step.facility || '';
         const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
         if (baseFac === 'Farmland' || baseFac === 'Woodland' || baseFac === 'Woodworking Bench' || baseFac === 'Chimney Kiln') return;
-        
+
         const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)');
         const isManual = step.is_manual || rawFac.includes('(Manual)') || isSpecialist;
         const isResident = RESIDENT_FACILITIES.has(baseFac) || baseFac === 'Nimbus Bed' || baseFac === 'Tidewhisper Sandcastle' || baseFac === 'Dewy House' || baseFac === 'Starfall Hammock';
-        
+
         if (isResident || isManual) {
             const count = step.facility_count || 1;
             const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
@@ -6923,7 +7313,7 @@ function renderAniimoSummary(plan) {
                     <span class="roster-group-label">⚡ ${isVi ? 'Đứng Máy 24/7' : 'Stationary 24/7'}</span>
                     <span class="roster-group-count">${statTotal}</span>
                 </div>
-                <p class="roster-group-desc">${isVi ? `${powerPoles} Trụ điện · Thú nuôi · Cơ sở thủ công` : `${powerPoles} Power poles · Pets · Manual facilities`}</p>
+                <p class="roster-group-desc">${isVi ? `${guardCount} Trực trụ điện · Thú nuôi · Cơ sở thủ công` : `${guardCount} Power pole guards · Pets · Manual facilities`}</p>
             </div>
         </div>
     `;
@@ -7840,10 +8230,11 @@ async function runFindPlan() {
             const chosenRate = getPowerGridRate();
             const targetWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
             input.facility_overrides = originalOverrides;
-            const allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts, { 
+            const allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts, {
                 overrides: originalOverrides,
                 powerGridRate: chosenRate,
-                productionAniimoCap: input.production_aniimo_cap
+                productionAniimoCap: input.production_aniimo_cap,
+                facilities: input.facilities
             });
             const t_alloc = performance.now() - t0_alloc;
 
@@ -7857,6 +8248,7 @@ async function runFindPlan() {
                 const t0_final = performance.now();
                 input.emode_facilities = Object.keys(allocatedCounts);
                 input.emode_facility_counts = allocatedCounts;
+                input.emode_tier_counts = allocatedCounts._tier_counts || [];
                 input.power_grid_rate = chosenRate;
 
                 const emodeJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }));
@@ -8442,7 +8834,7 @@ window.closeFacilitiesOnBackdrop = function (event) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-    if (!document.getElementById('plan-btn') && !document.getElementById('facility-cards')) {
+    if (!document.getElementById('optimize-btn') && !document.getElementById('home-level')) {
         return; // Running in headless context or benchmark.html
     }
     document.getElementById('facilities-recipe-search')?.addEventListener('input', filterFacilityRecipeTables);

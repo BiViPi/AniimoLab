@@ -622,4 +622,214 @@ fn test_rv_power_and_guard_boundary_rules() {
     assert_eq!(p20_on.facility_counts.worker_cap(), Some(27));
 }
 
+#[test]
+fn test_mixed_tier_partition_single_tier_emode() {
+    // Fixture: Woodworking Bench has 1 unit at Lv.3 and 1 unit at Lv.5 (total = 2).
+    // E-mode tier counts specifies only 1 unit of Woodworking Bench at Lv.5 runs in E-mode.
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [
+                {"count": 1, "level": 3},
+                {"count": 1, "level": 5}
+            ]
+        },
+        "power_poles": 0,
+        "emode_facilities": ["Woodworking Bench"],
+        "emode_tier_counts": [
+            {"facility": "Woodworking Bench", "level": 5, "count": 1}
+        ]
+    }"#;
+    let prep = PreparedInput::from_json(json_str).expect("parse mixed tiers");
 
+    // Total units before and after partition must be strictly preserved (1+1=2):
+    let e_count = prep.facility_counts.get_count("Woodworking Bench");
+    let m_count = prep.facility_counts.get_count("Woodworking Bench (Manual)");
+    assert_eq!(e_count + m_count, 2, "Total units must be strictly preserved (1+1=2)");
+    assert_eq!(e_count, 1, "Electric Woodworking Bench must have exactly 1 unit");
+    assert_eq!(m_count, 1, "Manual Woodworking Bench must have exactly 1 unit");
+
+    // Tier integrity check:
+    // Electric Woodworking Bench must retain level 5:
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 5), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 3), 0);
+    // Manual Woodworking Bench must retain level 3, NOT incorrectly promoted to level 5:
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench (Manual)", 3), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench (Manual)", 5), 0);
+
+    // Recipes check:
+    let has_manual_items = prep.items.iter().any(|i| i.facility == "Woodworking Bench (Manual)");
+    let has_electric_items = prep.items.iter().any(|i| i.facility == "Woodworking Bench");
+    assert!(has_manual_items, "Must create Woodworking Bench (Manual) items");
+    assert!(has_electric_items, "Must keep Woodworking Bench electric items");
+}
+
+#[test]
+fn test_mixed_tier_partition_both_tiers_emode() {
+    // Both Lv.3 and Lv.5 run in E-mode
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [
+                {"count": 1, "level": 3},
+                {"count": 1, "level": 5}
+            ]
+        },
+        "power_poles": 0,
+        "emode_facilities": ["Woodworking Bench"],
+        "emode_tier_counts": [
+            {"facility": "Woodworking Bench", "level": 3, "count": 1},
+            {"facility": "Woodworking Bench", "level": 5, "count": 1}
+        ]
+    }"#;
+    let prep = PreparedInput::from_json(json_str).expect("parse mixed tiers both e");
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench"), 2);
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench (Manual)"), 0);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 3), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 5), 1);
+}
+
+#[test]
+fn test_mixed_tier_partition_fallback_from_emode_facility_counts() {
+    // When emode_tier_counts is empty, fallback allocates from highest level downwards,
+    // preserving the distinct tiers without flattening into a single level.
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [
+                {"count": 1, "level": 3},
+                {"count": 1, "level": 5}
+            ]
+        },
+        "power_poles": 0,
+        "emode_facilities": ["Woodworking Bench"],
+        "emode_facility_counts": {
+            "Woodworking Bench": 1
+        }
+    }"#;
+    let prep = PreparedInput::from_json(json_str).expect("parse mixed tiers fallback");
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench"), 1);
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench (Manual)"), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 5), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench (Manual)", 3), 1);
+}
+
+#[test]
+fn test_mixed_tier_partition_with_fixed_override() {
+    // 2 units at Lv.3 and 2 units at Lv.5. Override explicitly sets 1 unit of Lv.3 to electric.
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [
+                {"count": 2, "level": 3},
+                {"count": 2, "level": 5}
+            ]
+        },
+        "power_poles": 0,
+        "facility_overrides": [
+            {
+                "facility": "Woodworking Bench",
+                "level": 3,
+                "electric_count": 1,
+                "specialist_count": 0
+            }
+        ]
+    }"#;
+    let prep = PreparedInput::from_json(json_str).expect("parse mixed tiers override");
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench"), 1);
+    assert_eq!(prep.facility_counts.get_count("Woodworking Bench (Manual)"), 3);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench", 3), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench (Manual)", 3), 1);
+    assert_eq!(prep.facility_counts.get_tier_count("Woodworking Bench (Manual)", 5), 2);
+}
+
+#[test]
+fn test_override_unowned_level_validation_error() {
+    // Facility Mine only owned at Lv.5. User overrides at Lv.4 -> must fail validation!
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Mine": [{"count": 3, "level": 5}]
+        },
+        "facility_overrides": [
+            {
+                "facility": "Mine",
+                "level": 4,
+                "electric_count": 1,
+                "specialist_count": 0,
+                "manual_count": 0
+            }
+        ]
+    }"#;
+    let res = PreparedInput::from_json(json_str);
+    assert!(res.is_err(), "PreparedInput must return Err for unowned level override");
+    let err_str = res.err().unwrap();
+    assert!(err_str.contains("Validation error"), "Error must contain 'Validation error', got: {}", err_str);
+    assert!(err_str.contains("Level 4"), "Error must mention Level 4, got: {}", err_str);
+}
+
+#[test]
+fn test_override_level_overflow_validation_error() {
+    // Facility Mine owned 3 units at Lv.5. User overrides 4 electric units -> must fail validation!
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Mine": [{"count": 3, "level": 5}]
+        },
+        "facility_overrides": [
+            {
+                "facility": "Mine",
+                "level": 5,
+                "electric_count": 4,
+                "specialist_count": 0,
+                "manual_count": 0
+            }
+        ]
+    }"#;
+    let res = PreparedInput::from_json(json_str);
+    assert!(res.is_err(), "PreparedInput must return Err for tier overflow override");
+    let err_str = res.err().unwrap();
+    assert!(err_str.contains("Validation error"), "Error must contain 'Validation error', got: {}", err_str);
+    assert!(err_str.contains("exceeding 3 owned units at this tier"), "Error must mention 3 owned units, got: {}", err_str);
+}
+
+#[test]
+fn test_emode_tier_counts_unowned_level_validation_error() {
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [{"count": 2, "level": 5}]
+        },
+        "emode_facilities": ["Woodworking Bench"],
+        "emode_tier_counts": [
+            {"facility": "Woodworking Bench", "level": 3, "count": 1}
+        ]
+    }"#;
+    let res = PreparedInput::from_json(json_str);
+    assert!(res.is_err(), "PreparedInput must return Err for unowned tier in emode_tier_counts");
+    let err_str = res.err().unwrap();
+    assert!(err_str.contains("Validation error"), "Error must contain 'Validation error', got: {}", err_str);
+    assert!(err_str.contains("Lv.3 but facility has no units"), "Error must mention Lv.3, got: {}", err_str);
+}
+
+#[test]
+fn test_emode_tier_counts_aggregate_mismatch_validation_error() {
+    let json_str = r#"{
+        "currency": "coins",
+        "facilities": {
+            "Woodworking Bench": [{"count": 3, "level": 5}]
+        },
+        "emode_facilities": ["Woodworking Bench"],
+        "emode_facility_counts": {
+            "Woodworking Bench": 3
+        },
+        "emode_tier_counts": [
+            {"facility": "Woodworking Bench", "level": 5, "count": 2}
+        ]
+    }"#;
+    let res = PreparedInput::from_json(json_str);
+    assert!(res.is_err(), "PreparedInput must return Err for tier sum vs aggregate count mismatch");
+    let err_str = res.err().unwrap();
+    assert!(err_str.contains("Validation error"), "Error must contain 'Validation error', got: {}", err_str);
+    assert!(err_str.contains("does not match emode_facility_counts"), "Error must mention mismatch, got: {}", err_str);
+}

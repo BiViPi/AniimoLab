@@ -59,24 +59,31 @@
             margin-left: 0.5rem;
         }
         .badge-running { background: #f59e0b; color: #000; }
-        .badge-done { background: #10b981; color: #000; }
+        .badge-pass { background: #10b981; color: #000; }
         .badge-fail { background: #ef4444; color: #fff; }
+        .exec-state {
+            margin-left: 0.5rem;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
     <h1>⚡ AniimoLab - Smart Two-Stage Solver Benchmark</h1>
     <p class="desc">Kiểm thử tự động các yêu cầu: Canonical Power Profile, Guard Activation, Latency (p50/p95), FAST_RE_SOLVE baseline, Exhaustive Reference Quality Gap và Overrides/Quotas.</p>
     <button id="run-btn">Chạy Toàn Bộ Benchmark</button>
+    <span id="exec-state" class="exec-state"></span>
     <span id="status-badge" class="status-badge" style="display: none;"></span>
 
     <div id="log">Nhấn "Chạy Toàn Bộ Benchmark" để bắt đầu...</div>
 
     <script type="module">
-        import { runAllBenchmarks } from './benchmark-runner.js';
+        import { runAllBenchmarks, updateBadgeFromResult } from './benchmark-runner.js';
 
         const runBtn = document.getElementById('run-btn');
         const logEl = document.getElementById('log');
         const badgeEl = document.getElementById('status-badge');
+        const execEl = document.getElementById('exec-state');
 
         function appendLog(msg) {
             logEl.textContent += msg + '\n';
@@ -86,20 +93,22 @@
         async function start() {
             runBtn.disabled = true;
             logEl.textContent = '';
+            if (execEl) execEl.textContent = 'Đang thực thi...';
             badgeEl.style.display = 'inline-block';
             badgeEl.className = 'status-badge badge-running';
-            badgeEl.textContent = 'Đang chạy...';
+            badgeEl.textContent = 'RUNNING';
 
             try {
                 const report = await runAllBenchmarks(appendLog);
                 window.BENCHMARK_REPORT = report;
-                badgeEl.className = 'status-badge badge-done';
-                badgeEl.textContent = 'HOÀN TẤT (DONE)';
+                updateBadgeFromResult(report, badgeEl, execEl);
                 appendLog('\n[JSON Artifact]: window.BENCHMARK_REPORT đã sẵn sàng.');
+
             } catch (err) {
                 console.error(err);
+                if (execEl) execEl.textContent = 'Lỗi thực thi (Execution Error)';
                 badgeEl.className = 'status-badge badge-fail';
-                badgeEl.textContent = 'LỖI (FAIL)';
+                badgeEl.textContent = 'FAIL';
                 appendLog('\n❌ LỖI: ' + (err.stack || err.message));
             } finally {
                 runBtn.disabled = false;
@@ -108,6 +117,7 @@
 
         runBtn.addEventListener('click', start);
         window.startBenchmark = start;
+        window.updateBadgeFromResult = (rep) => updateBadgeFromResult(rep, badgeEl, execEl);
         // Tự động chạy nếu có ?autorun trong URL
         if (new URLSearchParams(window.location.search).has('autorun')) {
             start();

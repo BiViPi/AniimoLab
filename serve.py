@@ -32,7 +32,13 @@ Handler.extensions_map.update({
     '.js': 'text/javascript',
 })
 
-port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-with http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler) as httpd:
-    print(f"Serving on port {port} (IPv4 0.0.0.0 / 127.0.0.1)...", flush=True)
+port = int(sys.argv[1]) if len(sys.argv) > 1 else 8888
+try:
+    httpd = DualStackServer(("::", port), Handler)
+    print(f"Serving on port {port} (DualStack IPv4/IPv6, localhost, 127.0.0.1)...", flush=True)
+except Exception as e:
+    print(f"DualStack bind failed ({e}), falling back to standard IPv4 0.0.0.0...", flush=True)
+    httpd = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)
+
+with httpd:
     httpd.serve_forever()

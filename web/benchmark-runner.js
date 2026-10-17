@@ -150,10 +150,10 @@ export async function runAllBenchmarks(onLog = console.log) {
             power_grid_rate: 1.0,
             production_aniimo_cap: 26,
             power_poles: poleCount,
-            specialist_quotas: rv >= 16 ? [
-                { facility: 'Mine', role: 'Earth', tier: 'Prismana', count: 4 },
-                { facility: 'Well', role: 'Water', tier: 'Manual', count: 4 }
-            ] : [],
+            specialist_quotas: rv >= 16 ? {
+                earth_4p_mines: 4,
+                water_4f_wells: 2
+            } : {},
             facility_overrides: [],
             facilities: setup.facilities,
             modules: setup.modules,
@@ -168,6 +168,12 @@ export async function runAllBenchmarks(onLog = console.log) {
         const fallbackTimes = [];
         const fallbackReasons = [];
         let fastResolveErrors = 0;
+        let fastResolveFailures = 0;
+        let fastPathSuccesses = 0;
+        let fallbackSuccesses = 0;
+        let fallbackFailures = 0;
+        let fastPathTimeouts = 0;
+        let solveFailures = 0;
         let samplePlan = null;
 
         for (let i = 0; i < ITERATIONS; i++) {
@@ -177,9 +183,11 @@ export async function runAllBenchmarks(onLog = console.log) {
             const t0_base = performance.now();
             payload.emode_facilities = [];
             payload.emode_facility_counts = {};
+            payload.emode_tier_counts = [];
             const baseResJson = await callWorker('find_plan', JSON.stringify(payload));
             const t_base = performance.now() - t0_base;
             const basePlan = JSON.parse(baseResJson);
+            if (!basePlan || !basePlan.success) solveFailures++;
 
             // 2. Allocator:
             const t0_alloc = performance.now();
@@ -190,9 +198,12 @@ export async function runAllBenchmarks(onLog = console.log) {
             const t0_final = performance.now();
             payload.emode_facilities = Object.keys(allocated);
             payload.emode_facility_counts = allocated;
+            payload.emode_tier_counts = allocated._tier_counts || [];
             const finalResJson = await callWorker('find_plan', JSON.stringify(payload));
             const t_final = performance.now() - t0_final;
             const t_total = performance.now() - t0_total;
+            const finalPlan = JSON.parse(finalResJson);
+            if (!finalPlan || !finalPlan.success) solveFailures++;
 
             baseTimes.push(t_base);
             allocTimes.push(t_alloc);
@@ -207,19 +218,30 @@ export async function runAllBenchmarks(onLog = console.log) {
                 fastElapsed = performance.now() - t0_fast;
                 const fastRes = JSON.parse(fastResJson);
                 if (fastRes && fastRes.fallback_to_full_solve) {
-                    fallbackTimes.push(fastElapsed);
-                    if (!fallbackReasons.includes(fastRes.fallback_reason)) {
-                        fallbackReasons.push(fastRes.fallback_reason || 'solver_timeout');
+                    const fallbackReason = fastRes.fallback_reason || fastRes.fast_resolve_error || 'fallback_used';
+                    if (/time limit|timeout|timed out/i.test(fallbackReason)) fastPathTimeouts++;
+                    if (fastRes.success === true) {
+                        fallbackTimes.push(fastElapsed);
+                        fallbackSuccesses++;
+                    } else {
+                        fastResolveFailures++;
+                        fallbackFailures++;
                     }
-                } else {
+                    if (!fallbackReasons.includes(fallbackReason)) fallbackReasons.push(fallbackReason);
+                } else if (fastRes && fastRes.success === true) {
                     fastPathTimes.push(fastElapsed);
+                    fastPathSuccesses++;
+                } else {
+                    fastResolveFailures++;
+                    if (fastRes?.error && /time limit|timeout|timed out/i.test(fastRes.error)) fastPathTimeouts++;
                 }
             } catch (err) {
                 fastResolveErrors++;
+                if (/time limit|timeout|timed out/i.test(err?.message || String(err))) fastPathTimeouts++;
             }
 
             if (i === 0) {
-                samplePlan = JSON.parse(finalResJson);
+                samplePlan = finalPlan;
                 samplePlan.allocation = allocated;
             }
 
@@ -245,7 +267,13 @@ export async function runAllBenchmarks(onLog = console.log) {
             powerCap,
             poleCount,
             proven_optimal: samplePlan.proven_optimal,
-            success: samplePlan.success,
+            success: Boolean(samplePlan?.success && solveFailures === 0),
+            solve_failures: solveFailures,
+            fast_path_successes: fastPathSuccesses,
+            fallback_successes: fallbackSuccesses,
+            fallback_failures: fallbackFailures,
+            fast_path_timeouts: fastPathTimeouts,
+            fast_resolve_failures: fastResolveFailures,
             rate_per_hour: Math.round((samplePlan.rate_per_second || 0) * 3600),
             allocation: samplePlan.allocation,
             stats: {
@@ -256,7 +284,12 @@ export async function runAllBenchmarks(onLog = console.log) {
                 fast_path: calcStats(fastPathTimes),
                 fallback_solve: calcStats(fallbackTimes),
                 fallback_reasons: fallbackReasons,
-                fast_resolve_errors: fastResolveErrors
+                fast_resolve_errors: fastResolveErrors,
+                fast_resolve_failures: fastResolveFailures,
+                fast_path_successes: fastPathSuccesses,
+                fallback_successes: fallbackSuccesses,
+                fallback_failures: fallbackFailures,
+                fast_path_timeouts: fastPathTimeouts
             }
         };
 
@@ -274,6 +307,10 @@ export async function runAllBenchmarks(onLog = console.log) {
     suite3.fixtures.rv15 = await benchmarkFixture('RV15 (1600W, 2 poles)', 15, 1600, 2);
     suite3.fixtures.rv16 = await benchmarkFixture('RV16 Balanced (2000W, 2 poles, Quotas)', 16, 2000, 2);
     suite3.passed = suite3.fixtures.rv14.success && suite3.fixtures.rv15.success && suite3.fixtures.rv16.success;
+    suite3.measurement_nature = 'exploratory_measurements';
+    suite3.sla_certified = false;
+    suite3.iterations_per_fixture = 3;
+    suite3.disclaimer = '3 iterations are exploratory profiling measurements in browser Web Worker, not a certified production latency SLA.';
     report.suites.suite3_latencies = suite3;
 
     // -------------------------------------------------------------
@@ -358,6 +395,7 @@ export async function runAllBenchmarks(onLog = console.log) {
         aniimo: 'best'
     };
 
+    let exhaustiveSuccessCount = 0;
     for (const combo of validCombinations) {
         const payload = {
             ...baseSmallPayload,
@@ -366,14 +404,18 @@ export async function runAllBenchmarks(onLog = console.log) {
         };
         const resJson = await callWorker('find_plan', JSON.stringify(payload));
         const plan = JSON.parse(resJson);
-        const rate = plan.rate_per_second || 0;
-        if (rate > exhaustiveBestRate) {
-            exhaustiveBestRate = rate;
-            exhaustiveBestCounts = combo.counts;
+        if (plan && plan.success) {
+            exhaustiveSuccessCount++;
+            const rate = plan.rate_per_second || 0;
+            if (rate > exhaustiveBestRate) {
+                exhaustiveBestRate = rate;
+                exhaustiveBestCounts = combo.counts;
+            }
         }
     }
 
-    onLog(`  Exhaustive Global Optimum: ${Math.round(exhaustiveBestRate * 3600)} coins/h với tổ hợp: ${JSON.stringify(exhaustiveBestCounts)}`);
+    const allExhaustivePassed = exhaustiveSuccessCount === validCombinations.length;
+    onLog(`  Exhaustive Global Optimum: ${Math.round(exhaustiveBestRate * 3600)} coins/h với tổ hợp: ${JSON.stringify(exhaustiveBestCounts)} (Success: ${exhaustiveSuccessCount}/${validCombinations.length})`);
 
     // Run Smart Two-Stage on identical setup:
     const baseSmallJson = await callWorker('find_plan', JSON.stringify(baseSmallPayload));
@@ -383,42 +425,53 @@ export async function runAllBenchmarks(onLog = console.log) {
     const smartFinalPayload = {
         ...baseSmallPayload,
         emode_facilities: Object.keys(smartAllocated),
-        emode_facility_counts: smartAllocated
+        emode_facility_counts: smartAllocated,
+        emode_tier_counts: smartAllocated._tier_counts || []
     };
     const smartFinalJson = await callWorker('find_plan', JSON.stringify(smartFinalPayload));
     const smartFinalPlan = JSON.parse(smartFinalJson);
     const smartRate = smartFinalPlan.rate_per_second || 0;
+    const smartPlanSuccess = Boolean(smartFinalPlan && smartFinalPlan.success);
 
-    onLog(`  Smart Two-Stage: ${Math.round(smartRate * 3600)} coins/h với tổ hợp: ${JSON.stringify(smartAllocated)}`);
+    onLog(`  Smart Two-Stage: ${Math.round(smartRate * 3600)} coins/h với tổ hợp: ${JSON.stringify(smartAllocated)} (Success: ${smartPlanSuccess})`);
 
-    const gap = exhaustiveBestRate > 0
+    const referenceValid = allExhaustivePassed && exhaustiveSuccessCount === validCombinations.length
+        && Number.isFinite(exhaustiveBestRate) && exhaustiveBestRate >= 0;
+    const basePlanValid = Boolean(baseSmallPlan && baseSmallPlan.success);
+    const gap = referenceValid && exhaustiveBestRate > 0
         ? ((exhaustiveBestRate - smartRate) / exhaustiveBestRate) * 100
-        : 0;
+        : null;
 
     let smartWatts = 0;
     for (const [fac, count] of Object.entries(smartAllocated)) {
         smartWatts += count * (powerWatts[fac] || 0);
     }
 
-    const gapPass = gap <= 2.0;
+    const gapPass = gap !== null && gap >= 0 && gap <= 2.0;
     const powerBudgetPass = smartWatts <= smallBudget;
-    suite4.passed = gapPass && powerBudgetPass && smartRate > 0;
+    suite4.passed = referenceValid && basePlanValid && gapPass && powerBudgetPass && smartRate > 0 && exhaustiveBestRate > 0 && smartPlanSuccess;
     suite4.exhaustive = {
         rate_per_hour: Math.round(exhaustiveBestRate * 3600),
         counts: exhaustiveBestCounts,
         evaluated_combos: validCombinations.length,
-        infeasible_combos: infeasibleCombinations
+        infeasible_combos: infeasibleCombinations,
+        all_solves_successful: allExhaustivePassed,
+        reference_valid: referenceValid,
+        failed_solves: validCombinations.length - exhaustiveSuccessCount
     };
     suite4.smart_two_stage = {
         rate_per_hour: Math.round(smartRate * 3600),
         counts: smartAllocated,
+        tier_counts: smartAllocated._tier_counts || [],
         allocated_watts: smartWatts,
+        plan_success: smartPlanSuccess,
+        base_plan_success: basePlanValid,
         diagnostics: smartAllocated._diagnostics || []
     };
     suite4.quality_gap_percent = Math.round(gap * 100) / 100;
     suite4.target_proposed = '1-2%';
 
-    onLog(`  Quality Gap = ${suite4.quality_gap_percent}% (Pass: ${gapPass ? 'YES' : 'NO'}, Budget Pass: ${powerBudgetPass ? 'YES' : 'NO'})`);
+    onLog(`  Quality Gap = ${suite4.quality_gap_percent}% (Gap Pass: ${gapPass ? 'YES' : 'NO'}, Budget Pass: ${powerBudgetPass ? 'YES' : 'NO'}, Solves Pass: ${allExhaustivePassed && smartPlanSuccess ? 'YES' : 'NO'})`);
     report.suites.suite4_quality_gap = suite4;
 
     // -------------------------------------------------------------
@@ -473,11 +526,26 @@ export async function runAllBenchmarks(onLog = console.log) {
     suite5.passed = zeroRespected && elecRespected && overflowOwnedPass && overflowWattsPass;
     report.suites.suite5_overrides = suite5;
 
-    // Aggregate Gate
-    report.all_passed = suite1.passed && suite2.passed && suite3.passed && suite4.passed && suite5.passed;
+    // =============================================================
+    // AGGREGATE GATE: FUNCTIONAL VS EXPLORATORY PERFORMANCE SEPARATION
+    // =============================================================
+    report.functional_passed = Boolean(suite1.passed && suite2.passed && suite3.passed && suite4.passed && suite5.passed);
+    report.performance_status = 'exploratory_profiling_completed';
+    report.performance_target_status = 'unverified_no_latency_target';
+    report.performance_passed = null;
+    report.all_passed = report.functional_passed && report.performance_passed === true;
+    report.all_passed_semantics = 'functional and performance acceptance; performance is unverified, so all_passed remains false';
+
+    onLog('\n[GATE DIAGNOSTICS - KIỂM SOÁT TỪNG SUITE]:');
+    onLog(`  Suite 1 (Canonical Profiles): ${suite1.passed ? 'PASS' : 'FAIL'}`);
+    onLog(`  Suite 2 (Guard Activation): ${suite2.passed ? 'PASS' : 'FAIL'}`);
+    onLog(`  Suite 3 (Latencies & Solves): ${suite3.passed ? 'PASS' : 'FAIL'} (all solves succeeded across all 3 iterations)`);
+    onLog(`  Suite 4 (Quality Gap): ${suite4.passed ? 'PASS' : 'FAIL'} (gap: ${suite4.quality_gap_percent}%, budgetPass: ${powerBudgetPass}, smartRate: ${suite4.smart_two_stage?.rate_per_hour})`);
+    onLog(`  Suite 5 (Overrides): ${suite5.passed ? 'PASS' : 'FAIL'} (zero: ${zeroRespected}, elec: ${elecRespected}, owned: ${overflowOwnedPass}, watts: ${overflowWattsPass})`);
+    onLog(`  ===> TỔNG HỢP functional_passed: ${report.functional_passed}`);
 
     onLog('\n======================================================');
-    onLog(report.all_passed ? '🏆 TOÀN BỘ BENCHMARK HOÀN TẤT VÀ ĐẠT TẤT CẢ TIÊU CHÍ (PASS)!' : '⚠️ BENCHMARK HOÀN TẤT VỚI MỘT SỐ TIÊU CHÍ CHƯA ĐẠT (FAIL)!');
+    onLog(report.functional_passed ? '✅ CÁC KIỂM TRA CHỨC NĂNG ĐẠT (PASS); hiệu năng chỉ được đo thăm dò, chưa chứng nhận SLA.' : '⚠️ CÁC KIỂM TRA CHỨC NĂNG CÒN TIÊU CHÍ CHƯA ĐẠT (FAIL).');
     onLog(`Quality Gap trên fixture ràng buộc: ${suite4.quality_gap_percent}%`);
     onLog(`Latency p50 RV15: ${suite3.fixtures.rv15.stats.total_two_stage.p50}ms (Base: ${suite3.fixtures.rv15.stats.base_solve.p50}ms, Alloc: ${suite3.fixtures.rv15.stats.allocator.p50}ms, Final: ${suite3.fixtures.rv15.stats.final_solve.p50}ms)`);
     onLog(`Latency p50 RV16: ${suite3.fixtures.rv16.stats.total_two_stage.p50}ms`);
@@ -489,4 +557,23 @@ export async function runAllBenchmarks(onLog = console.log) {
 
     worker.terminate();
     return report;
+}
+
+export function updateBadgeFromResult(report, badgeElement, execElement) {
+    if (execElement) execElement.textContent = 'Đã chạy xong (Finished)';
+    const isPassed = report && typeof report === 'object'
+        && (typeof report.functional_passed === 'boolean' ? report.functional_passed : report.all_passed === true);
+    if (badgeElement) {
+        badgeElement.style.display = 'inline-block';
+        if (isPassed) {
+            badgeElement.className = 'status-badge badge-pass';
+            badgeElement.textContent = 'PASS (Functional)';
+            badgeElement.title = 'Tất cả tiêu chuẩn chức năng, solver invariants, quality gap và validation đều đạt (Latency đo đạc dạng exploratory).';
+        } else {
+            badgeElement.className = 'status-badge badge-fail';
+            badgeElement.textContent = 'FAIL';
+            badgeElement.title = 'Có lỗi kiểm định hoặc không thỏa mãn invariants.';
+        }
+    }
+    return isPassed ? 'PASS (Functional)' : 'FAIL';
 }

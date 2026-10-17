@@ -28,6 +28,17 @@ fn default_level() -> u32 {
     1
 }
 
+/// Detailed E-mode count for a facility at a specific tier (level).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct JsEmodeTierCount {
+    pub facility: String,
+    #[serde(default = "default_level")]
+    pub level: u32,
+    #[serde(default)]
+    pub count: u32,
+}
+
+
 /// JavaScript-friendly description of the Aniimo working a facility; see
 /// [`crate::models::Worker`].
 #[derive(Debug, Clone, Deserialize)]
@@ -619,7 +630,7 @@ pub fn optimize(input_json: &str) -> String {
             0.0,
             &facility_counts,
         );
-        
+
         match (parallel_path, single_path) {
             (Some(p), Some(s)) => {
                 // Use the faster approach
@@ -776,6 +787,9 @@ pub struct JsPlanInput {
     /// Per-facility count of units operating in E-mode. If omitted, falls back to `emode_facilities` (all units).
     #[serde(default)]
     pub emode_facility_counts: std::collections::HashMap<String, u32>,
+    /// Per-tier count of units operating in E-mode (facility, level, count), preserving mixed-level tiers.
+    #[serde(default)]
+    pub emode_tier_counts: Vec<JsEmodeTierCount>,
     /// Power grid supply rate (e.g. 1.0 for 100%, 1.2 for 120%, 0.955 for 95.5%). Defaults to 1.0.
     #[serde(default = "default_power_grid_rate")]
     pub power_grid_rate: f64,
@@ -1725,27 +1739,244 @@ impl PreparedInput {
             }
         }
 
-        // Sync facility_overrides for other facilities into emode_counts and emode_facilities:
+        // =============================================================
+        // VALIDATION GATE: STRICT OVERRIDES & TIER COUNTS (NO CLAMPING)
+        // =============================================================
+        let mut seen_override_tiers = std::collections::HashSet::new();
         for ovr in &input.facility_overrides {
-            if ovr.facility != "Mine" && ovr.facility != "Well" && ovr.electric_count > 0 {
-                emode_counts.insert(ovr.facility.clone(), ovr.electric_count);
-                if !emode_facilities.contains(&ovr.facility) {
-                    emode_facilities.push(ovr.facility.clone());
+            let requested_level = if ovr.level > 0 {
+                ovr.level
+            } else {
+                facility_counts.get_level(&ovr.facility)
+            };
+
+            let key = (ovr.facility.clone(), requested_level);
+            if !seen_override_tiers.insert(key) {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!(
+                        "Validation error: duplicate fixed override for \"{}\" Lv.{}",
+                        ovr.facility, requested_level
+                    )),
+                )).unwrap_or_default());
+            }
+
+            // FacilityCounts::tiers() supplies a default tier for unknown names;
+            // validation must instead use the explicitly owned input tiers.
+            let owned_at_level = input.facilities.get(&ovr.facility)
+                .and_then(|tiers| tiers.iter().find(|tier| tier.level == requested_level))
+                .map(|tier| tier.count)
+                .unwrap_or(0);
+
+            if owned_at_level == 0 {
+                let owned_levels = input.facilities.get(&ovr.facility)
+                    .map(|tiers| tiers.iter().map(|tier| tier.level).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!(
+                        "Validation error: Facility \"{}\" has no units at Level {} (owned levels: {:?})",
+                        ovr.facility,
+                        requested_level,
+                        owned_levels
+                    )),
+                )).unwrap_or_default());
+            }
+
+            let electric_or_specialist = ovr.electric_count > 0 || ovr.specialist_count > 0;
+            if electric_or_specialist && ovr.facility == "Mine" && requested_level != 5 {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!("Validation error: fixed E-mode/specialist assignment for Mine is supported only at Lv.5, not Lv.{}", requested_level)),
+                )).unwrap_or_default());
+            }
+            if electric_or_specialist && ovr.facility == "Well" {
+                let supported_level = facility_counts.get_level("Well");
+                if requested_level < 3 || requested_level != supported_level {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!("Validation error: fixed E-mode/specialist assignment for Well is supported only at its highest eligible tier (Lv.{}), not Lv.{}", supported_level, requested_level)),
+                    )).unwrap_or_default());
+                }
+            }
+
+            let Some(total_requested) = ovr.electric_count
+                .checked_add(ovr.specialist_count)
+                .and_then(|n| n.checked_add(ovr.manual_count)) else {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!("Validation error: fixed override count overflow for \"{}\" Lv.{}", ovr.facility, requested_level)),
+                    )).unwrap_or_default());
+                };
+            if total_requested > owned_at_level {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!(
+                        "Validation error: Fixed override requested {} units (electric: {}, specialist: {}, manual: {}) for \"{}\" Lv.{} exceeding {} owned units at this tier",
+                        total_requested,
+                        ovr.electric_count,
+                        ovr.specialist_count,
+                        ovr.manual_count,
+                        ovr.facility,
+                        requested_level,
+                        owned_at_level
+                    )),
+                )).unwrap_or_default());
+            }
+        }
+
+        // Aggregate duplicate tier rows before comparing them with owned capacity.
+        let mut requested_by_tier: std::collections::BTreeMap<(String, u32), u32> = std::collections::BTreeMap::new();
+        for tier_req in &input.emode_tier_counts {
+            let key = (tier_req.facility.clone(), tier_req.level);
+            let entry = requested_by_tier.entry(key).or_default();
+            let Some(total) = entry.checked_add(tier_req.count) else {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!("Validation error: emode_tier_counts overflow for \"{}\" Lv.{}", tier_req.facility, tier_req.level)),
+                )).unwrap_or_default());
+            };
+            *entry = total;
+        }
+
+        for ((facility, level), requested) in &requested_by_tier {
+            let owned_at_level = input.facilities.get(facility)
+                .and_then(|tiers| tiers.iter().find(|tier| tier.level == *level))
+                .map(|tier| tier.count)
+                .unwrap_or(0);
+
+            if owned_at_level == 0 {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!(
+                        "Validation error: emode_tier_counts requested {} units for \"{}\" Lv.{} but facility has no units at this level",
+                        requested, facility, level
+                    )),
+                )).unwrap_or_default());
+            }
+
+            if requested > &owned_at_level {
+                return Err(serde_json::to_string(&empty_production_plan(
+                    false,
+                    Some(format!(
+                        "Validation error: emode_tier_counts requested {} electric units for \"{}\" Lv.{} exceeding owned count of {} units",
+                        requested,
+                        facility,
+                        level,
+                        owned_at_level
+                    )),
+                )).unwrap_or_default());
+            }
+        }
+
+        for ovr in &input.facility_overrides {
+            let mut level = if ovr.level > 0 { ovr.level } else { facility_counts.get_level(&ovr.facility) };
+            if let Some(tiers) = input.facilities.get(&ovr.facility) {
+                if !tiers.iter().any(|tier| tier.level == level && tier.count > 0) {
+                    if let Some(best_tier) = tiers.iter().filter(|t| t.count > 0).max_by_key(|t| t.level) {
+                        level = best_tier.level;
+                    }
+                }
+            }
+            if let Some(tier_count) = requested_by_tier.get(&(ovr.facility.clone(), level)) {
+                if *tier_count != ovr.electric_count {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!(
+                            "Validation error: fixed override electric count ({}) does not match emode_tier_counts ({}) for \"{}\" Lv.{}",
+                            ovr.electric_count, tier_count, ovr.facility, level
+                        )),
+                    )).unwrap_or_default());
                 }
             }
         }
 
-        // Precision Tier Partitioning for Mine Lv.5 (Tier-Aware):
+        // Validate consistency between emode_tier_counts and emode_facility_counts
+        if !input.emode_tier_counts.is_empty() && !input.emode_facility_counts.is_empty() {
+            let mut tier_sum_by_fac: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+            for ((facility, _level), count) in &requested_by_tier {
+                let entry = tier_sum_by_fac.entry(facility.clone()).or_default();
+                let Some(total) = entry.checked_add(*count) else {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!("Validation error: emode_tier_counts aggregate overflow for \"{}\"", facility)),
+                    )).unwrap_or_default());
+                };
+                *entry = total;
+            }
+            let mut facilities_to_compare: std::collections::HashSet<String> = input.emode_facility_counts.keys().cloned().collect();
+            facilities_to_compare.extend(tier_sum_by_fac.keys().cloned());
+            for fac in facilities_to_compare {
+                let aggregate = input.emode_facility_counts.get(&fac).copied().unwrap_or(0);
+                let tier_sum = tier_sum_by_fac.get(&fac).copied().unwrap_or(0);
+                if tier_sum != aggregate {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!(
+                            "Validation error: emode_tier_counts sum ({}) does not match emode_facility_counts ({}) for facility \"{}\"",
+                            tier_sum, aggregate, fac
+                        )),
+                    )).unwrap_or_default());
+                }
+            }
+        }
+
+        // Sync facility_overrides for other facilities into emode_counts and emode_tier_counts:
+        let mut emode_tier_counts: Vec<JsEmodeTierCount> = requested_by_tier
+            .iter()
+            .map(|((facility, level), count)| JsEmodeTierCount {
+                facility: facility.clone(),
+                level: *level,
+                count: *count,
+            })
+            .collect();
+        for ovr in &input.facility_overrides {
+            if ovr.facility != "Mine" && ovr.facility != "Well" {
+                let mut lvl = if ovr.level > 0 { ovr.level } else { facility_counts.get_level(&ovr.facility) };
+                if let Some(tiers) = input.facilities.get(&ovr.facility) {
+                    if !tiers.iter().any(|tier| tier.level == lvl && tier.count > 0) {
+                        if let Some(best_tier) = tiers.iter().filter(|t| t.count > 0).max_by_key(|t| t.level) {
+                            lvl = best_tier.level;
+                        }
+                    }
+                }
+                if ovr.electric_count > 0 {
+                    if let Some(existing) = emode_tier_counts.iter_mut().find(|t| t.facility == ovr.facility && t.level == lvl) {
+                        existing.count = ovr.electric_count;
+                    } else {
+                        emode_tier_counts.push(JsEmodeTierCount {
+                            facility: ovr.facility.clone(),
+                            level: lvl,
+                            count: ovr.electric_count,
+                        });
+                    }
+                    emode_counts.insert(ovr.facility.clone(), ovr.electric_count);
+                    if !emode_facilities.contains(&ovr.facility) {
+                        emode_facilities.push(ovr.facility.clone());
+                    }
+                } else {
+                    emode_counts.remove(&ovr.facility);
+                    emode_facilities.retain(|f| f != &ovr.facility);
+                    emode_tier_counts.retain(|t| !(t.facility == ovr.facility && t.level == lvl));
+                }
+            }
+        }
+
+        // Precision Tier Partitioning for Mine Lv.5 (Tier-Aware, Strictly No Silent Clamping):
         let total_lv5_mines = facility_counts.get_tier_count("Mine", 5);
         let mut partitioned_mine_items = Vec::new();
 
         if total_lv5_mines > 0 {
             let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Mine" && (o.level == 5 || o.level == 0));
             let (e_count, p_count, std_count) = if let Some(ovr) = override_opt {
-                let e = ovr.electric_count.min(total_lv5_mines);
-                let rem1 = total_lv5_mines - e;
-                let p = ovr.specialist_count.min(rem1);
-                let std = rem1 - p;
+                let e = ovr.electric_count;
+                let p = ovr.specialist_count;
+                let Some(std) = total_lv5_mines.checked_sub(e + p) else {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!("Validation error: fixed Mine Lv.5 assignment exceeds owned count (electric: {}, specialist: {}, owned: {})", e, p, total_lv5_mines)),
+                    )).unwrap_or_default());
+                };
                 (e, p, std)
             } else {
                 let e = emode_counts.get("Mine").copied().unwrap_or(0).min(total_lv5_mines);
@@ -1816,10 +2047,14 @@ impl PreparedInput {
         if total_target_wells > 0 {
             let override_opt = input.facility_overrides.iter().find(|o| o.facility == "Well" && (o.level == max_well_level || o.level == 0));
             let (e_count, p_count, std_count) = if let Some(ovr) = override_opt {
-                let e = ovr.electric_count.min(total_target_wells);
-                let rem1 = total_target_wells - e;
-                let p = ovr.specialist_count.min(rem1);
-                let std = rem1 - p;
+                let e = ovr.electric_count;
+                let p = ovr.specialist_count;
+                let Some(std) = total_target_wells.checked_sub(e + p) else {
+                    return Err(serde_json::to_string(&empty_production_plan(
+                        false,
+                        Some(format!("Validation error: fixed Well Lv.{} assignment exceeds owned count (electric: {}, specialist: {}, owned: {})", max_well_level, e, p, total_target_wells)),
+                    )).unwrap_or_default());
+                };
                 (e, p, std)
             } else {
                 let e = emode_counts.get("Well").copied().unwrap_or(0).min(total_target_wells);
@@ -1882,30 +2117,101 @@ impl PreparedInput {
         }
         items.extend(partitioned_well_items);
 
-        // Handle partial electric facilities (0 < E < total owned) for other facilities:
+        // Handle partial electric facilities (0 < E < total owned) preserving exact facility tiers:
         let mut manual_items = Vec::new();
+        let mut facilities_to_partition = std::collections::BTreeSet::new();
+        for t in &emode_tier_counts {
+            if t.facility != "Mine" && !t.facility.starts_with("Mine (") && t.facility != "Well" && !t.facility.starts_with("Well (") {
+                facilities_to_partition.insert(t.facility.clone());
+            }
+        }
         for (fac, &e_count) in &emode_counts {
-            if fac == "Mine" || fac.starts_with("Mine (") || fac == "Well" || fac.starts_with("Well (") {
+            if fac != "Mine" && !fac.starts_with("Mine (") && fac != "Well" && !fac.starts_with("Well (") && e_count > 0 {
+                facilities_to_partition.insert(fac.clone());
+            }
+        }
+
+        for fac in facilities_to_partition {
+            let existing_tiers = facility_counts.tiers(&fac);
+            let total_owned: u32 = existing_tiers.iter().map(|(c, _)| *c).sum();
+            if total_owned == 0 {
                 continue;
             }
-            let total = facility_counts.get_count(fac);
-            if e_count > 0 && e_count < total {
-                let manual_count = total - e_count;
-                let level = facility_counts.get_level(fac);
-                // Electric part has e_count units
-                facility_counts.set(fac, e_count, level);
-                // Manual part has manual_count units
-                let manual_fac_name = format!("{fac} (Manual)");
-                facility_counts.set(&manual_fac_name, manual_count, level);
 
-                // Clone recipes for manual variant
-                for item in items.iter().filter(|i| i.facility == *fac) {
+            let mut electric_tiers = Vec::new();
+            let mut manual_tiers = Vec::new();
+
+            let has_specific_tiers = emode_tier_counts.iter().any(|t| t.facility == fac);
+
+            if has_specific_tiers {
+                let mut tier_map: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+                for t in &emode_tier_counts {
+                    if t.facility == fac {
+                        *tier_map.entry(t.level).or_default() += t.count;
+                    }
+                }
+
+                for &(count, level) in &existing_tiers {
+                    let desired_e = tier_map.get(&level).copied().unwrap_or(0);
+                    let e_at_level = desired_e;
+                    let Some(m_at_level) = count.checked_sub(e_at_level) else {
+                        return Err(serde_json::to_string(&empty_production_plan(
+                            false,
+                            Some(format!("Validation error: fixed E-mode assignment {} exceeds owned count {} for \"{}\" Lv.{}", e_at_level, count, fac, level)),
+                        )).unwrap_or_default());
+                    };
+                    if e_at_level > 0 {
+                        electric_tiers.push((e_at_level, level));
+                    }
+                    if m_at_level > 0 {
+                        manual_tiers.push((m_at_level, level));
+                    }
+                }
+            } else {
+                // Fallback từ emode_counts: phân bổ từ tier cao xuống tier thấp, bảo toàn từng level
+                let total_e = emode_counts.get(&fac).copied().unwrap_or(0).min(total_owned);
+                let mut sorted_tiers = existing_tiers.clone();
+                sorted_tiers.sort_by(|a, b| b.1.cmp(&a.1)); // level giảm dần
+                let mut rem_e = total_e;
+                for (count, level) in sorted_tiers {
+                    let e_take = rem_e.min(count);
+                    let m_take = count - e_take;
+                    rem_e -= e_take;
+                    if e_take > 0 {
+                        electric_tiers.push((e_take, level));
+                    }
+                    if m_take > 0 {
+                        manual_tiers.push((m_take, level));
+                    }
+                }
+            }
+
+            let e_total: u32 = electric_tiers.iter().map(|(c, _)| *c).sum();
+            let m_total: u32 = manual_tiers.iter().map(|(c, _)| *c).sum();
+
+            if e_total > 0 && m_total > 0 {
+                facility_counts.set_tiers(&fac, electric_tiers);
+                let manual_fac_name = format!("{fac} (Manual)");
+                facility_counts.set_tiers(&manual_fac_name, manual_tiers);
+
+                for item in items.iter().filter(|i| i.facility == fac) {
                     let mut manual_item = item.clone();
                     manual_item.name = format!("{}{}", item.name, crate::models::MANUAL_SUFFIX);
                     manual_item.facility = manual_fac_name.clone();
                     manual_item.emode_base_time = None;
                     manual_items.push(manual_item);
                 }
+            } else if e_total > 0 && m_total == 0 {
+                facility_counts.set_tiers(&fac, electric_tiers);
+                facility_counts.set(&format!("{fac} (Manual)"), 0, 1);
+                if !emode_facilities.contains(&fac) {
+                    emode_facilities.push(fac.clone());
+                }
+            } else if e_total == 0 && m_total > 0 {
+                facility_counts.set_tiers(&fac, manual_tiers);
+                facility_counts.set(&format!("{fac} (Manual)"), 0, 1);
+                emode_facilities.retain(|f| f != &fac);
+                emode_counts.remove(&fac);
             }
         }
         items.extend(manual_items);
@@ -2600,5 +2906,3 @@ only embedded: {only_embedded:#?}"
         assert!(manual_well, "Expected 1 Well unit in manual mode");
     }
 }
-
-

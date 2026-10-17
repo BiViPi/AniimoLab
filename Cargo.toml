@@ -29,4 +29,3 @@ lto = true
 
 [profile.test]
 opt-level = 2
-

@@ -7883,3 +7883,26 @@ body.light .mode-pill.pill-manual.active {
     }
 }
 
+.item-cycle-info {
+    font-size: 0.78rem;
+    color: var(--text-muted, #8b949e);
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+.cycle-time-badge {
+    color: #58a6ff;
+    font-weight: 600;
+}
+.rate-badge {
+    color: #3fb950;
+    font-weight: 600;
+}
+.coins-badge {
+    color: #d29922;
+    font-weight: 600;
+}
+
+
