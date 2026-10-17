@@ -153,6 +153,7 @@ function ensurePlanFor(setup) {
         solver.terminate();
         if (setupSolve?.worker === solver) setupSolve = null;
         if (runId !== planRunId) return;
+        normalizePlanFacilityCounts(plan);
         plansBySetup[setup] = plan;
         if (selectedAniimoSetup() === setup) showSelectedPlan();
     };
@@ -190,6 +191,7 @@ function showSelectedPlan() {
         return;
     }
     pending.style.display = 'none';
+    normalizePlanFacilityCounts(plan);
     lastPlan = plan;
     if (plan.success) {
         lastEmodeCounts = actualEmodeCounts(plan);
@@ -500,8 +502,9 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
     // 2. Tìm step tương ứng trong lastPlan
-    const step = (lastPlan.coin_items && lastPlan.coin_items[stepIndex])
-        || (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '') === baseFac && s.status === 'producing');
+    const step = (lastPlan.coin_items && typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < lastPlan.coin_items.length)
+        ? lastPlan.coin_items[stepIndex]
+        : (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '') === baseFac && s.status === 'producing');
 
     // 3. Xác định actualCurrentMode ĐỘNG từ DOM (.mode-pill.active) hoặc step.mode
     let actualCurrentMode = '';
@@ -639,10 +642,14 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
 
         // Cập nhật income_streams
         if (lastPlan.income_streams) {
-            const stream = lastPlan.income_streams.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === step.item_name.replace(/__(specialist|manual)$/, ''));
+            const cleanItemName = step.item_name?.replace(/__(specialist|manual)$/, '');
+            const stream = lastPlan.income_streams.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === cleanItemName);
             if (stream) {
-                stream.units_per_second = step.units_per_second;
-                stream.rate_per_second = step.rate_per_second;
+                const allMatchingSteps = (lastPlan.coin_items || []).filter(s => s.status === 'producing' && s.item_name?.replace(/__(specialist|manual)$/, '') === cleanItemName);
+                const totalUnits = allMatchingSteps.reduce((sum, s) => sum + (s.units_per_second || 0), 0);
+                const totalRate = allMatchingSteps.reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
+                stream.units_per_second = totalUnits;
+                stream.rate_per_second = totalRate;
             }
         }
     }
@@ -732,6 +739,7 @@ export async function runFastReSolve() {
             plan.elapsed_ms = elapsed;
             // Tích hợp đầy đủ các cơ sở chế biến và món ăn sự kiện
             plan = integrateSeasonPlan(plan);
+            normalizePlanFacilityCounts(plan);
             plansBySetup[bestSetup] = plan;
             lastPlan = plan;
             lastEmodeCounts = actualEmodeCounts(plan);
@@ -1598,9 +1606,9 @@ export function actualEmodeCounts(plan) {
     const counts = {};
     for (const step of (plan && plan.coin_items) || []) {
         if (step.status !== 'producing' || !step.facility) continue;
-        const isSpecialist = step.is_specialist || step.facility.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
-        const isManual = step.is_manual || step.facility.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'));
-        const isElectric = !isSpecialist && !isManual && (step.is_emode || step.facility.includes('(Electric)'));
+        const isSpecialist = step.mode === 'prismana' || step.mode === 'specialist' || step.is_specialist || step.facility.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
+        const isManual = step.mode === 'manual' || step.is_manual || step.facility.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'));
+        const isElectric = !isSpecialist && !isManual && (step.mode === 'electric' || step.is_emode || step.facility.includes('(Electric)'));
         if (!isElectric) continue;
         const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
         counts[fac] = (counts[fac] || 0) + (step.facility_count || 1);
@@ -5718,6 +5726,98 @@ function integrateSeasonPlan(plan) {
 }
 
 /**
+ * Chuẩn hóa các cơ sở chế biến / phi canh tác:
+ * Nếu một cơ sở chế biến có số lượng > 1 (ví dụ Máy Sấy Hộp Nhạc có 2 máy cùng làm 1 món),
+ * tách thành từng hàng riêng biệt với số lượng luôn là 1.
+ * Nhờ đó người dùng có thể tùy chỉnh thủ công chế độ (Điện / Aniimo / Thường) cho từng máy một cách độc lập.
+ */
+export function normalizePlanFacilityCounts(plan) {
+    if (!plan || !Array.isArray(plan.coin_items)) return plan;
+
+    const emodeAvailable = selectedHomeLevel() >= 12;
+    const newSteps = [];
+    let modified = false;
+
+    for (const step of plan.coin_items) {
+        const rawFac = step.facility || '';
+        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        const facDef = FACILITIES.find(f => f.name === baseFac);
+        const facCategory = facDef?.category || FACILITY_CATEGORY_BY_NAME.get(baseFac);
+        const isFarm = baseFac === 'Farmland' || baseFac === 'Woodland' || step.is_grower;
+
+        // Chỉ tách các cơ sở chế biến / sản xuất phi canh tác
+        const isProcessingFacility = !isFarm && (
+            facCategory === 'Materials Processing' ||
+            facCategory === 'Wood & Ore Processing' ||
+            !['Farmland', 'Woodland', 'Mine', 'Well'].includes(baseFac)
+        );
+
+        const count = step.facility_count || 1;
+        if (isProcessingFacility && count > 1) {
+            modified = true;
+            // Xác định initial mode cho các máy nếu chưa có
+            let initialMode = step.mode;
+            if (!initialMode) {
+                if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
+                    initialMode = 'electric';
+                } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
+                    initialMode = 'manual';
+                } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
+                    initialMode = 'prismana';
+                } else if (emodeAvailable && facDef?.supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0) {
+                    initialMode = 'electric';
+                } else {
+                    initialMode = 'prismana';
+                }
+            }
+
+            // Kiểm tra xem đã có overrides cho cơ sở này chưa
+            const ovr = facilityOverrides.find(o => o.facility === baseFac);
+            let remainingE = ovr?.electric_count ?? (step.is_emode || rawFac.includes('(Electric)') ? count : 0);
+            let remainingP = ovr?.specialist_count ?? (step.is_specialist || rawFac.includes('(Prismana)') ? count : 0);
+            let remainingM = ovr?.manual_count ?? (step.is_manual || rawFac.includes('(Manual)') ? count : 0);
+
+            for (let i = 0; i < count; i++) {
+                let unitMode = initialMode;
+                if (ovr) {
+                    if (emodeAvailable && remainingE > 0) {
+                        unitMode = 'electric';
+                        remainingE--;
+                    } else if (remainingP > 0) {
+                        unitMode = 'prismana';
+                        remainingP--;
+                    } else if (remainingM > 0) {
+                        unitMode = 'manual';
+                        remainingM--;
+                    }
+                }
+
+                const singleStep = {
+                    ...step,
+                    facility_count: 1,
+                    mode: unitMode,
+                    is_emode: unitMode === 'electric',
+                    is_specialist: unitMode === 'prismana',
+                    is_manual: unitMode === 'manual',
+                    units_per_second: (step.units_per_second != null) ? step.units_per_second / count : null,
+                    rate_per_second: (step.rate_per_second != null) ? step.rate_per_second / count : null,
+                    busy_units: (step.busy_units != null) ? step.busy_units / count : 1,
+                    aniimo: step.aniimo ? { ...step.aniimo } : null
+                };
+                newSteps.push(singleStep);
+            }
+        } else {
+            newSteps.push(step);
+        }
+    }
+
+    if (modified) {
+        plan.coin_items = newSteps;
+    }
+    return plan;
+}
+
+/**
  * Tính toán số lượng ô đất Củ cải và Ớt tối ưu (Sweet Spot) để đạt năng suất cao nhất:
  * Cân bằng chính xác giữa năng lực tiêu thụ của cơ sở chế biến và diện tích đất Farmland dành cho cây trồng giá trị cao (Nhân sâm).
  */
@@ -6585,7 +6685,10 @@ function aniimoLabel(step) {
 
     // Xác định chế độ hiện tại của step
     const ovr = facilityOverrides.find(o => o.facility === baseFac);
-    let mode = step.mode || (ovr && ovr.target_mode);
+    let mode = step.mode;
+    if (!mode) {
+        mode = ovr && ovr.target_mode;
+    }
     if (!mode) {
         if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
             mode = 'electric';
@@ -6757,7 +6860,7 @@ function planRows(rows, options = {}) {
 
         // Xác định mode hiện tại:
         const ovr = facilityOverrides.find(o => o.facility === baseFac);
-        let currentMode = (ovr && ovr.target_mode) ? ovr.target_mode : step.mode;
+        let currentMode = step.mode;
         if (!currentMode) {
             if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
                 currentMode = 'electric';
@@ -8417,6 +8520,7 @@ async function runFindPlan() {
         }
 
         bestPlan = integrateSeasonPlan(bestPlan);
+        normalizePlanFacilityCounts(bestPlan);
 
         if (useEmode) {
             finalEmodeCounts = actualEmodeCounts(bestPlan);
@@ -8443,7 +8547,7 @@ async function runFindPlan() {
             .then(json => {
                 if (runId !== planRunId) return;
                 setStep('minimum', 'done');
-                plansBySetup.minimum = integrateSeasonPlan(JSON.parse(json));
+                plansBySetup.minimum = normalizePlanFacilityCounts(integrateSeasonPlan(JSON.parse(json)));
                 if (selectedAniimoSetup() === 'minimum') showSelectedPlan();
             })
             .catch(error => {
