@@ -10,7 +10,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=aniimolab_v50">
+    <link rel="stylesheet" href="style.css?v=aniimolab_v53">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
@@ -303,34 +303,13 @@
                         </div>
                     </div>
 
-                        <div class="card aniimo-card" id="aniimo-card">
-                                <div class="card-head">
-                                    <button type="button" class="collapse-toggle" id="aniimo-toggle"
-                                        aria-expanded="false" aria-controls="aniimo-body">
-                                        <span class="chevron" aria-hidden="true"></span>
-                                        <h2 data-i18n="aniimo_team_title">Tổ đội công nhân Aniimo</h2>
-                                    </button>
-                                    <button type="button" class="btn-tierlist-trigger" onclick="showAniimoTierList()" title="Xem bảng xếp hạng Aniimo Tier SS (Cấp 4) và Tier S (Cấp 3)">
-                                        <span class="tier-trigger-icon">🏆</span>
-                                        <span class="tier-trigger-text" data-i18n="btn_aniimo_tierlist">Bảng xếp hạng Aniimo (Tier SS / S)</span>
-                                    </button>
-                                </div>
-                                <p class="aniimo-count" id="aniimo-count" hidden><span
-                                        id="aniimo-count-have">0</span><span class="aniimo-count-of"
-                                        id="aniimo-count-of"></span></p>
-                                <p class="collapsed-summary" id="aniimo-collapsed-summary"></p>
-                                <div class="ability-strip" id="aniimo-abilities" aria-label="Aniimo needed per ability">
-                                </div>
-                                <p class="hint small" id="aniimo-pending" style="display: none;">Still working this
-                                    setup out...</p>
-                                <div id="aniimo-body" hidden>
-                                    <details class="explain">
-                                        <summary data-i18n="aniimo_explain_summary">Cách tổ đội Aniimo được tính toán</summary>
-                                        <p>Kế hoạch sản xuất luôn ưu tiên tối đa các <strong>Aniimo Cấp 4 (Prismana - Tier SS)</strong> và <strong>Cấp 3 (Cơ bản - Tier S)</strong> có tính cách tương thích (+20% tốc độ). Nhấn vào nút <strong>Bảng xếp hạng Aniimo</strong> để tra cứu toàn bộ danh sách Aniimo tối ưu cho từng kỹ năng.</p>
-                                    </details>
-                                    <div id="aniimo-summary"></div>
-                                </div>
+                        <div class="card seed-card" id="seed-card" style="display: none;">
+                            <div class="card-head">
+                                <h2 data-i18n="seeds_to_plant_title">Hạt giống cần gieo trồng</h2>
                             </div>
+                            <p class="hint small" id="seed-card-unit"></p>
+                            <div class="seed-table" id="seed-table"></div>
+                        </div>
                     </div>
 
                     <!-- TẦNG 1: CHIẾN LƯỢC TỐI ƯU & PHÂN TÍCH (Bento Grid) -->
@@ -350,6 +329,35 @@
 
                     <!-- TẦNG 2 & 3: THỰC THI NHIỆM VỤ CƠ SỞ & MỤC TIÊU TÍCH LŨY (Full-width) -->
                     <div class="results-main-col">
+                        <div class="card aniimo-card" id="aniimo-card">
+                            <div class="card-head">
+                                <button type="button" class="collapse-toggle" id="aniimo-toggle"
+                                    aria-expanded="true" aria-controls="aniimo-body">
+                                    <span class="chevron" aria-hidden="true"></span>
+                                    <h2 data-i18n="aniimo_team_title">Tổ đội công nhân Aniimo</h2>
+                                </button>
+                                <button type="button" class="btn-tierlist-trigger" onclick="showAniimoTierList()" title="Xem bảng xếp hạng Aniimo Tier SS (Cấp 4) và Tier S (Cấp 3)">
+                                    <span class="tier-trigger-icon">🏆</span>
+                                    <span class="tier-trigger-text" data-i18n="btn_aniimo_tierlist">Bảng xếp hạng Aniimo (Tier SS / S)</span>
+                                </button>
+                            </div>
+                            <p class="aniimo-count" id="aniimo-count" hidden><span
+                                    id="aniimo-count-have">0</span><span class="aniimo-count-of"
+                                    id="aniimo-count-of"></span></p>
+                            <p class="collapsed-summary" id="aniimo-collapsed-summary"></p>
+                            <div class="ability-strip" id="aniimo-abilities" aria-label="Aniimo needed per ability">
+                            </div>
+                            <p class="hint small" id="aniimo-pending" style="display: none;">Still working this
+                                setup out...</p>
+                            <div id="aniimo-body">
+                                <details class="explain">
+                                    <summary data-i18n="aniimo_explain_summary">Cách tổ đội Aniimo được tính toán</summary>
+                                    <p>Kế hoạch sản xuất phân định thành 4 nhóm rõ ràng: Đồng áng luân phiên, Trông cơ sở 24/24 & Khai thác thô, Gia công gỗ & quặng, và Sản xuất chế biến (chia sẻ nhân lực). Ưu tiên tối đa các <strong>Aniimo Cấp 4 (Prismana - Tier SS)</strong> và <strong>Cấp 3 (Cơ bản - Tier S)</strong> có tính cách tương thích (+20% tốc độ).</p>
+                                </details>
+                                <div id="aniimo-summary"></div>
+                            </div>
+                        </div>
+
                         <div class="card production-steps">
                             <h2 data-i18n="facility_plan_title">Nhiệm vụ từng cơ sở sản xuất</h2>
                             <details class="explain">
@@ -374,11 +382,6 @@
                                 </div>
                                 <div class="power-breakdown" id="power-breakdown"></div>
                             </div>
-                        </div>
-                        <div class="card production-steps" id="seed-card" style="display: none;">
-                            <h2 data-i18n="seeds_to_plant_title">Hạt giống cần gieo trồng</h2>
-                            <p class="hint" id="seed-card-unit"></p>
-                            <div class="seed-table" id="seed-table"></div>
                         </div>
                         <div class="card production-steps" id="profit-card" style="display: none;">
                             <h2 data-i18n="profit_by_product_title">Lợi nhuận theo sản phẩm</h2>
@@ -762,10 +765,10 @@
             }
         });
     </script>
-    <script src="locales/vi.js?v=aniimolab_v51"></script>
-    <script src="locales/en.js?v=aniimolab_v51"></script>
-    <script src="i18n.js?v=aniimolab_v51"></script>
-    <script type="module" src="app.js?v=aniimolab_v51"></script>
+    <script src="locales/vi.js?v=aniimolab_v53"></script>
+    <script src="locales/en.js?v=aniimolab_v53"></script>
+    <script src="i18n.js?v=aniimolab_v53"></script>
+    <script type="module" src="app.js?v=aniimolab_v53"></script>
     <script>document.addEventListener("DOMContentLoaded", () => window.i18n && window.i18n.init());</script>
 </body>
 

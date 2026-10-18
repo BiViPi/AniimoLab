@@ -4506,9 +4506,9 @@ export function getWorkerForLevel(ability, level) {
  * - Lâu đài cát cấp 3 (Tidewhisper Sandcastle Lv.3): Sherro
  * - Võng sao (Starfall Hammock): Stellarys
  */
-export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel = 1) {
+export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel = 1, preferPrismana = true) {
     if (!facility) return null;
-    const fac = facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').trim();
+    const fac = facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '').trim();
     if (fac === 'Dewy House' || fac === 'Nhà Dewy' || fac === 'Nhà sương mai') return 'Fragrancier';
     const item = (itemName || '').toLowerCase();
     if (fac === 'Nimbus Bed' || fac === 'Giường Cỏ Mây' || fac === 'Giường mây' || fac === 'Giường mây Nimbus') {
@@ -4516,7 +4516,16 @@ export function getFacilitySpecificWorker(facility, itemName = '', facilityLevel
         return 'Turbo';
     }
     if (fac === 'Woodworking Bench' || fac === 'Bàn Gia Công Gỗ' || fac === 'Bàn mộc') {
-        return 'Fulmintis';
+        return preferPrismana ? 'Fulmintis' : null;
+    }
+    if (fac === 'Chimney Kiln' || fac === 'Lò Ống Khói' || fac === 'Lò nung') {
+        return preferPrismana ? 'Scorchhowl' : 'Ignis';
+    }
+    if (fac === 'Mine' || fac === 'Khu Mỏ' || fac === 'Mỏ Quặng') {
+        return preferPrismana ? 'Waleetle' : null;
+    }
+    if (fac === 'Well' || fac === 'Giếng Nước' || fac === 'Giếng') {
+        return preferPrismana ? 'Piopiota' : 'Aquata';
     }
     if (fac === 'Tidewhisper Sandcastle' || fac === 'Lâu Đài Cát Thủy Triều Thì Thầm' || fac === 'Lâu đài cát' || fac === 'Lâu đài cát Tidewhisper') {
         if (itemName === 'pearl' || (facilityLevel && facilityLevel >= 3)) return 'Sherro';
