@@ -6,7 +6,6 @@
 
 use csv::ReaderBuilder;
 use std::error::Error;
-use std::fs::File;
 use std::path::Path;
 
 use crate::models::{
@@ -201,25 +200,11 @@ fn parse_required_amounts(s: &str) -> Vec<u32> {
         .collect()
 }
 
-/// Loads farmland crop data from a CSV file.
-///
-/// # Arguments
-///
-/// * `path` - Path to the farmland CSV file
-///
-/// # Returns
-///
-/// A vector of [`ProductionItem`] representing all farmland crops,
-/// or an error if the file cannot be read or parsed.
-///
-/// # CSV Format
-///
-/// Expected columns: `name, cost, sell_value, production_time, yield, energy, facility_level, module_requirement`
-pub fn load_farmland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
-    let file = File::open(path)?;
+/// Parses farmland crop data from CSV text.
+pub fn parse_farmland(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()
         .trim(csv::Trim::All)
-        .from_reader(file);
+        .from_reader(csv_text.as_bytes());
 
     let mut items = Vec::new();
     for result in rdr.deserialize() {
@@ -248,29 +233,29 @@ pub fn load_farmland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>>
     Ok(items)
 }
 
-/// Loads woodland tree data from a CSV file.
+/// Loads farmland crop data from a CSV file.
 ///
 /// # Arguments
 ///
-/// * `path` - Path to the woodland CSV file
+/// * `path` - Path to the farmland CSV file
 ///
 /// # Returns
 ///
-/// A vector of [`ProductionItem`] representing all woodland trees,
+/// A vector of [`ProductionItem`] representing all farmland crops,
 /// or an error if the file cannot be read or parsed.
 ///
 /// # CSV Format
 ///
-/// Expected columns: `name, cost, sell_currency, sell_value, production_time, yield, energy, facility_level, module_requirement`
-///
-/// # Notes
-///
-/// The energy field may contain "NULL" as a string value, which is converted to `None`.
-pub fn load_woodland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
-    let file = File::open(path)?;
+/// Expected columns: `name, cost, sell_value, production_time, yield, energy, facility_level, module_requirement`
+pub fn load_farmland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    parse_farmland(&std::fs::read_to_string(path)?)
+}
+
+/// Parses woodland tree data from CSV text.
+pub fn parse_woodland(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()
         .trim(csv::Trim::All)
-        .from_reader(file);
+        .from_reader(csv_text.as_bytes());
 
     let mut items = Vec::new();
     for result in rdr.deserialize() {
@@ -296,6 +281,65 @@ pub fn load_woodland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>>
             byproduct: row
                 .byproduct_yield
                 .map(|amt| ("Wood Blocks".to_string(), amt)),
+            environment: row.environment,
+            season: None,
+            crew: None,
+        });
+    }
+    Ok(items)
+}
+
+/// Loads woodland tree data from a CSV file.
+///
+/// # Arguments
+///
+/// * `path` - Path to the woodland CSV file
+///
+/// # Returns
+///
+/// A vector of [`ProductionItem`] representing all woodland trees,
+/// or an error if the file cannot be read or parsed.
+///
+/// # CSV Format
+///
+/// Expected columns: `name, cost, sell_currency, sell_value, production_time, yield, energy, facility_level, module_requirement`
+///
+/// # Notes
+///
+/// The energy field may contain "NULL" as a string value, which is converted to `None`.
+pub fn load_woodland(path: &Path) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    parse_woodland(&std::fs::read_to_string(path)?)
+}
+
+/// Parses a workload-driven gathering facility (no planting cost) from CSV text.
+pub fn parse_workload_raw_material(
+    csv_text: &str,
+    facility_name: &str,
+    byproduct_name: Option<&str>,
+) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    let mut rdr = ReaderBuilder::new()
+        .trim(csv::Trim::All)
+        .from_reader(csv_text.as_bytes());
+
+    let mut items = Vec::new();
+    for result in rdr.deserialize() {
+        let row: MineralRow = result?;
+        items.push(ProductionItem {
+            name: row.name,
+            facility: facility_name.to_string(),
+            raw_materials: None,
+            required_amount: None,
+            cost: None,
+            sell_currency: row.sell_currency,
+            sell_value: row.sell_value,
+            production_time: crate::models::Worker::default().seconds_for(row.workload, 1, false),
+            yield_amount: row.yield_amount,
+            energy: None,
+            facility_level: row.facility_level,
+            module_requirement: parse_module_requirement(&row.module_requirement),
+            workload: Some(row.workload),
+            emode_base_time: row.emode_base_time,
+            byproduct: byproduct_name.zip(row.byproduct_yield).map(|(name, amt)| (name.to_string(), amt)),
             environment: row.environment,
             season: None,
             crew: None,
@@ -333,36 +377,17 @@ pub fn load_workload_raw_material(
     facility_name: &str,
     byproduct_name: Option<&str>,
 ) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
-    let file = File::open(path)?;
-    let mut rdr = ReaderBuilder::new()
-        .trim(csv::Trim::All)
-        .from_reader(file);
+    parse_workload_raw_material(&std::fs::read_to_string(path)?, facility_name, byproduct_name)
+}
 
-    let mut items = Vec::new();
-    for result in rdr.deserialize() {
-        let row: MineralRow = result?;
-        items.push(ProductionItem {
-            name: row.name,
-            facility: facility_name.to_string(),
-            raw_materials: None,
-            required_amount: None,
-            cost: None,
-            sell_currency: row.sell_currency,
-            sell_value: row.sell_value,
-            production_time: crate::models::Worker::default().seconds_for(row.workload, 1, false),
-            yield_amount: row.yield_amount,
-            energy: None,
-            facility_level: row.facility_level,
-            module_requirement: parse_module_requirement(&row.module_requirement),
-            workload: Some(row.workload),
-            emode_base_time: row.emode_base_time,
-            byproduct: byproduct_name.zip(row.byproduct_yield).map(|(name, amt)| (name.to_string(), amt)),
-            environment: row.environment,
-            season: None,
-            crew: None,
-        });
-    }
-    Ok(items)
+/// Parses Mine data from CSV text; yields Mineral Sand as a byproduct.
+pub fn parse_mine(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    parse_workload_raw_material(csv_text, "Mine", Some("Mineral Sand"))
+}
+
+/// Parses Well data from CSV text; no byproduct.
+pub fn parse_well(csv_text: &str) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    parse_workload_raw_material(csv_text, "Well", None)
 }
 
 /// Loads Mine data (thin wrapper over [`load_workload_raw_material`]); yields Mineral Sand as a
@@ -382,29 +407,14 @@ pub fn load_tidewhisper_sandcastle(path: &Path) -> Result<Vec<ProductionItem>, B
     load_workload_raw_material(path, "Tidewhisper Sandcastle", None)
 }
 
-/// Loads processing facility data that includes energy tracking.
-///
-/// # Arguments
-///
-/// * `path` - Path to the facility's CSV file
-/// * `facility_name` - Name of the facility (e.g., "Carousel Mill")
-///
-/// # Returns
-///
-/// A vector of [`ProductionItem`] representing all recipes for this facility,
-/// or an error if the file cannot be read or parsed.
-///
-/// # CSV Format
-///
-/// Expected columns: `name, raw_materials, required_amount, sell_value, production_time OR workload, energy, facility_level, module_requirement`
-pub fn load_processing_with_energy(
-    path: &Path,
+/// Parses processing facility data that includes energy tracking from CSV text.
+pub fn parse_processing_with_energy(
+    csv_text: &str,
     facility_name: &str,
 ) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
-    let file = File::open(path)?;
     let mut rdr = ReaderBuilder::new()
         .trim(csv::Trim::All)
-        .from_reader(file);
+        .from_reader(csv_text.as_bytes());
 
     let mut items = Vec::new();
     for result in rdr.deserialize() {
@@ -442,12 +452,12 @@ pub fn load_processing_with_energy(
     Ok(items)
 }
 
-/// Loads processing facility data without energy tracking.
+/// Loads processing facility data that includes energy tracking.
 ///
 /// # Arguments
 ///
 /// * `path` - Path to the facility's CSV file
-/// * `facility_name` - Name of the facility (e.g., "Crafting Table")
+/// * `facility_name` - Name of the facility (e.g., "Carousel Mill")
 ///
 /// # Returns
 ///
@@ -456,15 +466,22 @@ pub fn load_processing_with_energy(
 ///
 /// # CSV Format
 ///
-/// Expected columns: `name, raw_materials, required_amount, sell_value, sell_currency (optional, default coins), production_time OR workload, facility_level, module_requirement`
-pub fn load_processing_no_energy(
+/// Expected columns: `name, raw_materials, required_amount, sell_value, production_time OR workload, energy, facility_level, module_requirement`
+pub fn load_processing_with_energy(
     path: &Path,
     facility_name: &str,
 ) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
-    let file = File::open(path)?;
+    parse_processing_with_energy(&std::fs::read_to_string(path)?, facility_name)
+}
+
+/// Parses processing facility data without energy tracking from CSV text.
+pub fn parse_processing_no_energy(
+    csv_text: &str,
+    facility_name: &str,
+) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()
         .trim(csv::Trim::All)
-        .from_reader(file);
+        .from_reader(csv_text.as_bytes());
 
     let mut items = Vec::new();
     for result in rdr.deserialize() {
@@ -500,6 +517,28 @@ pub fn load_processing_no_energy(
         });
     }
     Ok(items)
+}
+
+/// Loads processing facility data without energy tracking.
+///
+/// # Arguments
+///
+/// * `path` - Path to the facility's CSV file
+/// * `facility_name` - Name of the facility (e.g., "Crafting Table")
+///
+/// # Returns
+///
+/// A vector of [`ProductionItem`] representing all recipes for this facility,
+/// or an error if the file cannot be read or parsed.
+///
+/// # CSV Format
+///
+/// Expected columns: `name, raw_materials, required_amount, sell_value, sell_currency (optional, default coins), production_time OR workload, facility_level, module_requirement`
+pub fn load_processing_no_energy(
+    path: &Path,
+    facility_name: &str,
+) -> Result<Vec<ProductionItem>, Box<dyn Error>> {
+    parse_processing_no_energy(&std::fs::read_to_string(path)?, facility_name)
 }
 
 /// Loads all production data from the data directory.
@@ -588,3 +627,94 @@ const PROCESSOR_FILES: [(&str, &str); 11] = [
     ("dance_pad_polisher.csv", "Dance Pad Polisher"),
     ("aniipod_maker.csv", "Aniipod Maker"),
 ];
+
+/// Embedded CSV contents for Aniimo-worked gathering facilities without byproducts.
+const EMBEDDED_ANIIMO_MATERIAL_CSVS: [(&str, &str); 5] = [
+    (include_str!("../data/tidewhisper_sandcastle.csv"), "Tidewhisper Sandcastle"),
+    (include_str!("../data/dewy_house.csv"), "Dewy House"),
+    (include_str!("../data/nimbus_bed.csv"), "Nimbus Bed"),
+    (include_str!("../data/starfall_hammock.csv"), "Starfall Hammock"),
+    (include_str!("../data/floral_windmill.csv"), "Floral Windmill"),
+];
+
+/// Embedded CSV contents for no-energy processing facilities.
+const EMBEDDED_PROCESSOR_CSVS: [(&str, &str); 11] = [
+    (include_str!("../data/crafting_table.csv"), "Crafting Table"),
+    (include_str!("../data/simmering_pot.csv"), "Simmering Pot"),
+    (include_str!("../data/phonolfactory_table.csv"), "Phonolfactory Table"),
+    (include_str!("../data/bouncy_brew_keg.csv"), "Bouncy Brew Keg"),
+    (include_str!("../data/blazing_stove.csv"), "Blazing Stove"),
+    (include_str!("../data/pickling_jar.csv"), "Pickling Jar"),
+    (include_str!("../data/joy_wheel_loom.csv"), "Joy Wheel Loom"),
+    (include_str!("../data/woodworking_bench.csv"), "Woodworking Bench"),
+    (include_str!("../data/chimney_kiln.csv"), "Chimney Kiln"),
+    (include_str!("../data/dance_pad_polisher.csv"), "Dance Pad Polisher"),
+    (include_str!("../data/aniipod_maker.csv"), "Aniipod Maker"),
+];
+
+/// Returns all production items parsed from the compile-time embedded CSV files,
+/// with uncovered variants added and watering applied (identical to [`load_all_data`]).
+pub fn embedded_items() -> Vec<ProductionItem> {
+    let mut all_items = Vec::new();
+
+    all_items.extend(parse_farmland(include_str!("../data/farmland.csv")).expect("embedded farmland.csv is valid"));
+    all_items.extend(parse_woodland(include_str!("../data/woodland.csv")).expect("embedded woodland.csv is valid"));
+    all_items.extend(parse_mine(include_str!("../data/mine.csv")).expect("embedded mine.csv is valid"));
+    all_items.extend(parse_well(include_str!("../data/well.csv")).expect("embedded well.csv is valid"));
+    for (csv_text, facility) in EMBEDDED_ANIIMO_MATERIAL_CSVS {
+        all_items.extend(
+            parse_workload_raw_material(csv_text, facility, None)
+                .unwrap_or_else(|e| panic!("embedded CSV for {facility} is valid: {e}")),
+        );
+    }
+
+    all_items.extend(
+        parse_processing_with_energy(include_str!("../data/carousel_mill.csv"), "Carousel Mill")
+            .expect("embedded carousel_mill.csv is valid"),
+    );
+    all_items.extend(
+        parse_processing_with_energy(include_str!("../data/jukebox_dryer.csv"), "Jukebox Dryer")
+            .expect("embedded jukebox_dryer.csv is valid"),
+    );
+    all_items.extend(
+        parse_processing_with_energy(include_str!("../data/claw_game_cooker.csv"), "Claw Game Cooker")
+            .expect("embedded claw_game_cooker.csv is valid"),
+    );
+    for (csv_text, facility) in EMBEDDED_PROCESSOR_CSVS {
+        all_items.extend(
+            parse_processing_no_energy(csv_text, facility)
+                .unwrap_or_else(|e| panic!("embedded CSV for {facility} is valid: {e}")),
+        );
+    }
+
+    crate::models::add_uncovered_variants(&mut all_items);
+    crate::models::apply_watering(&mut all_items);
+    all_items
+}
+
+/// Returns the embedded Harvest Moon Festival recipes with watering applied.
+pub fn embedded_season_items() -> Vec<ProductionItem> {
+    let mut season = parse_season(include_str!("../data/harvest_moon_festival.csv"))
+        .expect("embedded harvest_moon_festival.csv is valid");
+    crate::models::apply_watering(&mut season);
+    season
+}
+
+/// Returns the embedded Aniimo requirements (`data/aniimo_requirements.csv`).
+pub fn embedded_aniimo_requirements() -> AniimoRequirements {
+    parse_aniimo_requirements(include_str!("../data/aniimo_requirements.csv"))
+        .expect("embedded aniimo_requirements.csv is valid")
+}
+
+/// Returns the embedded Farmland/Woodland Aniimo grower steps (`data/grower_steps.csv`) with watering applied.
+pub fn embedded_grower_steps() -> GrowerSteps {
+    parse_grower_steps(include_str!("../data/grower_steps.csv"))
+        .expect("embedded grower_steps.csv is valid")
+        .with_watering()
+}
+
+/// Returns the embedded unverified recipe list (`data/unverified.csv`).
+pub fn embedded_unverified() -> Vec<(String, String)> {
+    parse_unverified(include_str!("../data/unverified.csv"))
+        .expect("embedded unverified.csv is valid")
+}
