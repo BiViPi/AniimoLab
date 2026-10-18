@@ -8,7 +8,7 @@ import {
     POWER_PROFILES_BY_RV, getPowerProfile,
     LAYOUT_DISTRICTS, getFacilityDistrict,
     CROP_HARVEST_ABILITY, getCropHarvestAbility,
-} from './facility-config.js?v=aniimolab_v27';
+} from './facility-config.js?v=aniimolab_v28';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v25';
 import { renderFacilityIcon, renderItemIcon, renderHomelandSvgFacility, getFacilityIconUrl, HOMELAND_ASSET_MANIFEST } from './asset-map.js?v=aniimolab_v39';
 
@@ -24,7 +24,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?v=aniimolab_v43&load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v44&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -1188,16 +1188,12 @@ export function estimateFacilityMarginalValue(facility, level, basePlan, options
     }
 
     // PlanStep is one row per product. Dedicated rows represent disjoint capacity,
-    // while time-share rows can repeat the whole shared capacity. Avoid counting
-    // shared physical units once for every competing product row.
+    // while time-share rows have facility_count: 0 for secondary rows.
     let rawActiveUnits = 0;
     if (basePlan && Array.isArray(basePlan.coin_items)) {
-        const activeRows = basePlan.coin_items.filter(step =>
-            normFac(step.facility) === facility && step.status === 'producing' && (step.facility_count || 0) > 0);
-        const sharedRows = activeRows.filter(step => /takes turns with/i.test(step.reason || ''));
-        const dedicatedRows = activeRows.filter(step => !/takes turns with/i.test(step.reason || ''));
-        rawActiveUnits = dedicatedRows.reduce((sum, step) => sum + (step.facility_count || 0), 0)
-            + (sharedRows.length ? Math.max(...sharedRows.map(step => step.facility_count || 0)) : 0);
+        rawActiveUnits = basePlan.coin_items
+            .filter(step => normFac(step.facility) === facility && step.status === 'producing')
+            .reduce((sum, step) => sum + (step.facility_count || 0), 0);
     }
     const effectiveOwned = (typeof ownedUnits === 'number' && ownedUnits > 0)
         ? ownedUnits
@@ -1207,14 +1203,52 @@ export function estimateFacilityMarginalValue(facility, level, basePlan, options
     // Helper kiểm tra xem cơ sở có đang tham gia chuỗi sản xuất thượng nguồn (upstream supplier) không
     const isUpstreamSupplier = (() => {
         if (!basePlan) return false;
+        if (facility === 'Woodworking Bench' || facility === 'Chimney Kiln') return false;
         if (Array.isArray(basePlan.coin_items) && basePlan.coin_items.some(item => normFac(item.facility) === facility && item.status === 'producing' && (item.facility_count || 0) > 0)) {
             return true;
         }
         return false;
     })();
 
-    // Nếu không có income stream nào khớp hoặc doanh thu = 0, phân biệt rõ upstream supplier vs unused
+    // Nếu không có income stream nào khớp hoặc doanh thu = 0:
+    // Nếu là upstream supplier, phân bổ tỷ lệ đóng góp từ tổng doanh thu nông trại hạ nguồn thay vì coi là 0.
     if (activeRevenuePerSec <= 0 || matchedStreams.length === 0) {
+        if (isUpstreamSupplier) {
+            const totalFarmRevenuePerSec = (basePlan.income_streams || []).reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
+            const totalActiveFarmUnits = Math.max(1, (basePlan.coin_items || [])
+                .filter(step => step.status === 'producing')
+                .reduce((sum, step) => sum + (step.facility_count || 0), 0));
+            const unitBaseRevenuePerSec = totalFarmRevenuePerSec / totalActiveFarmUnits;
+            const speedupFactor = Math.max(1.0, powerGridRate);
+            const marginalRevenuePerSec = unitBaseRevenuePerSec * (speedupFactor - 1.0);
+            const marginalRevenuePerHr = Math.round(marginalRevenuePerSec * 3600 * 100) / 100;
+            const totalScore = marginalRevenuePerHr;
+            const scorePerWatt = unitWatts > 0 ? totalScore / unitWatts : 0;
+
+            return {
+                facility,
+                level,
+                primaryItem: null,
+                unitWatts,
+                marginalRevenuePerHr,
+                workforceReliefPerHr: 0,
+                totalScore,
+                scorePerWatt,
+                measurement_type: 'imputed_upstream_contribution',
+                reason: 'upstream_supplier_intermediate_inputs',
+                status: 'upstream_supplier',
+                diagnostics: {
+                    metricSource: 'basePlan.income_streams_imputed',
+                    matchedStreamsCount: 0,
+                    activeFacilityUnits,
+                    ownedUnits,
+                    activeRevenuePerSec: unitBaseRevenuePerSec * activeFacilityUnits,
+                    isUpstreamSupplier: true,
+                    reason: 'Facility active as upstream supplier; marginal score imputed proportionally from downstream farm revenue'
+                }
+            };
+        }
+
         return {
             facility,
             level,
@@ -1225,18 +1259,16 @@ export function estimateFacilityMarginalValue(facility, level, basePlan, options
             totalScore: 0,
             scorePerWatt: 0,
             measurement_type: 'direct_sold_output',
-            reason: isUpstreamSupplier ? 'upstream_supplier_intermediate_inputs' : 'no_matching_income_stream_or_zero_revenue',
-            status: isUpstreamSupplier ? 'upstream_supplier' : 'unknown',
+            reason: 'no_matching_income_stream_or_zero_revenue',
+            status: 'unknown',
             diagnostics: {
                 metricSource: 'basePlan.income_streams',
                 matchedStreamsCount: matchedStreams.length,
                 activeFacilityUnits,
                 ownedUnits,
                 activeRevenuePerSec: 0,
-                isUpstreamSupplier,
-                reason: isUpstreamSupplier
-                    ? 'Facility active as upstream supplier for intermediate inputs; direct sold output revenue is 0'
-                    : 'Facility produces 0 revenue or has no valid income stream in base plan'
+                isUpstreamSupplier: false,
+                reason: 'Facility produces 0 revenue or has no valid income stream in base plan'
             }
         };
     }
@@ -1418,6 +1450,7 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     const quotas = typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : {};
 
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
+        if (fac === 'Woodworking Bench' || fac === 'Chimney Kiln') continue;
         let quotaDeduction = 0;
         if (fac === 'Mine' && quotas.earth_4p_mines) quotaDeduction = quotas.earth_4p_mines;
         if (fac === 'Well' && quotas.water_4f_wells) quotaDeduction = quotas.water_4f_wells;
@@ -2830,10 +2863,13 @@ function homelandPieces(plan, input) {
         }
         const busy = rows.reduce((sum, r) => sum + (r.busy_units ?? r.facility_count ?? 1), 0);
         const explicitCount = rows.reduce((sum, r) => sum + (r.facility_count || 1), 0);
-        const n = Math.max(explicitCount, Math.ceil(busy - 1e-6));
+        const baseFac = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
+        const ownedList = simpleSetup(selectedHomeLevel()).facilities[baseFac];
+        const ownedMax = Array.isArray(ownedList) ? ownedList.reduce((s, t) => s + (t.count || 0), 0) : 0;
+        const rawN = Math.max(explicitCount, Math.ceil(busy - 1e-6));
+        const n = ownedMax > 0 ? Math.min(ownedMax, rawN) : rawN;
         const jobs = rows.filter(r => r.cycle_time > 0).map(r => ({ item: r.item_name, cycle: r.cycle_time, rate: (r.busy_units ?? r.facility_count) / r.cycle_time / n }));
         const weight = jobs.reduce((sum, j) => sum + j.rate * 3600, 0);
-        const baseFac = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
         const isElectric = rows.some(r => checkIsElectric(r, facility));
         const powerWatts = isElectric ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
         for (let i = 0; i < n; i++) {
@@ -5362,11 +5398,13 @@ function getPlanInputValues() {
     // If season is active and user wants umbral_pickle, keep apple for cider_vinegar
     const keepAppleForSeason = seasonActive() && selectedSeasonDishes.has('umbral_pickle');
 
-    for (const [lvl, crops] of Object.entries(woodlandCropsByLevel)) {
-        if (Number(lvl) < woodlandTier) {
-            for (const crop of crops) {
-                if (keepAppleForSeason && crop === 'apple') continue;
-                if (!excluded.includes(crop)) excluded.push(crop);
+    if (selectedHomeLevel() < 20) {
+        for (const [lvl, crops] of Object.entries(woodlandCropsByLevel)) {
+            if (Number(lvl) < woodlandTier) {
+                for (const crop of crops) {
+                    if (keepAppleForSeason && crop === 'apple') continue;
+                    if (!excluded.includes(crop)) excluded.push(crop);
+                }
             }
         }
     }
@@ -5411,6 +5449,7 @@ function getPlanInputValues() {
     }
 
     return {
+        home_level: selectedHomeLevel(),
         currency: 'coins',
         priorities: activePriorities(),
         prioritize_byproducts: false,
@@ -5764,7 +5803,7 @@ export function normalizePlanFacilityCounts(plan) {
                     initialMode = 'manual';
                 } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
                     initialMode = 'prismana';
-                } else if (emodeAvailable && facDef?.supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0) {
+                } else if (emodeAvailable && step.is_emode !== false && facDef?.supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0) {
                     initialMode = 'electric';
                 } else {
                     initialMode = 'prismana';
@@ -6704,7 +6743,7 @@ function aniimoLabel(step) {
         } else {
             const facDef = FACILITIES.find(f => f.name === baseFac);
             const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
-            mode = (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well')
+            mode = (emodeAvailable && step.is_emode !== false && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && baseFac !== 'Mine' && baseFac !== 'Well')
                 ? 'electric'
                 : 'prismana';
         }
@@ -6873,7 +6912,7 @@ function planRows(rows, options = {}) {
                 else if (ovr.specialist_count > 0) currentMode = 'prismana';
                 else if (ovr.manual_count > 0) currentMode = 'manual';
                 else currentMode = 'prismana';
-            } else if (emodeAvailable && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
+            } else if (emodeAvailable && step.is_emode !== false && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
                 currentMode = 'electric';
             } else {
                 currentMode = 'prismana';
@@ -7135,7 +7174,9 @@ export function renderAniimoSummary(plan, options = {}) {
     let totalWells = 0;
     let manualWells = 0;
     let woodBenches = 0;
+    let manualWoodBenches = 0;
     let chimneyKilns = 0;
+    let manualChimneyKilns = 0;
 
     (plan.coin_items || []).forEach(step => {
         const rawFac = step.facility || '';
@@ -7153,9 +7194,27 @@ export function renderAniimoSummary(plan, options = {}) {
             totalWells += count;
             if (isManual) manualWells += count;
         }
-        if (baseFac === 'Woodworking Bench') woodBenches += count;
-        if (baseFac === 'Chimney Kiln') chimneyKilns += count;
+        if (baseFac === 'Woodworking Bench') {
+            woodBenches += count;
+            if (isManual) manualWoodBenches += count;
+        }
+        if (baseFac === 'Chimney Kiln') {
+            chimneyKilns += count;
+            if (isManual) manualChimneyKilns += count;
+        }
     });
+
+    const ownedSetupFacs = simpleSetup(homeLevel).facilities || {};
+    const maxOwnedBench = (ownedSetupFacs['Woodworking Bench'] || []).reduce((s, t) => s + (t.count || 0), 0);
+    const maxOwnedKiln = (ownedSetupFacs['Chimney Kiln'] || []).reduce((s, t) => s + (t.count || 0), 0);
+    if (maxOwnedBench > 0) {
+        woodBenches = Math.min(woodBenches, maxOwnedBench);
+        manualWoodBenches = Math.min(manualWoodBenches, maxOwnedBench);
+    }
+    if (maxOwnedKiln > 0) {
+        chimneyKilns = Math.min(chimneyKilns, maxOwnedKiln);
+        manualChimneyKilns = Math.min(manualChimneyKilns, maxOwnedKiln);
+    }
 
     const totalFarmPlots = totalFarmland + totalWoodland;
 
@@ -7187,8 +7246,8 @@ export function renderAniimoSummary(plan, options = {}) {
     const farmTotal = farmingMembers.reduce((sum, m) => sum + m.count, 0);
 
     // --- Nhóm 2: Gia công Gỗ & Quặng (Wood & Ore Processing) ---
-    const artisansNeeded = totalWoodland >= 12 ? 3 : (totalWoodland >= 5 ? 2 : (woodBenches > 0 ? 1 : 0));
-    const fireNeeded = totalMines >= 6 ? 2 : (chimneyKilns > 0 ? 1 : 0);
+    const artisansNeeded = manualWoodBenches;
+    const fireNeeded = manualChimneyKilns;
 
     const processingMembers = [];
     if (artisansNeeded > 0) {
@@ -7198,7 +7257,7 @@ export function renderAniimoSummary(plan, options = {}) {
             ability: 'Artisanship',
             level: 4,
             role: isVi ? `${artisansNeeded}× Bàn Gia Công Gỗ` : `${artisansNeeded}× Woodworking Bench`,
-            desc: isVi ? `Cưa kiệt ~${totalWoodland * 150} vụn gỗ/giờ từ ${totalWoodland} ô Rừng` : `Processes ~${totalWoodland * 150} wood blocks/hr from ${totalWoodland} trees`,
+            desc: isVi ? `Cưa xẻ gỗ thủ công trên ${artisansNeeded} bàn mộc` : `Manual woodworking on ${artisansNeeded} benches`,
             specific: 'Fulmintis'
         });
     }
@@ -7209,7 +7268,7 @@ export function renderAniimoSummary(plan, options = {}) {
             ability: 'Fire',
             level: 4,
             role: isVi ? `${fireNeeded}× Lò Ống Khói` : `${fireNeeded}× Chimney Kiln`,
-            desc: isVi ? `Nung gạch kiệt ~${totalMines * 200} cát khoáng/giờ từ ${totalMines} Hầm mỏ` : `Smelts ~${totalMines * 200} mineral sand/hr from ${totalMines} mines`,
+            desc: isVi ? `Nung gạch thủ công trên ${fireNeeded} lò nung` : `Manual smelting on ${fireNeeded} kilns`,
             specific: 'Ignis'
         });
     }
@@ -7293,6 +7352,60 @@ export function renderAniimoSummary(plan, options = {}) {
         }
     }
 
+    // Thiết bị điều hòa thời tiết & chiếu sáng hoạt động 24/7 (Heat Furnace, Cooling Unit, Sunlamp)
+    const pushEnvironmentWorker = (b, count, mode) => {
+        if (!count || count <= 0) return;
+        if (b === 'Heat Furnace') {
+            stationaryMembers.push({
+                name: isVi ? 'Ignis (Hỏa)' : 'Ignis (Fire)',
+                count: count,
+                ability: 'Fire',
+                level: 3,
+                role: `${count}× ${b}`,
+                desc: isVi ? `Trực Lò Sưởi (${mode || 'Nhiệt'}) 24/7` : `Maintains Heat Furnace (${mode || 'Heat'}) 24/7`,
+                specific: 'Ignis'
+            });
+        } else if (b === 'Cooling Unit') {
+            stationaryMembers.push({
+                name: isVi ? 'Aquata (Thủy)' : 'Aquata (Water)',
+                count: count,
+                ability: 'Water',
+                level: 3,
+                role: `${count}× ${b}`,
+                desc: isVi ? `Trực Máy Làm Mát (${mode || 'Lạnh'}) 24/7` : `Maintains Cooling Unit (${mode || 'Cold'}) 24/7`,
+                specific: 'Aquata'
+            });
+        } else if (b === 'Sunlamp') {
+            stationaryMembers.push({
+                name: isVi ? 'Lumik (Quang)' : 'Lumik (Light)',
+                count: count,
+                ability: 'Light',
+                level: 3,
+                role: `${count}× ${b}`,
+                desc: isVi ? 'Trực Đèn Mặt Trời chiếu sáng 24/7' : `Maintains Sunlamp lighting 24/7`,
+                specific: 'Lumik'
+            });
+        }
+    };
+    const envPairUnits = new Map();
+    (plan.environment_assignments || []).forEach(a => {
+        if (a.partner) {
+            const key = `${a.building}|${a.partner[0]}`;
+            const seen = envPairUnits.get(key);
+            envPairUnits.set(key, {
+                units: Math.max(seen ? seen.units : 0, a.units || 0),
+                modes: a.pair_modes || [a.mode, a.mode]
+            });
+            return;
+        }
+        pushEnvironmentWorker(a.building, a.units || 0, a.mode);
+    });
+    envPairUnits.forEach(({ units, modes }, key) => {
+        const [building, partner] = key.split('|');
+        pushEnvironmentWorker(building, units, modes[0]);
+        pushEnvironmentWorker(partner, units, modes[1]);
+    });
+
     // Các cơ sở thú nuôi & thủ công khác
     (plan.coin_items || []).forEach(step => {
         const rawFac = step.facility || '';
@@ -7300,11 +7413,13 @@ export function renderAniimoSummary(plan, options = {}) {
         if (baseFac === 'Farmland' || baseFac === 'Woodland' || baseFac === 'Woodworking Bench' || baseFac === 'Chimney Kiln') return;
 
         const isSpecialist = step.is_specialist || rawFac.includes('(Prismana)');
-        const isManual = step.is_manual || rawFac.includes('(Manual)') || isSpecialist;
-        const isResident = RESIDENT_FACILITIES.has(baseFac) || baseFac === 'Nimbus Bed' || baseFac === 'Tidewhisper Sandcastle' || baseFac === 'Dewy House' || baseFac === 'Starfall Hammock';
+        const isManual = step.is_manual || rawFac.includes('(Manual)') || isSpecialist || (!step.is_emode && !rawFac.includes('(Electric)'));
+        const isResident = (typeof RESIDENT_FACILITIES !== 'undefined' && RESIDENT_FACILITIES && RESIDENT_FACILITIES.has(baseFac))
+            || baseFac === 'Nimbus Bed' || baseFac === 'Tidewhisper Sandcastle' || baseFac === 'Dewy House' || baseFac === 'Starfall Hammock' || baseFac === 'Floral Windmill';
 
-        if (isResident || isManual) {
-            const count = step.facility_count || 1;
+        if (step.status === 'producing' && (isResident || isManual)) {
+            const count = typeof step.facility_count === 'number' ? step.facility_count : 1;
+            if (count <= 0) return;
             const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
             const ability = step.aniimo ? step.aniimo.ability : (FACILITIES.find(f => f.name === baseFac)?.ability || 'Leisure');
             const level = step.aniimo ? step.aniimo.level : 4;

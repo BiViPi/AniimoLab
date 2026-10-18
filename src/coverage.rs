@@ -73,7 +73,8 @@ pub const ENVIRONMENT_GATED_FACILITIES: &[(&str, f64)] = &[
 
 /// Returns the footprint side length for an environment-gated facility type, if it is one.
 pub fn facility_footprint(name: &str) -> Option<f64> {
-    ENVIRONMENT_GATED_FACILITIES.iter().find(|(n, _)| *n == name).map(|(_, w)| *w)
+    let base = crate::models::base_facility_name(name);
+    ENVIRONMENT_GATED_FACILITIES.iter().find(|(n, _)| *n == base).map(|(_, w)| *w)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

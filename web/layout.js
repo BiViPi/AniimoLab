@@ -497,94 +497,158 @@ export function layOutHomeland(pieces, cells, options = {}) {
     });
 
     // 1. Storage Units setup
-    const homelandStorages = [
+    // 1. Storage Units setup
+    const defaultStorages = [
         { id: 'su_1', role: 'central', label: 'SU 1 (Central)', color: '#eab308', x: 44.0, y: 35.0, w: storageSize.w, h: storageSize.h },
         { id: 'su_2', role: 'farm', label: 'SU 2 (Farm)', color: '#10b981', x: 59.0, y: 20.0, w: storageSize.w, h: storageSize.h },
         { id: 'su_3', role: 'workshop', label: 'SU 3 (Workshop)', color: '#06b6d4', x: 27.0, y: 27.0, w: storageSize.w, h: storageSize.h },
     ];
     if (suCount >= 4) {
-        homelandStorages.push({ id: 'su_4', role: 'forestry', label: 'SU 4 (Forestry)', color: '#059669', x: 69.0, y: 7.5, w: storageSize.w, h: storageSize.h });
+        defaultStorages.push({ id: 'su_4', role: 'forestry', label: 'SU 4 (Forestry)', color: '#059669', x: 69.0, y: 7.5, w: storageSize.w, h: storageSize.h });
     }
     if (suCount >= 5) {
-        homelandStorages.push({ id: 'su_5', role: 'expansion', label: 'SU 5 (Expansion)', color: '#8b5cf6', x: 44.0, y: 52.0, w: storageSize.w, h: storageSize.h });
+        defaultStorages.push({ id: 'su_5', role: 'expansion', label: 'SU 5 (Expansion)', color: '#8b5cf6', x: 44.0, y: 52.0, w: storageSize.w, h: storageSize.h });
     }
+    const homelandStorages = defaultStorages.map(su => {
+        if (inside(su)) return su;
+        if (Array.isArray(cells) && cells.length > 0) {
+            let bestCell = null;
+            let bestD = Infinity;
+            const suCenterX = su.x + su.w / 2;
+            const suCenterY = su.y + su.h / 2;
+            for (const c of cells) {
+                const cellCenterX = c.x + c.w / 2;
+                const cellCenterY = c.y + c.h / 2;
+                const d = Math.hypot(cellCenterX - suCenterX, cellCenterY - suCenterY);
+                if (d < bestD) {
+                    bestD = d;
+                    bestCell = c;
+                }
+            }
+            if (bestCell) {
+                const newX = bestCell.x + Math.max(0, (bestCell.w - su.w) / 2);
+                const newY = bestCell.y + Math.max(0, (bestCell.h - su.h) / 2);
+                return { ...su, x: newX, y: newY };
+            }
+        }
+        return su;
+    });
     homelandStorages.forEach(su => placedMembers.push(su));
 
+    const unplacedPieces = [];
+    const placedPieces = [];
+
+    const tryPlacePiece = (piece, targetX, targetY) => {
+        const m = piece.members?.[0];
+        if (!m) return false;
+        const targetRect = { x: targetX, y: targetY, w: m.w, h: m.h };
+        if (inside(targetRect) && !isOccupied(targetRect, m)) {
+            m.x = targetX;
+            m.y = targetY;
+            placedMembers.push(m);
+            placedPieces.push(piece);
+            return true;
+        }
+
+        // Search outward for the nearest valid open cell, checking all 4 sides of each bounding square
+        let bestX = null, bestY = null;
+        let bestDist = Infinity;
+        const su = homelandStorages[0];
+        for (let r = 0.5; r <= 35.0; r += 0.5) {
+            const step = r < 6 ? 0.5 : 1.0;
+            // 1. Top and bottom horizontal edges
+            for (let dx = -r; dx <= r; dx += step) {
+                for (const dy of [-r, r]) {
+                    const x = targetX + dx;
+                    const y = targetY + dy;
+                    const rect = { x, y, w: m.w, h: m.h };
+                    if (inside(rect) && !isOccupied(rect, m)) {
+                        const d = Math.hypot((x + m.w / 2) - (su.x + su.w / 2), (y + m.h / 2) - (su.y + su.h / 2));
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestX = x;
+                            bestY = y;
+                        }
+                    }
+                }
+            }
+            // 2. Left and right vertical edges
+            for (let dy = -r + step; dy <= r - step; dy += step) {
+                for (const dx of [-r, r]) {
+                    const x = targetX + dx;
+                    const y = targetY + dy;
+                    const rect = { x, y, w: m.w, h: m.h };
+                    if (inside(rect) && !isOccupied(rect, m)) {
+                        const d = Math.hypot((x + m.w / 2) - (su.x + su.w / 2), (y + m.h / 2) - (su.y + su.h / 2));
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestX = x;
+                            bestY = y;
+                        }
+                    }
+                }
+            }
+            if (bestX !== null) break;
+        }
+
+        if (bestX !== null) {
+            m.x = bestX;
+            m.y = bestY;
+            placedMembers.push(m);
+            placedPieces.push(piece);
+            return true;
+        }
+
+        unplacedPieces.push(piece);
+        return false;
+    };
+
     // 2. Power Corridor (Plot 4 -> Plot 3)
-    // 2 Crackle Generators (2x2, 11x11 square grid):
-    // Spaced ~9.5 tiles apart so their 11x11 auras overlap by 1.5 tiles (>= 0.25 tile in-game rule),
-    // combining into a single 2000W network spanning x in [16.5, 38.0]
     generators.forEach((p, idx) => {
-        const m = p.members[0];
-        m.x = 22.0 + idx * 9.5;
-        m.y = 35.0;
-        placedMembers.push(m);
-    });
-    // 4 Power Poles (1.5x1.5, 7x7 square grid):
-    // Chained along the corridor from Gen 2 eastward into Plot 3 & 6, spanning to x = 61.75
-    poles.forEach((p, idx) => {
-        const m = p.members[0];
-        m.x = 39.5 + idx * 6.0;
-        m.y = 35.25;
-        placedMembers.push(m);
+        tryPlacePiece(p, 22.0 + idx * 9.5, 35.0);
     });
 
-    // 3. Electric Wells Row: North of Trụ điện #1 & #2 (y = 32.0), strictly inside 11x11 generator auras
+    poles.forEach((p, idx) => {
+        tryPlacePiece(p, 39.5 + idx * 6.0, 35.25);
+    });
+
+    // 3. Electric Wells Row
     let wellX = 22.0;
     wells.forEach(p => {
         const m = p.members[0];
-        m.x = wellX;
-        m.y = 32.0;
+        tryPlacePiece(p, wellX, 32.0);
         wellX += m.w + 1.0;
-        placedMembers.push(m);
     });
 
-    // 4. Electric Small Workshops (Blazing Stove, Claw Game Cookers, Simmering Pots):
-    // Placed along y = 32.0 in Plot 4 and Plot 3, directly inside Gen 2 and Pole 1/2 auras
+    // 4. Electric Small Workshops
     let eNorthX = Math.max(wellX, 31.0);
     electricSmallWorkshops.forEach(p => {
         const m = p.members[0];
-        m.x = eNorthX;
-        m.y = 32.0;
+        tryPlacePiece(p, eNorthX, 32.0);
         eNorthX += m.w + 0.8;
-        placedMembers.push(m);
     });
 
-    // 5. Electric Large Workshops (Carousel Mill, etc. if electric):
-    // Placed south of power line at y = 38.5 inside generator/pole auras
+    // 5. Electric Large Workshops
     let eSouthX = 22.0;
     electricLargeWorkshops.forEach(p => {
         const m = p.members[0];
-        m.x = eSouthX;
-        m.y = 38.5;
+        tryPlacePiece(p, eSouthX, 38.5);
         eSouthX += m.w + 0.8;
-        placedMembers.push(m);
     });
 
-    // 6. Electric Mines Block (6 Mines, 5x5 each):
-    // Row 1 at y = 29.5 (y in [29.5, 34.5])
-    // Corridor with Poles at y = 35.0 (y in [35.0, 36.5])
-    // Row 2 at y = 37.0 (y in [37.0, 42.0])
+    // 6. Electric Mines Block
     electricMines.forEach((p, idx) => {
-        const m = p.members[0];
         const col = idx % 3;
         const row = Math.floor(idx / 3);
-        m.x = 46.0 + col * 5.5;
-        m.y = row === 0 ? 29.5 : 37.0;
-        placedMembers.push(m);
+        tryPlacePiece(p, 46.0 + col * 5.5, row === 0 ? 29.5 : 37.0);
     });
 
-    // 7. Non-Electric Mines (3 Mines, 5x5 each, with Aniimo Waleetle):
-    // Placed in Plot 1 (y = 44.5), OUTSIDE power auras, aligned in a neat row under electric mines
+    // 7. Non-Electric Mines
     nonElectricMines.forEach((p, idx) => {
-        const m = p.members[0];
-        m.x = 46.0 + idx * 5.5;
-        m.y = 44.5;
-        placedMembers.push(m);
+        tryPlacePiece(p, 46.0 + idx * 5.5, 44.5);
     });
 
-    // 8. Non-Electric Workshops (Joy Wheel Loom, Jukebox Dryer, Pickling Jar, Bouncy Brew Keg, Crafting Table, Nimbus Bed):
-    // Placed in Plot 2 & Plot 1 (y = 44.0 - 47.0), OUTSIDE power range, arranged in clean rows
+    // 8. Non-Electric Workshops
     let nonElecX = 21.0;
     let nonElecY = 44.0;
     [...nonElectricSmallWorkshops, ...nonElectricLargeWorkshops].forEach(p => {
@@ -593,33 +657,19 @@ export function layOutHomeland(pieces, cells, options = {}) {
             nonElecX = 21.0;
             nonElecY += 3.5;
         }
-        m.x = nonElecX;
-        m.y = nonElecY;
+        tryPlacePiece(p, nonElecX, nonElecY);
         nonElecX += m.w + 0.8;
-        placedMembers.push(m);
     });
 
-    // 9. Heavy Industry Block (Plot 7: y in [15, 30], x in [20, 40])
-    // 3 Chimney Kilns (5x5 each) in a straight row at y = 16.0
+    // 9. Heavy Industry Block (Kilns & Benches)
     kilns.forEach((p, idx) => {
-        const m = p.members[0];
-        m.x = 21.0 + idx * 6.0;
-        m.y = 16.0;
-        placedMembers.push(m);
+        tryPlacePiece(p, 21.0 + idx * 6.0, 16.0);
     });
-    // 3 Woodworking Benches (5x3 each) in a straight row at y = 22.5
     benches.forEach((p, idx) => {
-        const m = p.members[0];
-        m.x = 21.0 + idx * 6.0;
-        m.y = 22.5;
-        placedMembers.push(m);
+        tryPlacePiece(p, 21.0 + idx * 6.0, 22.5);
     });
 
-    // 10. Climate Clusters (Placed in SEPARATE PLOTS - Plot 8 and Plot 9)
-    // Cluster 0: Plot 8 (center at x=49, y=20)
-    // Cluster 1: Plot 9 (center at x=69, y=20)
-    // Cluster 2: Plot 15 (center at x=49, y=7.5)
-    // Cluster 3: Plot 16 (center at x=69, y=7.5)
+    // 10. Climate Clusters
     const clusterPlotCenters = [
         { cx: 49.0, cy: 20.0 }, // Plot 8
         { cx: 69.0, cy: 20.0 }, // Plot 9
@@ -628,59 +678,89 @@ export function layOutHomeland(pieces, cells, options = {}) {
     ];
 
     clusterPieces.forEach((p, cIdx) => {
-        const { cx, cy } = clusterPlotCenters[cIdx % clusterPlotCenters.length];
-        if (p.buildings) {
-            p.buildings.forEach(b => {
-                b.x += cx;
-                b.y += cy;
-                placedMembers.push(b);
-            });
-        }
-        if (p.plots) {
-            p.plots.forEach((pl, j) => {
-                const planSlot = p.planned?.[j] || { x: 0, y: 0 };
-                pl.x = planSlot.x + cx;
-                pl.y = planSlot.y + cy;
-                placedMembers.push(pl);
-            });
-        }
-        p.members = [...(p.buildings || []), ...(p.plots || [])];
-    });
-
-    // 11. Outdoor Farmlands / Woodlands (Field Blocks):
-    // Placed in Plot 14 (x in [20, 40], y in [0, 15]) in a neat rectangular field block,
-    // completely separate from Plot 15 (Cluster 2) and Plot 7 (Industry)
-    fieldPieces.forEach((p, fIdx) => {
-        const fx = 24.0;
-        const fy = 4.5 + fIdx * 6.5;
-        p.members.forEach(m => {
-            m.x += fx;
-            m.y += fy;
-            placedMembers.push(m);
-        });
-    });
-
-    // 12. Fallback for any other remaining pieces:
-    // Placed in open slots without overlapping
-    others.forEach(p => {
-        const m = p.members?.[0];
-        if (!m) return;
         let placed = false;
-        for (let y = 16; y <= 55 && !placed; y += 0.5) {
-            for (let x = 21; x <= 75 && !placed; x += 0.5) {
-                const rect = { x, y, w: m.w, h: m.h };
-                if (inside(rect) && !isOccupied(rect, m)) {
-                    m.x = x;
-                    m.y = y;
-                    placedMembers.push(m);
-                    placed = true;
+        for (let idxOffset = 0; idxOffset < clusterPlotCenters.length; idxOffset++) {
+            const { cx, cy } = clusterPlotCenters[(cIdx + idxOffset) % clusterPlotCenters.length];
+            const testMembers = [];
+            let allValid = true;
+            if (p.buildings) {
+                for (const b of p.buildings) {
+                    const rect = { x: b.x + cx, y: b.y + cy, w: b.w, h: b.h };
+                    if (!inside(rect) || isOccupied(rect, b)) {
+                        allValid = false;
+                        break;
+                    }
+                    testMembers.push({ member: b, rect });
                 }
             }
+            if (allValid && p.plots) {
+                for (let j = 0; j < p.plots.length; j++) {
+                    const pl = p.plots[j];
+                    const planSlot = p.planned?.[j] || { x: 0, y: 0 };
+                    const rect = { x: planSlot.x + cx, y: planSlot.y + cy, w: pl.w, h: pl.h };
+                    if (!inside(rect) || isOccupied(rect, pl)) {
+                        allValid = false;
+                        break;
+                    }
+                    testMembers.push({ member: pl, rect });
+                }
+            }
+            if (allValid) {
+                testMembers.forEach(({ member, rect }) => {
+                    member.x = rect.x;
+                    member.y = rect.y;
+                    placedMembers.push(member);
+                });
+                p.members = [...(p.buildings || []), ...(p.plots || [])];
+                placedPieces.push(p);
+                placed = true;
+                break;
+            }
         }
+        if (!placed) {
+            unplacedPieces.push(p);
+        }
+    });
+
+    // 11. Outdoor Farmlands / Woodlands (Field Blocks)
+    fieldPieces.forEach((p, fIdx) => {
+        let placed = false;
+        for (let yOffset = 0; yOffset <= 30; yOffset += 3.0) {
+            const fx = 24.0;
+            const fy = 4.5 + fIdx * 6.5 + yOffset;
+            const testMembers = [];
+            let allValid = true;
+            for (const m of p.members) {
+                const rect = { x: m.x + fx, y: m.y + fy, w: m.w, h: m.h };
+                if (!inside(rect) || isOccupied(rect, m)) {
+                    allValid = false;
+                    break;
+                }
+                testMembers.push({ member: m, rect });
+            }
+            if (allValid) {
+                testMembers.forEach(({ member, rect }) => {
+                    member.x = rect.x;
+                    member.y = rect.y;
+                    placedMembers.push(member);
+                });
+                placedPieces.push(p);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            unplacedPieces.push(p);
+        }
+    });
+
+    // 12. Fallback for any other remaining pieces
+    others.forEach(p => {
+        tryPlacePiece(p, 21.0, 16.0);
     });
 
     // 13. Assign closestStorage and district to all members
-    pieces.forEach(p => {
+    placedPieces.forEach(p => {
         if (p.cluster && !p.members) {
             p.members = [...(p.buildings || []), ...(p.plots || [])];
         }
@@ -698,11 +778,11 @@ export function layOutHomeland(pieces, cells, options = {}) {
     });
 
     return {
-        pieces,
+        pieces: placedPieces,
+        unplaced: unplacedPieces,
         storages: homelandStorages,
         storage: homelandStorages[0],
         storageAt: { x: homelandStorages[0].x + storageSize.w / 2, y: homelandStorages[0].y + storageSize.h / 2 },
-        unplaced: [],
         tried: pieces.length,
     };
 }

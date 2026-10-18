@@ -488,11 +488,12 @@ fn build_model<'a>(
     });
     for &(recipe, units) in &units_of {
         if let Some(environment) = recipe.environment.as_deref() {
-            if gated_types.contains(&recipe.facility.as_str()) {
-                if recipe.facility == "Tidewhisper Sandcastle" && !pearl_consumed {
+            let base_fac = crate::models::base_facility_name(&recipe.facility);
+            if gated_types.contains(&base_fac) {
+                if base_fac == "Tidewhisper Sandcastle" && !pearl_consumed {
                     continue;
                 }
-                needs_cover.entry((recipe.facility.as_str(), environment)).or_default().push(units);
+                needs_cover.entry((base_fac, environment)).or_default().push(units);
             }
         }
     }
@@ -689,7 +690,11 @@ fn build_model<'a>(
         let mut busy: Vec<Vec<(usize, f64)>> = vec![Vec::new(); crew.members.len()];
         for (&(recipe, rate), &(_, units)) in rate_of.iter().zip(&units_of) {
             let Some(member) = recipe.crew.filter(|&m| m < busy.len()) else { continue };
-            if crew.residents.contains(&recipe.facility) {
+            let base_fac = crate::models::base_facility_name(&recipe.facility);
+            if crew.residents.contains(&recipe.facility)
+                || crew.residents.contains(base_fac)
+                || crate::models::ANIIMO_RESIDENT_FACILITIES.contains(&base_fac)
+            {
                 busy[member].push((units, 1.0));
             } else {
                 busy[member].push((rate, recipe.production_time));
@@ -785,9 +790,7 @@ fn build_model<'a>(
                 terms.push((units, 1.0));
             }
         }
-        // Growers (Farmland/Woodland) + Hauling fixed overhead (2 workers)
-        let overhead = 2.0;
-        let available = (cap as f64 - overhead).max(1.0);
+        let available = (cap as f64).max(1.0);
         model.constrain(terms, ComparisonOp::Le, available);
     }
     // Of plans otherwise equal, the fewest environment buildings: a pair is two.
@@ -1257,7 +1260,11 @@ pub fn check_plan(
             let recipe = all.get(name.as_str()).ok_or(format!("unknown recipe {name}"))?;
             let Some(member) = recipe.crew else { continue };
             let slot = busy.get_mut(member).ok_or(format!("{name} is worked by roster member {member}, who isn't there"))?;
-            *slot += if crew.residents.contains(&recipe.facility) {
+            let base_fac = crate::models::base_facility_name(&recipe.facility);
+            *slot += if crew.residents.contains(&recipe.facility)
+                || crew.residents.contains(base_fac)
+                || crate::models::ANIIMO_RESIDENT_FACILITIES.contains(&base_fac)
+            {
                 plan.units.get(name).copied().unwrap_or(0) as f64
             } else {
                 rate * recipe.production_time
@@ -1300,6 +1307,26 @@ pub fn check_plan(
             if total_busy_prod > cap as f64 + TOLERANCE {
                 return Err(format!("plan uses {total_busy_prod:.2} workers but max allowed for production is {cap}"));
             }
+        }
+    } else if let Some(cap) = facility_counts.worker_cap() {
+        let mut busy_workers = 0.0;
+        for (name, &rate) in &plan.recipe_rates {
+            if let Some(recipe) = all.get(name.as_str()) {
+                if recipe.workload.is_some() {
+                    let in_use = if takes_turns(recipe) {
+                        rate * recipe.production_time
+                    } else {
+                        plan.units.get(name).copied().unwrap_or(0) as f64
+                    };
+                    busy_workers += in_use;
+                }
+            }
+        }
+        for &used in buildings_used.values() {
+            busy_workers += used as f64;
+        }
+        if busy_workers > cap as f64 + TOLERANCE {
+            return Err(format!("plan uses {busy_workers:.2} workers but max allowed for production is {cap}"));
         }
     }
     // The measurement build lets a building mix arrangements, which no whole layout can hold, so
@@ -1636,15 +1663,16 @@ pub fn to_production_plan(
             });
             continue;
         }
-        // Recipes taking turns share units, so what's in use is their combined time.
+        // Recipes taking turns share units when there are more active recipes than owned machines;
+        // when the player owns at least one machine per recipe, each recipe runs on its own unit.
         let shared: Vec<&str> = rows.iter().filter(|(r, _, _)| takes_turns(r)).map(|(r, _, _)| r.name.as_str()).collect();
-        let shared_time: f64 = rows.iter().filter(|(r, _, _)| takes_turns(r)).map(|(r, _, rate)| rate * r.production_time).sum();
-        let used: u32 = rows.iter().filter(|(r, _, _)| !takes_turns(r)).map(|(_, u, _)| u).sum::<u32>()
-            + ((shared_time - 1e-6).ceil().max(0.0) as u32);
-        let used = used.min(owned);
+        let sum_units: u32 = rows.iter().map(|(_, u, _)| u).sum();
+        let used: u32 = sum_units.min(owned);
+
         for (recipe, units, rate) in rows {
             let mut reason = uses_of(recipe);
-            if takes_turns(recipe) {
+            let display_units = units.max(1);
+            if takes_turns(recipe) && sum_units > owned {
                 let others: Vec<&str> = shared.iter().copied().filter(|n| *n != recipe.name).collect();
                 if !others.is_empty() {
                     reason = format!("{reason}; takes turns with {}", others.join(", "));
@@ -1656,17 +1684,20 @@ pub fn to_production_plan(
                 let wants = base.unwrap_or("its environment");
                 reason = format!("{reason}; grown without {wants} at {speed:.0}% speed");
             }
+            let busy = (!grower || recipe.crew.is_some()).then(|| {
+                (rate * recipe.production_time).min(display_units as f64)
+            });
             coin_items.push(PlanStep {
                 item_name: Some(crate::models::base_item_name(&recipe.name).to_string()),
                 facility: facility.to_string(),
-                facility_count: units,
+                facility_count: display_units,
                 status: PlanStepStatus::Producing,
                 reason,
                 is_grower: grower,
                 cycle_time: Some(recipe.production_time),
                 environment: if grower { recipe.environment.clone() } else { None },
                 // A roster member's row says how much of its time it really takes, gathering too.
-                busy_units: (!grower || recipe.crew.is_some()).then(|| (rate * recipe.production_time).min(units as f64)),
+                busy_units: busy,
                 crew: recipe.crew,
             });
         }

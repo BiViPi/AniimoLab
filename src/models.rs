@@ -1747,3 +1747,18 @@ pub struct ProcessingRowNoEnergy {
     #[serde(default)]
     pub module_requirement: Option<String>,
 }
+
+/// The 5 leisure/resident gathering facilities in AniimoLab where Aniimo reside 24/7.
+pub const ANIIMO_RESIDENT_FACILITIES: &[&str] = &[
+    "Tidewhisper Sandcastle",
+    "Dewy House",
+    "Nimbus Bed",
+    "Starfall Hammock",
+    "Floral Windmill",
+];
+
+/// Returns true if the given facility (or base facility name) is one of the 5 resident facilities.
+pub fn is_resident_facility(facility: &str) -> bool {
+    let base = base_facility_name(facility);
+    ANIIMO_RESIDENT_FACILITIES.contains(&base)
+}

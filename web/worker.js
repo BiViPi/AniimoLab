@@ -36,6 +36,35 @@ async function newHighs() {
 // Cached stage constraints (byproduct/priority floors and level-up pace) from the most recent full solve.
 let cachedStage = null;
 
+function computeStageSignature(payload) {
+    try {
+        const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        const facs = JSON.stringify(data.facilities || {});
+        const emodeCounts = JSON.stringify(data.emode_facility_counts || {});
+        const emodeTiers = JSON.stringify(data.emode_tier_counts || []);
+        const emodeFacs = JSON.stringify(data.emode_facilities || []);
+        const quotas = JSON.stringify(data.specialist_quotas || {});
+        const overrides = JSON.stringify(data.facility_overrides || []);
+        const modules = JSON.stringify(data.modules || {});
+        const season = Boolean(data.season);
+        const byproducts = Boolean(data.prioritize_byproducts);
+        const priorities = JSON.stringify(data.priorities || []);
+        const levelUp = JSON.stringify(data.level_up || null);
+        const cap = data.production_aniimo_cap ?? '';
+        const homeLevel = data.home_level ?? '';
+        const powerRate = data.power_grid_rate ?? 1.0;
+        const poles = data.power_poles ?? 0;
+        const aniimo = data.aniimo || '';
+        const aniimoLevels = JSON.stringify(data.aniimo_levels || {});
+        const workers = JSON.stringify(data.workers || {});
+        const currency = data.currency || '';
+        const exclude = JSON.stringify(data.exclude || []);
+        return `${facs}|${emodeCounts}|${emodeTiers}|${emodeFacs}|${quotas}|${overrides}|${modules}|${season}|${byproducts}|${priorities}|${levelUp}|${cap}|${homeLevel}|${powerRate}|${poles}|${aniimo}|${aniimoLevels}|${workers}|${currency}|${exclude}`;
+    } catch {
+        return Math.random().toString();
+    }
+}
+
 // Seconds HiGHS may search before settling for the best plan found so far.
 const EXACT_TIME_LIMIT = 30;
 
@@ -133,6 +162,7 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     }
     let stageJson = JSON.stringify(stage);
     let problem = JSON.parse(exact_problem(payload, stageJson));
+    if (problem.error) throw new Error(problem.error);
     if (!problem.lp) throw new Error('this setup isn\'t covered by the exact planner');
     step('final', 'start');
     const alone = stage.floors.length === 0 && !stage.pace;
@@ -166,6 +196,7 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
             cachedStage = {
                 floors: stage.floors ? [...stage.floors] : [],
                 pace: stage.pace ?? null,
+                signature: computeStageSignature(payload),
             };
             return JSON.stringify(stockedPlan);
         }
@@ -188,6 +219,7 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     cachedStage = {
         floors: stage.floors ? [...stage.floors] : [],
         pace: stage.pace ?? null,
+        signature: computeStageSignature(payload),
     };
     if (!levelUpNote) return json;
     plan.level_up_note = levelUpNote;
@@ -253,10 +285,14 @@ async function rankImprovements(pkg, payload, report) {
 // assignments in Rust (<1ms), solves with HiGHS with a tight time limit (50ms),
 // and decodes the plan in Rust (<1ms).
 async function fastReSolve(pkg, payload) {
-    const stage = cachedStage ? {
+    const currentSignature = computeStageSignature(payload);
+    if (!cachedStage || cachedStage.signature !== currentSignature) {
+        throw new Error('Cached stage signature mismatch or missing cache; full solve required');
+    }
+    const stage = {
         floors: cachedStage.floors ? [...cachedStage.floors] : [],
         pace: cachedStage.pace ?? undefined,
-    } : { floors: [] };
+    };
     const stageJson = JSON.stringify(stage);
 
     const t0 = performance.now();
@@ -267,6 +303,9 @@ async function fastReSolve(pkg, payload) {
     const problem = JSON.parse(problemJson);
     const t_lp = performance.now() - t_lp_start;
 
+    if (problem.error) {
+        throw new Error(problem.error);
+    }
     if (!problem.lp) {
         throw new Error('This setup is not covered by the exact planner');
     }
