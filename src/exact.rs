@@ -1665,6 +1665,40 @@ pub fn to_production_plan(
         }
         // Recipes taking turns share units when there are more active recipes than owned machines;
         // when the player owns at least one machine per recipe, each recipe runs on its own unit.
+        let is_any_shared = rows.iter().any(|(r, _, _)| takes_turns(r));
+        if is_any_shared {
+            if rows.len() <= owned as usize {
+                // When the player owns at least one machine per recipe, each recipe runs on its own unit.
+                // Ceilings on fractional LP variables could sum to > owned (e.g. 2 + 1 + 1 + 1 = 5 > 4).
+                // Normalize units so each recipe gets at least 1 unit and the total does not exceed owned.
+                let mut allocated: Vec<u32> = vec![1; rows.len()];
+                let mut surplus = owned as usize - rows.len();
+                let mut order: Vec<usize> = (0..rows.len()).collect();
+                order.sort_by(|&a, &b| {
+                    let load_a = rows[a].2 * rows[a].0.production_time;
+                    let load_b = rows[b].2 * rows[b].0.production_time;
+                    load_b.partial_cmp(&load_a).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                for idx in order {
+                    if surplus == 0 {
+                        break;
+                    }
+                    allocated[idx] += 1;
+                    surplus -= 1;
+                }
+                for (i, row) in rows.iter_mut().enumerate() {
+                    row.1 = allocated[i];
+                }
+            } else {
+                // More recipes than owned machines: recipes take turns sharing the machines.
+                // Each recipe counts as 1 unit during its rotation turn.
+                for row in rows.iter_mut() {
+                    if takes_turns(row.0) {
+                        row.1 = 1;
+                    }
+                }
+            }
+        }
         let shared: Vec<&str> = rows.iter().filter(|(r, _, _)| takes_turns(r)).map(|(r, _, _)| r.name.as_str()).collect();
         let sum_units: u32 = rows.iter().map(|(_, u, _)| u).sum();
         let used: u32 = sum_units.min(owned);

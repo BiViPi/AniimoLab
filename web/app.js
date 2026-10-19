@@ -328,10 +328,10 @@ export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), 
     return generatorCapacity;
 }
 
-// Only level-5 Mines have a known E-mode (150W). From RV 15 (1600W), load is available.
+// Only level-5+ Mines have a known E-mode (150W). From RV 15 (1600W), load is available.
 function emodeMineUnits(homeLevel, tiers) {
     if (homeLevel < 15) return 0;
-    return (tiers || []).filter(t => t.level === 5).reduce((sum, t) => sum + t.count, 0);
+    return (tiers || []).filter(t => t.level >= 5).reduce((sum, t) => sum + t.count, 0);
 }
 
 // Canonical power pole count: reads from canonical power profile according to RV / module
@@ -379,7 +379,7 @@ export function resetFacilityOverrides() {
 
 export function getOwnedFacilityCounts() {
     const counts = {};
-    if (typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0) {
+    if (!isSimpleMode() && typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0) {
         for (const [fac, tiers] of Object.entries(facilityTiers)) {
             counts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
         }
@@ -389,11 +389,6 @@ export function getOwnedFacilityCounts() {
         for (const [fac, tiers] of Object.entries(facilities)) {
             counts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
         }
-    }
-    const homeLevel = selectedHomeLevel();
-    if (counts['Mine'] !== undefined) {
-        const tiers = (facilityTiers && facilityTiers['Mine']) || simpleSetup(homeLevel).facilities['Mine'];
-        counts['Mine'] = emodeMineUnits(homeLevel, tiers);
     }
     return counts;
 }
@@ -863,9 +858,9 @@ window.openFacilityPartitionModal = function(baseFac) {
                     </div>
                 </div>
                 <div class="partition-stepper">
-                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', -1)">−</button>
-                    <input type="number" id="part-val-electric" class="part-input" value="${curE}" min="0" max="${totalOwned}" readonly>
-                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', 1)">+</button>
+                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', -1)" aria-label="Decrease Electric">−</button>
+                    <input type="text" inputmode="numeric" id="part-val-electric" class="part-input" value="${curE}" readonly>
+                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', 1)" aria-label="Increase Electric">+</button>
                 </div>
             </div>
         `;
@@ -881,9 +876,9 @@ window.openFacilityPartitionModal = function(baseFac) {
                 </div>
             </div>
             <div class="partition-stepper">
-                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', -1)">−</button>
-                <input type="number" id="part-val-prismana" class="part-input" value="${curP}" min="0" max="${totalOwned}" readonly>
-                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', 1)">+</button>
+                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', -1)" aria-label="Decrease Prismana">−</button>
+                <input type="text" inputmode="numeric" id="part-val-prismana" class="part-input" value="${curP}" readonly>
+                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', 1)" aria-label="Increase Prismana">+</button>
             </div>
         </div>
     `;
@@ -898,9 +893,9 @@ window.openFacilityPartitionModal = function(baseFac) {
                 </div>
             </div>
             <div class="partition-stepper">
-                <button type="button" class="part-btn" onclick="window.stepPartition('manual', -1)">−</button>
-                <input type="number" id="part-val-manual" class="part-input" value="${curM}" min="0" max="${totalOwned}" readonly>
-                <button type="button" class="part-btn" onclick="window.stepPartition('manual', 1)">+</button>
+                <button type="button" class="part-btn" onclick="window.stepPartition('manual', -1)" aria-label="Decrease Manual">−</button>
+                <input type="text" inputmode="numeric" id="part-val-manual" class="part-input" value="${curM}" readonly>
+                <button type="button" class="part-btn" onclick="window.stepPartition('manual', 1)" aria-label="Increase Manual">+</button>
             </div>
         </div>
     `;
@@ -5863,8 +5858,32 @@ export function normalizePlanFacilityCounts(plan) {
         }
     }
 
+    // Invariant guard: Đảm bảo tổng số máy hiển thị của các xưởng chế biến không vượt quá số lượng sở hữu thực tế
+    const ownedCounts = getOwnedFacilityCounts();
+    const facilityActiveCounts = {};
+    const clampedSteps = [];
+    for (const step of newSteps) {
+        const rawFac = step.facility || '';
+        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+        const isFarm = baseFac === 'Farmland' || baseFac === 'Woodland' || step.is_grower;
+        if (!isFarm && (baseFac === 'Woodworking Bench' || baseFac === 'Chimney Kiln')) {
+            const maxOwned = ownedCounts[baseFac];
+            if (typeof maxOwned === 'number' && maxOwned > 0) {
+                const currentUnits = facilityActiveCounts[baseFac] || 0;
+                const stepUnits = step.facility_count || 1;
+                if (currentUnits + stepUnits > maxOwned) {
+                    // Đã đủ số lượng cơ sở thực sở hữu (ví dụ Bàn Gia Công Gỗ tối đa 4 máy ở RV 18)
+                    modified = true;
+                    continue;
+                }
+                facilityActiveCounts[baseFac] = currentUnits + stepUnits;
+            }
+        }
+        clampedSteps.push(step);
+    }
+
     if (modified) {
-        plan.coin_items = newSteps;
+        plan.coin_items = clampedSteps;
     }
     return plan;
 }
@@ -7028,6 +7047,31 @@ function whereText(g) {
         .join(', ');
 }
 
+let isRosterDetailsExpanded = false;
+
+window.toggleRosterDetails = function() {
+    isRosterDetailsExpanded = !isRosterDetailsExpanded;
+    const wrapper = document.getElementById('roster-details-wrapper');
+    const icon = document.getElementById('roster-toggle-icon');
+    const text = document.getElementById('roster-toggle-text');
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    if (wrapper) {
+        wrapper.style.display = isRosterDetailsExpanded ? 'block' : 'none';
+    }
+    if (icon) {
+        icon.textContent = isRosterDetailsExpanded ? '▼' : '▶';
+    }
+    if (text) {
+        text.textContent = isVi
+            ? (isRosterDetailsExpanded
+                ? '▲ Thu gọn danh sách chi tiết các nhóm công nhân'
+                : '👉 Bấm vào để hiện đầy đủ thông tin các nhóm công nhân ▼')
+            : (isRosterDetailsExpanded
+                ? '▲ Collapse worker group details'
+                : '👉 Click here to show full worker details for all groups ▼');
+    }
+};
+
 // What one Aniimo of a team row has to be: its level, then every personality it carries, each
 // with the letter the game shows. "Lv.4 · Judicious (J), Faithful (F)" is one Aniimo working a
 // Nimbus Bed and a Starfall Hammock, which it can because those never want opposites.
@@ -7406,7 +7450,7 @@ export function renderAniimoSummary(plan, options = {}) {
         if (baseFac === 'Woodworking Bench') {
             const isPrismana = (mode === 'prismana');
             processingMembers.push({
-                facility: `${getFacilityDisplayName(baseFac)} (${prettyItem(step.item_name)})`,
+                facility: getFacilityDisplayName(baseFac),
                 worker: isPrismana ? 'Fulmintis' : (isVi ? 'Thợ Mộc (Kỹ nghệ Lv.3)' : 'Carpenter (Artisanship Lv.3)'),
                 count: count,
                 ability: 'Artisanship',
@@ -7419,7 +7463,7 @@ export function renderAniimoSummary(plan, options = {}) {
         } else if (baseFac === 'Chimney Kiln') {
             const isPrismana = (mode === 'prismana');
             processingMembers.push({
-                facility: `${getFacilityDisplayName(baseFac)} (${prettyItem(step.item_name)})`,
+                facility: getFacilityDisplayName(baseFac),
                 worker: isPrismana ? 'Scorchhowl' : 'Ignis',
                 count: count,
                 ability: 'Fire',
@@ -7610,46 +7654,80 @@ export function renderAniimoSummary(plan, options = {}) {
         </tr>
     `;
 
+    function mergeDuplicateMembers(members) {
+        if (!Array.isArray(members) || members.length <= 1) return members || [];
+        const merged = [];
+        const map = new Map();
+        for (const m of members) {
+            const key = `${m.facility}|${m.worker}|${m.ability}|${m.level}|${m.specific || ''}`;
+            if (map.has(key)) {
+                const existing = map.get(key);
+                existing.count = (existing.count || 0) + (m.count || 0);
+            } else {
+                const copy = { ...m };
+                map.set(key, copy);
+                merged.push(copy);
+            }
+        }
+        return merged;
+    }
+
     const farmingRowsHtml = farmingMembers.length > 0
-        ? farmingMembers.map(renderMemberRow3Col).join('')
+        ? mergeDuplicateMembers(farmingMembers).map(renderMemberRow3Col).join('')
         : emptyRowHtml(isVi ? 'Không có đất nông nghiệp và rừng cây cần vận hành.' : 'No active farm plots in this plan.');
 
     const statRowsHtml = stationaryMembers.length > 0
-        ? stationaryMembers.map(renderMemberRow3Col).join('')
+        ? mergeDuplicateMembers(stationaryMembers).map(renderMemberRow3Col).join('')
         : emptyRowHtml(isVi ? 'Không có cơ sở đứng máy cố định 24/7 (mỏ/giếng chạy điện hoặc không có).' : 'No stationary or gathering units running manually.');
 
     const procRowsHtml = processingMembers.length > 0
-        ? processingMembers.map(renderMemberRow3Col).join('')
+        ? mergeDuplicateMembers(processingMembers).map(renderMemberRow3Col).join('')
         : emptyRowHtml(isVi ? 'Không có bàn mộc hoặc lò nung thủ công (chạy điện hoặc không dùng).' : 'No woodworking or kilns running manually.');
 
     const craftRowsHtml = craftingMembers.length > 0
-        ? craftingMembers.map(renderMemberRow3Col).join('')
+        ? mergeDuplicateMembers(craftingMembers).map(renderMemberRow3Col).join('')
         : emptyRowHtml(isVi ? 'Không có cơ sở chế biến chạy thủ công (chạy điện hoặc không dùng).' : 'No crafting units running manually.');
+
+    const toggleIcon = isRosterDetailsExpanded ? '▼' : '▶';
+    const toggleText = isVi
+        ? (isRosterDetailsExpanded
+            ? '▲ Thu gọn danh sách chi tiết các nhóm công nhân'
+            : '👉 Bấm vào đây để hiện đầy đủ thông tin các nhóm công nhân ▼')
+        : (isRosterDetailsExpanded
+            ? '▲ Collapse worker group details'
+            : '👉 Click here to show full worker details for all groups ▼');
+
+    const toggleBarHtml = `
+        <div class="roster-table-toggle-bar" id="roster-table-toggle" onclick="window.toggleRosterDetails()" role="button" tabindex="0" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
+            <span class="roster-toggle-icon" id="roster-toggle-icon">${toggleIcon}</span>
+            <span class="roster-toggle-text" id="roster-toggle-text">${toggleText}</span>
+        </div>
+    `;
 
     const bannerHtml = `
         <div class="roster-groups-banner">
-            <div class="roster-group-card group-farming">
+            <div class="roster-group-card group-farming" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
                 <div class="roster-group-top">
                     <span class="roster-group-label">🌾 ${isVi ? 'Nhóm 1: Đồng Áng' : 'Group 1: Farming'}</span>
                     <span class="roster-group-count">${farmTotal}</span>
                 </div>
                 <p class="roster-group-desc">${isVi ? `${totalFarmPlots} ô đất · 🛡️ Dự phòng kép chống AFK` : `${totalFarmPlots} plots · 🛡️ Anti-AFK backup`}</p>
             </div>
-            <div class="roster-group-card group-stationary">
+            <div class="roster-group-card group-stationary" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
                 <div class="roster-group-top">
                     <span class="roster-group-label">⛏️⚡ ${isVi ? 'Nhóm 2: Trông Cơ Sở & Mỏ' : 'Group 2: Stationary & Mine'}</span>
                     <span class="roster-group-count">${statTotal}</span>
                 </div>
                 <p class="roster-group-desc">${isVi ? `${effectiveGuardCount} Trụ điện · Mỏ quặng · Giếng · Thú cưng · Điều hòa` : 'Mines · Wells · Power · Residents · Climate'}</p>
             </div>
-            <div class="roster-group-card group-processing">
+            <div class="roster-group-card group-processing" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
                 <div class="roster-group-top">
                     <span class="roster-group-label">🪵🔥 ${isVi ? 'Nhóm 3: Gia Công Gỗ/Quặng' : 'Group 3: Wood & Ore'}</span>
                     <span class="roster-group-count">${procTotal}</span>
                 </div>
                 <p class="roster-group-desc">${isVi ? 'Bàn gia công gỗ · Lò ống khói thủ công' : 'Woodworking Bench · Chimney Kiln'}</p>
             </div>
-            <div class="roster-group-card group-crafting">
+            <div class="roster-group-card group-crafting" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
                 <div class="roster-group-top">
                     <span class="roster-group-label">🍲 ${isVi ? 'Nhóm 4: Chế Biến Thành Phẩm' : 'Group 4: Processing & Craft'}</span>
                     <span class="roster-group-count">${craftTotal}</span>
@@ -7661,7 +7739,8 @@ export function renderAniimoSummary(plan, options = {}) {
 
     container.innerHTML = `
         ${bannerHtml}
-        <div class="table-wrapper">
+        ${toggleBarHtml}
+        <div class="table-wrapper roster-details-wrapper" id="roster-details-wrapper" style="display: ${isRosterDetailsExpanded ? 'block' : 'none'};">
             <table class="facility-plan-table roster-3col-table">
                 <thead>
                     <tr>
