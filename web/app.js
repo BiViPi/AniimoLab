@@ -24,7 +24,7 @@ const pendingWorkerRequests = new Map();
 
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
-const WORKER_URL = `./worker.js?v=aniimolab_v44&load=${Date.now()}`;
+const WORKER_URL = `./worker.js?v=aniimolab_v57&load=${Date.now()}`;
 
 function initWorker() {
     worker = new Worker(WORKER_URL, { type: 'module' });
@@ -603,114 +603,9 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // 10. Tính toán lại thời gian chu kỳ & sản lượng bán theo giờ của cơ sở đó
-    if (step && step.item_name) {
-        let recipe = window.ALL_RECIPES_MAP ? window.ALL_RECIPES_MAP.get(step.item_name) : null;
-        if (!recipe && window.ALL_RECIPES_MAP) {
-            const cleanName = step.item_name.replace(/__(specialist|manual)$/, '');
-            recipe = window.ALL_RECIPES_MAP.get(cleanName);
-        }
-        const workload = recipe?.workload || (recipe?.production_time ? recipe.production_time * 1.5 : (step.cycle_time ? step.cycle_time * 1.5 : 108));
-        const yieldAmount = recipe?.yield_amount || 1;
-        const sellValue = recipe?.sell_value || (lastPlan.income_streams?.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === step.item_name.replace(/__(specialist|manual)$/, ''))?.sell_value) || 0;
-        const reqLevel = recipe?.aniimo?.[1] || 1;
-        const isGathering = ['Farmland', 'Woodland', 'Mine', 'Well', 'Tidewhisper Sandcastle', 'Dewy House', 'Nimbus Bed', 'Starfall Hammock', 'Floral Windmill'].includes(baseFac);
-        const hasPersonality = !['Dance Pad Polisher', 'Aniipod Maker'].includes(baseFac);
-
-        let cycleTime = step.cycle_time || 60;
-        if (targetMode === 'electric') {
-            const emodeBaseTime = recipe?.emode_base_time || defaultEmodeBaseTime(workload);
-            const powerRate = Math.max(0.1, getPowerGridRate());
-            cycleTime = emodeBaseTime / powerRate;
-        } else if (targetMode === 'prismana') {
-            const speed = calculateWorkerSpeed(4, reqLevel, isGathering, hasPersonality);
-            cycleTime = workload / Math.max(0.001, speed);
-        } else if (targetMode === 'manual') {
-            const speed = calculateWorkerSpeed(3, reqLevel, isGathering, hasPersonality);
-            cycleTime = workload / Math.max(0.001, speed);
-        }
-
-        step.mode = targetMode;
-        step.cycle_time = cycleTime;
-        step.units_per_second = (step.facility_count * yieldAmount) / cycleTime;
-        step.rate_per_second = step.units_per_second * sellValue;
-
-        // Cập nhật income_streams
-        if (lastPlan.income_streams) {
-            const cleanItemName = step.item_name?.replace(/__(specialist|manual)$/, '');
-            const stream = lastPlan.income_streams.find(s => s.item_name?.replace(/__(specialist|manual)$/, '') === cleanItemName);
-            if (stream) {
-                const allMatchingSteps = (lastPlan.coin_items || []).filter(s => s.status === 'producing' && s.item_name?.replace(/__(specialist|manual)$/, '') === cleanItemName);
-                const totalUnits = allMatchingSteps.reduce((sum, s) => sum + (s.units_per_second || 0), 0);
-                const totalRate = allMatchingSteps.reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
-                stream.units_per_second = totalUnits;
-                stream.rate_per_second = totalRate;
-            }
-        }
-    }
-
-    // 8. Cập nhật tổng thu nhập theo giờ cho cả kế hoạch
-    const newTotalRate = (lastPlan.income_streams || []).reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
-    lastPlan.rate_per_second = newTotalRate;
-    lastPlan.measure_top = newTotalRate;
-    if (typeof updateRateDisplay === 'function') {
-        updateRateDisplay(!rateUnitChosen);
-    }
-
-    // 9. Cập nhật DOM trực quan ngay lập tức
-    if (clickedBtn && clickedBtn.parentElement) {
-        clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-        clickedBtn.classList.add('active');
-    }
-
-    const row = clickedBtn?.closest('tr');
-    if (row) {
-        // Cập nhật Badge công suất
-        const facCell = row.querySelector('.facility-cell');
-        if (facCell) {
-            let badge = facCell.querySelector('.facility-power-badge');
-            const totalWatts = targetMode === 'electric' ? wattsPerUnit * stepCount : 0;
-            if (totalWatts > 0) {
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = 'facility-power-badge';
-                    facCell.appendChild(badge);
-                }
-                badge.textContent = `⚡ ${totalWatts}W`;
-                badge.style.display = 'inline-block';
-            } else if (badge) {
-                badge.style.display = 'none';
-            }
-        }
-
-        // Cập nhật Aniimo Worker
-        const aniimoTd = row.querySelector('td[data-label="Aniimo"]');
-        if (aniimoTd && step) {
-            aniimoTd.innerHTML = aniimoLabel(step);
-        }
-
-        // Cập nhật Producing Cell (Chu kỳ & Số lượng bán theo giờ)
-        const itemCell = row.querySelector('.item-cell');
-        if (itemCell && step && step.cycle_time) {
-            const unitsPerHour = Math.round(step.units_per_second * 3600);
-            const coinsPerHour = Math.round(step.rate_per_second * 3600);
-            let cycleSpan = itemCell.querySelector('.item-cycle-info');
-            if (!cycleSpan) {
-                cycleSpan = document.createElement('div');
-                cycleSpan.className = 'item-cycle-info';
-                itemCell.appendChild(cycleSpan);
-            }
-            cycleSpan.innerHTML = `<span class="cycle-time-badge">⏱️ ${step.cycle_time.toFixed(1)}s</span> · <span class="rate-badge">📦 ${unitsPerHour.toLocaleString()}/h</span>${coinsPerHour > 0 ? ` · <span class="coins-badge">💰 ${formatNumber(coinsPerHour)}/h</span>` : ''}`;
-        }
-    }
-
-    // 10. Cập nhật bảng phân tích doanh thu
-    renderProfitBreakdown(lastPlan);
-
-    // 11. Cập nhật bảng phân công Aniimo phản ánh ngay lập tức chế độ vận hành mới
-    if (lastPlan) {
-        renderAniimoSummary(lastPlan);
-    }
+    // 10. Chạy lại bài toán tối ưu hoá với bộ giải MIP (HiGHS solver)
+    // Đảm bảo cân bằng cung cầu toàn chuỗi, tính toán chính xác số lượng sản phẩm bán ra và doanh thu thực tế
+    await runFastReSolve();
 };
 
 export async function runFastReSolve() {
@@ -3308,35 +3203,49 @@ function renderHomelandLayout(plan) {
         layoutWorker.terminate();
         layoutWorker = null;
         if (runId !== layoutRunId) return;
-        const layout = event.data;
-        const at = layout.storageAt;
-        // Buildings carry nothing themselves.
-        const members = layout.pieces.flatMap(p => p.members).map(m => ({ ...m, weight: m.weight || 0 }));
-        const trips = members.reduce((sum, m) => sum + m.weight, 0);
-        const storages = layout.storages || [layout.storage];
-        const walked = members.reduce((sum, m) => {
-            const cx = m.x + m.w / 2;
-            const cy = m.y + m.h / 2;
-            const minDist = Math.min(...storages.map(su => Math.hypot(cx - (su.x + su.w / 2), cy - (su.y + su.h / 2))));
-            return sum + m.weight * minDist;
-        }, 0);
-        const noRoom = [...new Set(layout.unplaced.map(i => {
-            const piece = pieces[i];
-            return piece.cluster ? `${piece.buildings[0].facility} and its plots` : piece.members[0].facility;
-        }))];
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        const notes = [
-            noRoom.length ? (isVi ? `Không đủ diện tích trên các lô đất RV ${homeLevel} cho: ${noRoom.join(', ')}.` : `No room found in RV ${homeLevel}'s plots for: ${noRoom.join(', ')}.`) : '',
-            unplaced.length ? (isVi ? `Chưa đặt được, không rõ kích thước: ${unplaced.join(', ')}.` : `Not placed, size unknown: ${unplaced.join(', ')}.`) : '',
-        ].filter(Boolean).join(' ');
-        document.getElementById('layout-summary').textContent = `${trips > 0
-            ? (isVi
-                ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Thiết Bị Lưu Trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
-                : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
-            : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Thiết Bị Lưu Trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
-        lastLayout = { layout, homeLevel };
-        drawLayout(lastLayout);
-        setStep('layout', 'done');
+        try {
+            const layout = event.data;
+            const at = layout.storageAt;
+            // Buildings carry nothing themselves.
+            const members = (layout.pieces || []).flatMap(p => p.members || []).filter(Boolean).map(m => ({ ...m, weight: m.weight || 0 }));
+            const trips = members.reduce((sum, m) => sum + m.weight, 0);
+            const storages = layout.storages || [layout.storage];
+            const walked = members.reduce((sum, m) => {
+                const cx = m.x + m.w / 2;
+                const cy = m.y + m.h / 2;
+                const minDist = Math.min(...storages.map(su => Math.hypot(cx - (su.x + su.w / 2), cy - (su.y + su.h / 2))));
+                return sum + m.weight * minDist;
+            }, 0);
+            const noRoom = [...new Set((layout.unplaced || []).map(item => {
+                const piece = typeof item === 'number' ? pieces[item] : item;
+                if (!piece) return '';
+                if (piece.cluster) {
+                    const fac = piece.buildings?.[0]?.facility || piece.members?.[0]?.facility || 'Cluster';
+                    return `${fac} and its plots`;
+                }
+                return piece.members?.[0]?.facility || piece.facility || 'Facility';
+            }).filter(Boolean))];
+            const isVi = window.i18n && window.i18n.getLang() === 'vi';
+            const notes = [
+                noRoom.length ? (isVi ? `Không đủ diện tích trên các lô đất RV ${homeLevel} cho: ${noRoom.join(', ')}.` : `No room found in RV ${homeLevel}'s plots for: ${noRoom.join(', ')}.`) : '',
+                unplaced.length ? (isVi ? `Chưa đặt được, không rõ kích thước: ${unplaced.join(', ')}.` : `Not placed, size unknown: ${unplaced.join(', ')}.`) : '',
+            ].filter(Boolean).join(' ');
+            document.getElementById('layout-summary').textContent = `${trips > 0
+                ? (isVi
+                    ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Thiết Bị Lưu Trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
+                    : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
+                : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Thiết Bị Lưu Trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
+            lastLayout = { layout, homeLevel };
+            drawLayout(lastLayout);
+            setStep('layout', 'done');
+        } catch (err) {
+            console.error('Error rendering homeland layout:', err);
+            const isVi = window.i18n && window.i18n.getLang() === 'vi';
+            document.getElementById('layout-summary').textContent = isVi
+                ? `Lỗi hiển thị sơ đồ: ${err.message || err}`
+                : `Layout rendering error: ${err.message || err}`;
+            setStep('layout', 'fail');
+        }
     };
     layoutWorker.onerror = (event) => {
         console.error('Homeland layout failed:', event.message || event);
@@ -3368,13 +3277,13 @@ let lastLayout = null;
 function homelandSvg(layout, homeLevel) {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     // Each environment building in use covers the 9x9 square around its center
-    const coverage = layout.pieces.flatMap(p => p.members)
-        .filter(m => m.building && m.mode)
+    const coverage = (layout.pieces || []).flatMap(p => p.members || [])
+        .filter(m => m && m.building && m.mode)
         .map(m => ({ x: m.x + m.w / 2 - ENVIRONMENT_COVERAGE_RADIUS, y: m.y + m.h / 2 - ENVIRONMENT_COVERAGE_RADIUS, w: ENVIRONMENT_COVERAGE_RADIUS * 2, h: ENVIRONMENT_COVERAGE_RADIUS * 2, mode: m.mode }));
 
     const plots = homelandPlots();
     const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
-    const placed = [...storages, ...layout.pieces.flatMap(p => p.members)];
+    const placed = [...storages, ...(layout.pieces || []).flatMap(p => p.members || []).filter(Boolean)];
     const whole = layoutShowsWhole;
     const minX = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.x))) - 3;
     const minY = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.y))) - 3;
@@ -5885,6 +5794,48 @@ export function normalizePlanFacilityCounts(plan) {
     if (modified) {
         plan.coin_items = clampedSteps;
     }
+
+    // Ánh xạ chính xác doanh thu thực tế từ income_streams vào từng bước sản xuất (coin_items)
+    // Đảm bảo cả Chế độ điện, Prismana và Thường đều hiển thị đúng doanh thu bán hàng thực tế (coins/h)
+    const incomeStreams = plan.income_streams || [];
+    const streamMap = new Map();
+    for (const stream of incomeStreams) {
+        if (!stream.item_name) continue;
+        const cleanName = stream.item_name.replace(/__(specialist|manual)$/, '');
+        streamMap.set(cleanName, stream);
+        streamMap.set(stream.item_name, stream);
+    }
+
+    const targetSteps = plan.coin_items || [];
+    // Tính tổng năng lực sản xuất của các bước cùng sản xuất một mặt hàng
+    const itemCapacityMap = new Map();
+    for (const step of targetSteps) {
+        if (step.status !== 'producing' || !step.item_name) continue;
+        const cleanItem = step.item_name.replace(/__(specialist|manual)$/, '');
+        const cap = ((step.facility_count || 1) * (step.yield_amount || 1)) / Math.max(0.1, step.cycle_time || 60);
+        itemCapacityMap.set(cleanItem, (itemCapacityMap.get(cleanItem) || 0) + cap);
+    }
+
+    for (const step of targetSteps) {
+        if (step.status !== 'producing' || !step.item_name) {
+            step.rate_per_second = 0;
+            step.sold_units_per_second = 0;
+            continue;
+        }
+        const cleanItem = step.item_name.replace(/__(specialist|manual)$/, '');
+        const stream = streamMap.get(cleanItem) || streamMap.get(step.item_name);
+        if (stream && typeof stream.rate_per_second === 'number' && stream.rate_per_second > 0) {
+            const totalCap = itemCapacityMap.get(cleanItem) || 0;
+            const stepCap = ((step.facility_count || 1) * (step.yield_amount || 1)) / Math.max(0.1, step.cycle_time || 60);
+            const ratio = totalCap > 0 ? (stepCap / totalCap) : 1;
+            step.rate_per_second = stream.rate_per_second * ratio;
+            step.sold_units_per_second = (stream.units_per_second || 0) * ratio;
+        } else {
+            step.rate_per_second = 0;
+            step.sold_units_per_second = 0;
+        }
+    }
+
     return plan;
 }
 

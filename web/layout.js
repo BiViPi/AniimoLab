@@ -675,6 +675,13 @@ export function layOutHomeland(pieces, cells, options = {}) {
         { cx: 69.0, cy: 20.0 }, // Plot 9
         { cx: 49.0, cy: 7.5 },  // Plot 15
         { cx: 69.0, cy: 7.5 },  // Plot 16
+        { cx: 29.0, cy: 7.5 },  // Plot 14
+        { cx: 9.0, cy: 7.5 },   // Plot 13
+        { cx: 69.0, cy: 37.5 }, // Plot 6
+        { cx: 69.0, cy: 52.5 }, // Plot 5
+        { cx: 9.0, cy: 22.5 },  // Plot 12
+        { cx: 9.0, cy: 37.5 },  // Plot 11
+        { cx: 9.0, cy: 52.5 },  // Plot 10
     ];
 
     clusterPieces.forEach((p, cIdx) => {
@@ -725,29 +732,32 @@ export function layOutHomeland(pieces, cells, options = {}) {
     // 11. Outdoor Farmlands / Woodlands (Field Blocks)
     fieldPieces.forEach((p, fIdx) => {
         let placed = false;
-        for (let yOffset = 0; yOffset <= 30; yOffset += 3.0) {
-            const fx = 24.0;
-            const fy = 4.5 + fIdx * 6.5 + yOffset;
-            const testMembers = [];
-            let allValid = true;
-            for (const m of p.members) {
-                const rect = { x: m.x + fx, y: m.y + fy, w: m.w, h: m.h };
-                if (!inside(rect) || isOccupied(rect, m)) {
-                    allValid = false;
+        const candidateX = [24.0, 64.0, 4.0, 44.0];
+        for (const fx of candidateX) {
+            for (let yOffset = 0; yOffset <= 36.0; yOffset += 3.0) {
+                const fy = 4.5 + fIdx * 6.5 + yOffset;
+                const testMembers = [];
+                let allValid = true;
+                for (const m of (p.members || [])) {
+                    const rect = { x: m.x + fx, y: m.y + fy, w: m.w, h: m.h };
+                    if (!inside(rect) || isOccupied(rect, m)) {
+                        allValid = false;
+                        break;
+                    }
+                    testMembers.push({ member: m, rect });
+                }
+                if (allValid) {
+                    testMembers.forEach(({ member, rect }) => {
+                        member.x = rect.x;
+                        member.y = rect.y;
+                        placedMembers.push(member);
+                    });
+                    placedPieces.push(p);
+                    placed = true;
                     break;
                 }
-                testMembers.push({ member: m, rect });
             }
-            if (allValid) {
-                testMembers.forEach(({ member, rect }) => {
-                    member.x = rect.x;
-                    member.y = rect.y;
-                    placedMembers.push(member);
-                });
-                placedPieces.push(p);
-                placed = true;
-                break;
-            }
+            if (placed) break;
         }
         if (!placed) {
             unplacedPieces.push(p);
