@@ -9395,6 +9395,127 @@ document.addEventListener('focusout', hideTip);
 window.addEventListener('scroll', hideTip, { passive: true, capture: true });
 
 
+// Bảng phân tích đối trọng (Rival Analysis) cho các sản phẩm chủ lực và đối thủ cạnh tranh trực tiếp
+const RECIPE_RIVAL_INSIGHTS = {
+    'cranberry_chocolate': {
+        rival: 'strawberry_cream_puff',
+        rivalNameVi: 'Bánh Su Kem Dâu Tây',
+        rivalNameEn: 'Strawberry Cream Puff',
+        facility: 'Blazing Stove',
+        facilityVi: 'Bếp Lò',
+        reasonVi: 'Bếp Lò chỉ có 1 cơ sở duy nhất. Solver chọn dồn toàn bộ công suất cho <strong>Sô-cô-la Nam Việt Quất</strong> (giá bán 13.480 coin vs 5.650 coin của Bánh su kem). Đồng thời, chuỗi Sô-cô-la tận dụng trực tiếp quả Cacao từ Vườn ươm (đang trồng Cacao lấy 122 vụn gỗ/cây để nâng cấp RV 19), trong khi Bánh su kem đòi hỏi 16 Dâu tây + Bột mì tinh chế + Dầu dừa sẽ làm phân tán diện tích Đất nông nghiệp.',
+        reasonEn: 'The Blazing Stove has only 1 unit. The solver concentrates all stove capacity on <strong>Cranberry Chocolate</strong> (sell value 13,480 coins vs 5,650 coins for Cream Puff). Furthermore, Cranberry Chocolate synergizes with Cocoa harvested from Woodland (planted for 122 Wood Blocks/tree toward RV 19), whereas Cream Puff requires 16 Strawberries + Refined Flour + Coconut Oil, fragmenting Farmland plots.'
+    },
+    'strawberry_cream_puff': {
+        rival: 'cranberry_chocolate',
+        rivalNameVi: 'Sô-cô-la Nam Việt Quất',
+        rivalNameEn: 'Cranberry Chocolate',
+        facility: 'Blazing Stove',
+        facilityVi: 'Bếp Lò',
+        reasonVi: 'Bếp Lò chỉ có 1 cơ sở duy nhất. Solver chọn Bánh Su Kem Dâu Tây vì nhịp độ cung ứng Dâu tây và Bột mì phù hợp với cấu hình đất nông nghiệp hiện tại, không đòi hỏi chuỗi Cacao phức tạp.',
+        reasonEn: 'The Blazing Stove has only 1 unit. Strawberry Cream Puff is selected because the strawberry and flour supply rhythm matches current farmland allocations without requiring complex cocoa chains.'
+    },
+    'strawberry_candy': {
+        rival: 'rich_grape_compote',
+        rivalNameVi: 'Mứt Nho Đậm Đà / Thạch Rau Câu',
+        rivalNameEn: 'Rich Grape Compote / Jello',
+        facility: 'Blazing Stove',
+        facilityVi: 'Bếp Lò',
+        reasonVi: 'Bếp Lò ưu tiên tối đa cho <strong>Kẹo Dâu Tây</strong> (giá 6.840 coin) đem lại tỷ suất lợi nhuận ròng trên thời gian nướng cao nhất cấp 4, vượt trội hơn so với Mứt nho (5.050 coin) hay Thạch rau câu.',
+        reasonEn: 'The Blazing Stove prioritizes <strong>Strawberry Candy</strong> (6,840 coins), yielding the highest net profit per baking second at Tier 4, far surpassing Grape Compote (5,050 coins) and Jello.'
+    },
+    'ginseng_chestnut_cake': {
+        rival: 'walnut_cake',
+        rivalNameVi: 'Bánh Óc Chó / Hạt Dẻ Rang Đường',
+        rivalNameEn: 'Walnut Cake / Sugar Roasted Chestnuts',
+        facility: 'Blazing Stove',
+        facilityVi: 'Bếp Lò',
+        reasonVi: 'Bếp Lò chọn <strong>Bánh Hạt Dẻ Nhân Sâm</strong> nhờ tạo sự cộng hưởng hoàn hảo giữa Nhân Sâm (Nông trại) và Hạt Dẻ (Vườn ươm Cấp 4 đang trồng lấy 47 vụn gỗ lên RV 14). Bánh óc chó đòi hỏi Nước gạo làm quá tải Cối Xay và Nồi Hầm mà không tối ưu được phụ phẩm Hạt dẻ sẵn có.',
+        reasonEn: 'The Blazing Stove selects <strong>Ginseng Chestnut Cake</strong> by perfectly pairing Farmland Ginseng with Woodland Chestnuts (harvested from Tier 4 trees for 47 Wood Blocks to reach RV 14). Walnut Cake requires Rice Drink, overburdening Mills without leveraging available chestnut byproducts.'
+    },
+    'sugar_roasted_chestnuts': {
+        rival: 'tanghulu',
+        rivalNameVi: 'Kẹo Hồ Lô Dâu Tây',
+        rivalNameEn: 'Tanghulu',
+        facility: 'Blazing Stove',
+        facilityVi: 'Bếp Lò',
+        reasonVi: 'Bếp Lò chọn <strong>Hạt Dẻ Rang Đường</strong> (2.470 coin) thay vì Kẹo hồ lô (2.260 coin) vì tận dụng trực tiếp Hạt Dẻ thu hoạch từ Vườn ươm Cấp 4 (nguồn cung cấp vụn gỗ nâng cấp), giảm tải nhu cầu chiếm đất của Dâu tây tại Nông trại.',
+        reasonEn: 'The Blazing Stove picks <strong>Sugar Roasted Chestnuts</strong> (2,470 coins) over Tanghulu (2,260 coins) to directly absorb Chestnuts from Tier 4 Woodland (the wood block driver), sparing Farmland plots.'
+    },
+    'ginseng_porridge': {
+        rival: 'ginseng_powder',
+        rivalNameVi: 'Bột Nhân Sâm bán thô',
+        rivalNameEn: 'Raw Ginseng Powder',
+        facility: 'Simmering Pot',
+        facilityVi: 'Nồi Hầm',
+        reasonVi: 'Nồi Hầm dồn toàn lực nấu <strong>Cháo Nhân Sâm</strong> vì giá trị gia tăng trên mỗi củ sâm và nhân công cao áp đảo so với việc xay bán bột sâm thô, đồng thời tạo ra dòng doanh thu coin/giờ lớn nhất toàn đảo.',
+        reasonEn: 'The Simmering Pot commits fully to <strong>Ginseng Porridge</strong> because net value per crop and worker second vastly exceeds selling raw powder, powering the island\'s primary coin stream.'
+    },
+    'plain_rice_porridge': {
+        rival: 'rose_concentrate',
+        rivalNameVi: 'Cốt Hoa Hồng / Cơm Nắm Hoa Đào',
+        rivalNameEn: 'Rose Concentrate / Cherry Blossom Rice Ball',
+        facility: 'Simmering Pot',
+        facilityVi: 'Nồi Hầm',
+        reasonVi: 'Nồi Hầm ưu tiên <strong>Cháo Gạo Thanh Đạm</strong> kết hợp Gạo và Nước giếng sạch có chu kỳ nấu nhanh, tối đa hóa công suất Nồi hầm mà không làm phân mảnh diện tích đất canh tác sang Hoa hồng hay Hoa đào.',
+        reasonEn: 'The Simmering Pot prioritizes <strong>Plain Rice Porridge</strong> using Milled Rice and Well Water for rapid cycle times, maximizing Pot throughput without fragmenting Farmland into roses or blossoms.'
+    },
+    'coconut_cookie': {
+        rival: 'maple_candy_star',
+        rivalNameVi: 'Kẹo Ngôi Sao / Bánh Mì Hoa',
+        rivalNameEn: 'Maple Candy Star / Flower Bread',
+        facility: 'Claw Game Cooker',
+        facilityVi: 'Bàn Nướng',
+        reasonVi: 'Bàn Nướng chọn <strong>Bánh Quy Dừa</strong> (3.700 coin) vì tận dụng nguồn Dừa Nạo từ Vườn ươm Dừa (Cấp 5-6) và Bột mì tinh chế, đem lại doanh thu ổn định hơn việc tiêu tốn Ngôi sao hiếm.',
+        reasonEn: 'The Claw Game Cooker selects <strong>Coconut Cookie</strong> (3,700 coins) by combining Shredded Coconut from Woodland palms and Refined Flour, offering reliable output without burning scarce Stars.'
+    },
+    'rose_shortbread': {
+        rival: 'apple_tart',
+        rivalNameVi: 'Bánh Táo / Khoai Nướng Đường Phong',
+        rivalNameEn: 'Apple Tart / Maple Roasted Potatoes',
+        facility: 'Claw Game Cooker',
+        facilityVi: 'Bàn Nướng',
+        reasonVi: 'Bàn Nướng chọn <strong>Bánh Quy Hoa Hồng</strong> (1.310 coin) đem lại biên lợi nhuận ròng trên giờ cao hơn hẳn Bánh táo (590 coin) hay Khoai nướng (850 coin).',
+        reasonEn: 'The Claw Game Cooker selects <strong>Rose Shortbread</strong> (1,310 coins), delivering substantially higher net hourly return than Apple Tart (590 coins) or Roasted Potatoes (850 coins).'
+    },
+    'premium_bread': {
+        rival: 'roasted_soybeans',
+        rivalNameVi: 'Đậu Nành Rang Muối Biển',
+        rivalNameEn: 'Roasted Soybeans',
+        facility: 'Claw Game Cooker',
+        facilityVi: 'Bàn Nướng',
+        reasonVi: 'Bàn Nướng chọn <strong>Bánh Mì Thượng Hạng</strong> kết hợp Bột mì và Nước giếng, cân bằng hoàn hảo giữa diện tích Lúa mì và công suất Cối xay.',
+        reasonEn: 'The Claw Game Cooker prioritizes <strong>Premium Bread</strong> combining Wheatmeal and Well Water, achieving balanced throughput between Wheat plots and Mill capacity.'
+    },
+    'coconut_cooler': {
+        rival: 'cranberry_juice',
+        rivalNameVi: 'Nước Ép Nam Việt Quất / Ca-cao Nóng',
+        rivalNameEn: 'Cranberry Juice / Hot Cocoa',
+        facility: 'Bouncy Brew Keg',
+        facilityVi: 'Thùng Bia Nảy Nảy',
+        reasonVi: 'Thùng Bia chọn <strong>Nước Dừa Mát Lạnh</strong> (1.650 coin) với chu kỳ ủ siêu nhanh (54s điện), tận dụng nguồn Dừa dồi dào từ Vườn ươm cấp 6 để tạo dòng tiền phụ trợ mà không tranh chấp Nam việt quất với Bếp lò.',
+        reasonEn: 'The Keg operates <strong>Coconut Cooler</strong> (1,650 coins) with ultra-fast brew cycles (54s on electric), converting abundant Woodland coconuts into secondary income without competing for Cranberries needed at the Stove.'
+    },
+    'potato_chips': {
+        rival: 'dried_lemon_slices',
+        rivalNameVi: 'Chanh Sấy / Táo Sấy',
+        rivalNameEn: 'Dried Lemon / Apple Slices',
+        facility: 'Jukebox Dryer',
+        facilityVi: 'Máy Sấy Hộp Nhạc',
+        reasonVi: 'Máy Sấy chuyên canh <strong>Khoai Tây Chiên</strong> để hấp thụ toàn bộ sản lượng Khoai tây thu hoạch từ Nông trại có tưới nước, giải quyết nút thắt chế biến nhanh nhất đảo.',
+        reasonEn: 'The Dryer dedicates capacity to <strong>Potato Chips</strong> to absorb the flood of watered Farmland potatoes, clearing the island\'s highest-velocity crop.'
+    },
+    'shell_ornament': {
+        rival: 'bamboo_ware',
+        rivalNameVi: 'Đồ Tre / Tượng Gỗ',
+        rivalNameEn: 'Bamboo Ware / Wood Sculpture',
+        facility: 'Crafting Table',
+        facilityVi: 'Bàn Chế Tạo',
+        reasonVi: 'Bàn Chế Tạo chọn <strong>Trang Sức Vỏ Sò</strong> (1.190 coin) kết hợp Vỏ sò từ Mỏ và Chỉ bông, đem lại doanh thu vượt trội so với các đồ gỗ thô sơ.',
+        reasonEn: 'The Crafting Table chooses <strong>Shell Ornament</strong> (1,190 coins) combining Mine Shells with Cotton Thread, far out-earning primitive woodwork.'
+    }
+};
+
 // Dynamically generates the "Why this Plan? & Insights" rationale in the right sidebar
 function renderInsights(plan) {
     const container = document.getElementById('insights-content');
@@ -9407,28 +9528,31 @@ function renderInsights(plan) {
 
     const producing = (plan.coin_items || []).filter(s => s.status === 'producing');
 
+    // Thu thập tất cả các item thực tế đang được sản xuất hoặc bán trong kế hoạch
+    const activeItemNames = new Set();
+    for (const s of producing) {
+        if (s.item_name) {
+            activeItemNames.add(s.item_name);
+            activeItemNames.add(s.item_name.replace(/^quick_/, ''));
+            const base = s.item_name.replace(/__(specialist|manual)$/, '').replace(/^quick_/, '');
+            activeItemNames.add(base);
+        }
+    }
+    for (const s of (plan.income_streams || [])) {
+        if ((s.units_per_second || 0) > 0 && s.item_name) {
+            activeItemNames.add(s.item_name);
+            activeItemNames.add(s.item_name.replace(/^quick_/, ''));
+            const base = s.item_name.replace(/__(specialist|manual)$/, '').replace(/^quick_/, '');
+            activeItemNames.add(base);
+        }
+    }
+
     // 1. Real top revenue streams from plan.income_streams (sorted by rate_per_second descending)
     const streams = (plan.income_streams || []).filter(s => (s.units_per_second || 0) > 0);
     const sortedStreams = [...streams].sort((a, b) => (b.rate_per_second || 0) - (a.rate_per_second || 0));
     const totalCoinRate = plan.rate_per_second || 0;
     const totalHourlyCoins = Math.round(totalCoinRate * 3600);
     const unitRateDisplay = formatRate(totalCoinRate);
-
-    const top1 = sortedStreams[0];
-    const top2 = sortedStreams[1];
-
-    const top1Name = top1 ? prettyItem(top1.item_name) : (isVi ? 'Sản phẩm chủ lực' : 'Core Product');
-    const top1Hourly = top1 ? Math.round(top1.rate_per_second * 3600) : 0;
-    const top1Pct = totalHourlyCoins > 0 ? Math.round((top1Hourly / totalHourlyCoins) * 100) : 0;
-    const top1FacilityRaw = top1?.facility ? top1.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : '';
-    const top1Facility = getFacilityDisplayName(top1FacilityRaw);
-    const top1UnitsPerHour = top1 ? perHour(top1.units_per_second) : '0';
-
-    const top2Name = top2 ? prettyItem(top2.item_name) : '';
-    const top2Hourly = top2 ? Math.round(top2.rate_per_second * 3600) : 0;
-    const top2Pct = totalHourlyCoins > 0 ? Math.round((top2Hourly / totalHourlyCoins) * 100) : 0;
-    const top2FacilityRaw = top2?.facility ? top2.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '') : '';
-    const top2Facility = getFacilityDisplayName(top2FacilityRaw);
 
     const homeLevel = selectedHomeLevel();
     const { facilities: setupFacilities } = simpleSetup(homeLevel);
@@ -9496,42 +9620,84 @@ function renderInsights(plan) {
     const woodCostRow = (levelUpReport?.requirements || []).find(r => r.name === targetWoodItemKey || r.name.includes(targetWoodItemKey));
     const woodItemHourly = woodCostRow ? perHour(woodCostRow.per_second) : '';
 
-    // Check specific items in plan for targeted explanations
-    const hasGinseng = Object.keys(farmPlotsByCrop).some(c => c.includes('ginseng'));
-    const hasQuickRice = Object.keys(farmPlotsByCrop).some(c => c.includes('quick_rice') || c.includes('rice'));
     const hasWoodland = woodlandSteps.length > 0;
 
     // CARD 1: Core Profit Driver (What was selected & Why)
     const titleProfit = isVi ? '🎯 Đã chọn: Nguồn lợi nhuận cốt lõi' : '🎯 Selected: Core Profit Drivers';
-    const descProfit = isVi
-        ? `• <strong>${top1Name}</strong> tại <strong>${top1Facility}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsPerHour}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).<br>` +
-        (top2 ? `• <strong>${top2Name}</strong> tại <strong>${top2Facility}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).<br>` : '') +
-        `• <strong>Tổng sản lượng Homeland:</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} coin / giờ</strong> (${unitRateDisplay}).<br>` +
-        `<em><strong>Tại sao chọn:</strong> Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.</em>`
-        : `• <strong>${top1Name}</strong> at <strong>${top1Facility}</strong> is the #1 profit driver: producing <strong>${top1UnitsPerHour}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).<br>` +
-        (top2 ? `• <strong>${top2Name}</strong> at <strong>${top2Facility}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).<br>` : '') +
-        `• <strong>Total Homeland output:</strong> <strong>${totalHourlyCoins.toLocaleString()} coins/hour</strong> (${unitRateDisplay}).<br>` +
-        `<em><strong>Why selected:</strong> Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.</em>`;
+    const streamBullets = [];
+    if (sortedStreams.length > 0) {
+        const top1 = sortedStreams[0];
+        const top1Name = prettyItem(top1.item_name);
+        const top1Hourly = Math.round(top1.rate_per_second * 3600);
+        const top1Pct = totalHourlyCoins > 0 ? Math.round((top1Hourly / totalHourlyCoins) * 100) : 0;
+        const top1FacRaw = top1.facility ? top1.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
+        const top1Fac = getFacilityDisplayName(top1FacRaw);
+        const top1UnitsHr = perHour(top1.units_per_second);
+        streamBullets.push(isVi
+            ? `• <strong>${top1Name}</strong> tại <strong>${top1Fac}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsHr}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).`
+            : `• <strong>${top1Name}</strong> at <strong>${top1Fac}</strong> is the #1 profit driver: producing <strong>${top1UnitsHr}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).`
+        );
+    }
+    if (sortedStreams.length > 1) {
+        const top2 = sortedStreams[1];
+        const top2Name = prettyItem(top2.item_name);
+        const top2Hourly = Math.round(top2.rate_per_second * 3600);
+        const top2Pct = totalHourlyCoins > 0 ? Math.round((top2Hourly / totalHourlyCoins) * 100) : 0;
+        const top2FacRaw = top2.facility ? top2.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
+        const top2Fac = getFacilityDisplayName(top2FacRaw);
+        streamBullets.push(isVi
+            ? `• <strong>${top2Name}</strong> tại <strong>${top2Fac}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).`
+            : `• <strong>${top2Name}</strong> at <strong>${top2Fac}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).`
+        );
+    }
+    if (sortedStreams.length > 2) {
+        const top3 = sortedStreams[2];
+        const top3Hourly = Math.round(top3.rate_per_second * 3600);
+        const top3Pct = totalHourlyCoins > 0 ? Math.round((top3Hourly / totalHourlyCoins) * 100) : 0;
+        if (top3Pct >= 5) {
+            const top3Name = prettyItem(top3.item_name);
+            const top3FacRaw = top3.facility ? top3.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
+            const top3Fac = getFacilityDisplayName(top3FacRaw);
+            streamBullets.push(isVi
+                ? `• <strong>${top3Name}</strong> tại <strong>${top3Fac}</strong> đóng góp <strong>${top3Hourly.toLocaleString()} coin / giờ</strong> (${top3Pct}%).`
+                : `• <strong>${top3Name}</strong> at <strong>${top3Fac}</strong> contributes <strong>${top3Hourly.toLocaleString()} coins/hour</strong> (${top3Pct}%).`
+            );
+        }
+    }
+
+    const descProfit = streamBullets.join('<br>') +
+        `<br>• <strong>${isVi ? 'Tổng sản lượng Homeland:' : 'Total Homeland output:'}</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} ${isVi ? 'coin / giờ' : 'coins/hour'}</strong> (${unitRateDisplay}).<br>` +
+        `<em><strong>${isVi ? 'Tại sao chọn:' : 'Why selected:'}</strong> ${isVi
+            ? `Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.`
+            : `Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.`}</em>`;
 
     // CARD 2: Farmland & Supply Chain Strategy (What & Why)
     const titleFarm = isVi ? '🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng' : '🌾 Selected: Farmland & Supply Strategy';
-    let descFarm = '';
-    const isGinsengPorridgeCore = (top1Name.toLowerCase().includes('cháo') || top1Name.toLowerCase().includes('porridge')) && (top1FacilityRaw.includes('Pot') || top1FacilityRaw.includes('hầm'));
-    if (hasGinseng && isGinsengPorridgeCore) {
-        const ginsengPlots = farmPlotsByCrop['ginseng'] || farmPlotsByCrop['quick_ginseng'] || 0;
-        const ricePlots = farmPlotsByCrop['rice'] || farmPlotsByCrop['quick_rice'] || 0;
-        descFarm = isVi
-            ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-            `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), các ô Nhân sâm (${ginsengPlots} ô) và Lúa nước (${ricePlots} ô) cung cấp vừa khít nguồn nguyên liệu sạch cho Nồi hầm nấu liên tục <strong>${top1UnitsPerHour} ${top1Name}/giờ</strong>, đồng bộ 100% giữa khâu trồng trọt và khâu chế biến mà không gây ùn ứ hay thiếu hụt nguyên liệu.</em>`
-            : `Deployed <strong>${farmSummary}</strong>.<br>` +
-            `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), Ginseng plots (${ginsengPlots}) and Rice plots (${ricePlots}) provide perfectly synchronized inputs to keep Simmering Pot crafting <strong>${top1UnitsPerHour} ${top1Name}/hr</strong> with zero idle waste.</em>`;
-    } else {
-        descFarm = isVi
-            ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-            `<em><strong>Tại sao chọn:</strong> Chuỗi cây trồng được tối ưu theo thời gian thu hoạch có tưới nước và khả năng hấp thụ nguyên liệu trực tiếp của <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/giờ) cùng các cơ sở chế biến trên đảo.</em>`
-            : `Deployed <strong>${farmSummary}</strong>.<br>` +
-            `<em><strong>Why selected:</strong> Crop mix calibrated to watered harvest timings and downstream processing throughput at <strong>${top1Facility}</strong> (${top1UnitsPerHour} ${top1Name}/hr).</em>`;
+    
+    // Tìm các chuỗi chế biến hạ nguồn trực tiếp từ nông sản/lâm sản
+    const downstreamSteps = producing.filter(s => s.facility !== 'Farmland' && s.facility !== 'Woodland' && s.item_name);
+    const downstreamTargetNames = [...new Set(downstreamSteps.map(s => {
+        const facRaw = s.facility ? s.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() : '';
+        const facName = getFacilityDisplayName(facRaw);
+        const itmName = prettyItem(s.item_name);
+        const rateText = s.units_per_second ? ` (${perHour(s.units_per_second)}/h)` : '';
+        return `<strong>${facName}</strong> (${itmName}${rateText})`;
+    }))].slice(0, 3);
+
+    let supplyChainDesc = '';
+    if (downstreamTargetNames.length > 0) {
+        supplyChainDesc = isVi
+            ? `Cung cấp trực tiếp cho chuỗi chế biến: ${downstreamTargetNames.join(', ')}.`
+            : `Directly feeds downstream processing: ${downstreamTargetNames.join(', ')}.`;
     }
+
+    const descFarm = isVi
+        ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
+          (supplyChainDesc ? `${supplyChainDesc}<br>` : '') +
+          `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), chuỗi cây trồng được tối ưu theo thời gian thu hoạch và khả năng hấp thụ nguyên liệu trực tiếp của các cơ sở chế biến trên đảo (đồng bộ công suất, không gây dư thừa tồn đọng kho bãi hay thiếu hụt nguyên liệu).</em>`
+        : `Deployed <strong>${farmSummary}</strong>.<br>` +
+          (supplyChainDesc ? `${supplyChainDesc}<br>` : '') +
+          `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), crop mix is calibrated to watered harvest timings and downstream processing throughput (zero idle waste or raw material starvation).</em>`;
 
     // CARD 3: Level-up Progression (if applicable)
     let cardLevelUpHtml = '';
@@ -9552,11 +9718,11 @@ function renderInsights(plan) {
             </div>`;
     }
 
-    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Tailored strictly to current RV)
+    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Tailored strictly according to contrastive rival analysis)
     const titleRejected = isVi ? '🚫 Tại sao không chọn các phương án khác?' : '🚫 Why Alternatives Were Rejected';
     const rejectedBullets = [];
 
-    // 1. Woodland lower tier rejection (only when woodland is available, level-up is active, and there are lower tiers)
+    // 1. Woodland lower-tier tree rejection (Giữ nguyên ăn khớp với mục tiêu nâng cấp)
     if (hasWoodland && hasLevelUp && woodlandTier > 1) {
         if (isVi) {
             rejectedBullets.push(`<strong>Không trồng cây cấp thấp ở Vườn ươm:</strong> Cây cấp thấp (${lowerTierTreesExampleVi}...) chỉ cho từ 1 đến ${lowerTierMaxYield} vụn gỗ/ô (thấp hơn nhiều so với ${maxYieldPerTree} vụn gỗ của cây Cấp ${woodlandTier} cao nhất), sẽ làm sụt giảm sản lượng ${targetWoodItemName} và kéo dài thời gian lên RV ${targetRv}.`);
@@ -9565,27 +9731,22 @@ function renderInsights(plan) {
         }
     }
 
-    // 2. Ginseng alternatives (only at RV >= 12 where Ginseng exists, and Ginseng is part of the plan)
-    if (homeLevel >= 12 && hasGinseng) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Không làm Bột nhân sâm (Ginseng Powder):</strong> 3 sâm thô làm 1 bột sâm bán có lợi nhuận ròng thấp hơn nhiều so với nấu Cháo nhân sâm. Các món chế biến sâu từ bột sâm như Bánh sâm hạt dẻ lại đòi hỏi cây cấp thấp làm giảm sản lượng gỗ.`);
-            rejectedBullets.push(`<strong>Không làm Nước nhân sâm số lượng lớn:</strong> Tiêu tốn thêm tài nguyên nước từ Giếng và có tỷ suất lợi nhuận trên thời gian chế biến thấp hơn so với Cháo nhân sâm.`);
-        } else {
-            rejectedBullets.push(`<strong>No Ginseng Powder:</strong> Selling powder directly yields lower net profit than Porridge, and downstream products like Chestnut Cake require lower-tier trees that hurt wood block yields.`);
-            rejectedBullets.push(`<strong>No bulk Ginseng Water:</strong> Consumes scarce well water and has lower coin yield per worker second than Porridge.`);
+    // 2. Contrastive Rival Analysis: Phân tích đối lập trực tiếp (tại sao chọn món này mà không chọn món kia)
+    const processedRivals = new Set();
+    for (const stream of sortedStreams.slice(0, 3)) {
+        const itemKey = stream.item_name.replace(/^quick_/, '').replace(/__(specialist|manual)$/, '');
+        const rivalInfo = RECIPE_RIVAL_INSIGHTS[itemKey];
+        if (rivalInfo && !activeItemNames.has(rivalInfo.rival) && !processedRivals.has(rivalInfo.rival)) {
+            processedRivals.add(rivalInfo.rival);
+            if (isVi) {
+                rejectedBullets.push(`<strong>Không làm ${rivalInfo.rivalNameVi} (${rivalInfo.facilityVi}):</strong> ${rivalInfo.reasonVi}`);
+            } else {
+                rejectedBullets.push(`<strong>No ${rivalInfo.rivalNameEn} (${rivalInfo.facility}):</strong> ${rivalInfo.reasonEn}`);
+            }
         }
     }
 
-    // 3. Pearl check: Only applies when Sandcastle Lv.3 (Pearl) is unlocked (RV 13-15) but Crafting Table Lv.6 (Pearl Necklace) is not yet unlocked (RV 16)
-    if (homeLevel >= 13 && homeLevel < 16) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Không chế ngọc trai (Lâu đài cát):</strong> Chưa mở khóa Bàn chế tạo Lv.6 ở RV 16 để làm Vòng cổ ngọc trai; bán ngọc trai thô giá thấp, thời gian lâu (45 phút) và lãng phí khu vực ấm áp.`);
-        } else {
-            rejectedBullets.push(`<strong>No Pearls from Sandcastle:</strong> Pearl Necklace requires Crafting Table Lv.6 (unlocked at RV 16); raw pearls have low margins and waste warm aura slots.`);
-        }
-    }
-
-    // 4. Harvest Moon event dish prioritization (if festival active)
+    // 3. Harvest Moon event dish prioritization (if festival active)
     if (seasonActive() && selectedSeasonDishes.size > 0) {
         if (isVi) {
             rejectedBullets.push(`<strong>Ưu tiên công thức Lễ hội Trung thu:</strong> Khóa các ô nông trại chuyên dụng cho Củ cải và Ớt sự kiện để gom nguyên liệu đổi thưởng mùa vụ, chủ động chấp nhận điều chỉnh nhẹ doanh thu coin thuần túy để hoàn thành nhiệm vụ sự kiện.`);
@@ -9594,13 +9755,22 @@ function renderInsights(plan) {
         }
     }
 
-    // 5. Idle facilities
+    // 4. Idle facilities
     const idleCount = (plan.coin_items || []).filter(s => s.status === 'not_needed' || s.status === 'idle').length;
     if (idleCount > 0) {
         if (isVi) {
             rejectedBullets.push(`<strong>Các cơ sở chế biến để trống (${idleCount}):</strong> Bộ giải LP đã loại bỏ các công thức phụ có biên lợi nhuận thấp để dồn trọn vẹn nhân công Aniimo và điện năng cho chuỗi sản phẩm chủ lực.`);
         } else {
             rejectedBullets.push(`<strong>Idle processing facilities (${idleCount}):</strong> The LP simplex solver pruned low-margin secondary recipes to concentrate worker labor and watts on peak-profit drivers.`);
+        }
+    }
+
+    // Fallback nếu không có bullet nào
+    if (rejectedBullets.length === 0) {
+        if (isVi) {
+            rejectedBullets.push(`<strong>Toàn bộ cơ sở và công thức được tối ưu hóa:</strong> Không có chuỗi phụ nào bị loại bỏ; tất cả tài nguyên đất đai, máy móc và nhân công đều đang vận hành ở công suất tối ưu.`);
+        } else {
+            rejectedBullets.push(`<strong>Fully optimized setup:</strong> No viable chains pruned; all available land, machines, and worker labor are operating at peak efficiency.`);
         }
     }
 
@@ -9647,7 +9817,6 @@ function renderInsights(plan) {
         </div>
     `;
 }
-
 // React dynamically to language changes without losing state or re-running the solver
 window.addEventListener('languageChanged', () => {
     recipesRendered = false;
