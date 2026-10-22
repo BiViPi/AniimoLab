@@ -64,6 +64,18 @@ const EN_LOCALE = {
         what_you_have: "What you already have",
         what_you_have_hint: "Counts toward the level-up. Wood Blocks, Mineral Sand and lower tiers get processed up.",
 
+        // Card 2: End-game RV 20 Priorities
+        priorities_title: "End-game Strategy: Priorities",
+        priorities_hint: "Drag & drop or use arrows to rank priorities. Toggle On/Off for goals you want to prioritize. Remaining capacity automatically goes to Home Coins.",
+        priority_aniipod_mega: "Aniipod Mega",
+        priority_aniipod_mega_sub: "Produced at 1x Aniipod Maker Lv.3",
+        priority_aniimo_exp: "Aniimo EXP (Growth Fruit)",
+        priority_aniimo_exp_sub: "Produce Growth Fruit at 1x Dance Pad Polisher Lv.3",
+        priority_coins: "Home Coins",
+        priority_coins_sub: "Maximize Home Coins from remaining capacity",
+        priority_aniimo_food: "Aniimo Food",
+        priority_aniimo_food_sub: "Sustain quota for a team of 45 Aniimo",
+
         // Card 3: Season & Recipes
         season_title: "Harvest Moon Festival",
         season_badge: "Seasonal Event",

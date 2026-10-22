@@ -128,13 +128,13 @@ export const FACILITIES = [
     {
         name: 'Farmland', slug: 'farmland', defaultCount: 1, category: 'Materials',
         unlocks: { 1: 1, 2: 2, 3: 5, 4: 7, 5: 9, 6: 12, 7: 16 },
-        counts: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42],
+        counts: [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 40],
         tooltip: "Lv.1: Wheat&#10;Lv.2: Potato, Quick Wheat&#10;Lv.3: Rice, Soybean&#10;Lv.4: Rose, Cotton, Quick Potato&#10;Lv.5: Strawberry, Lavender, Sugarcane&#10;Lv.6: Ginseng, Grape, Premium Wheat, Quick Rice&#10;Lv.7: Cranberry, Agave, Quick Strawberry"
     },
     {
         name: 'Woodland', slug: 'woodland', defaultCount: 1, category: 'Materials',
         unlocks: { 1: 2, 2: 4, 3: 7, 4: 11, 5: 14, 6: 18 },
-        counts: [0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+        counts: [0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 20],
         tooltip: "Lv.1: Willow Wood&#10;Lv.2: Bamboo, Lemon&#10;Lv.3: Cherry Blossom, Apple, Maple Syrup, Quick Bamboo&#10;Lv.4: Palm Bark, Chestnut, Walnut, Quick Lemon&#10;Lv.5: Natural Rubber, Coconut, Quick Maple Syrup&#10;Lv.6: Cocoa, Orange Flower, Quick Coconut&#10;Also yields Wood Blocks."
     },
     {

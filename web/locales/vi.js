@@ -64,6 +64,18 @@ const VI_LOCALE = {
         what_you_have: "Kho vật phẩm hiện có",
         what_you_have_hint: "Tính vào chi phí nâng cấp. Khối Gỗ, Cát Khoáng Sản và nguyên liệu cấp thấp sẽ được tự động chế biến lên cấp cao hơn.",
 
+        // Card 2: Chiến lược End-game RV 20 (Priorities)
+        priorities_title: "Chiến lược End-game: Thứ tự ưu tiên (Priorities)",
+        priorities_hint: "Kéo thả hoặc dùng mũi tên để sắp xếp thứ tự ưu tiên. Bật On/Off cho từng mục tiêu bạn muốn tối ưu. Phần công suất còn lại sẽ tự động dồn cho Xu Gia Viên.",
+        priority_aniipod_mega: "Aniipod Mega",
+        priority_aniipod_mega_sub: "Sản xuất tại 1 máy Aniipod Maker Lv.3",
+        priority_aniimo_exp: "Aniimo EXP (Trái tăng trưởng)",
+        priority_aniimo_exp_sub: "Sản xuất Growth Fruit tại 1 máy Dance Pad Polisher Lv.3",
+        priority_coins: "Xu Gia Viên",
+        priority_coins_sub: "Tối đa hóa doanh thu Xu Gia Viên từ năng lực còn lại",
+        priority_aniimo_food: "Món ăn cho Aniimo",
+        priority_aniimo_food_sub: "Nuôi dưỡng định mức tổ đội 45 Aniimo",
+
         // Card 3: Sự kiện Trăng Mùa Gặt & Công thức
         season_title: "Sự kiện Trăng Mùa Gặt",
         season_badge: "Sự kiện mùa vụ",

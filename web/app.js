@@ -1961,6 +1961,9 @@ function saveInputsToStorage() {
         if (!el) return;
         data[id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
     });
+    if (isSeasonExpired()) {
+        data['season-on'] = false;
+    }
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
@@ -1984,16 +1987,22 @@ function loadInputsFromStorage(data) {
     if (data.levelUpStock && typeof data.levelUpStock === 'object') levelUpStock = { ...data.levelUpStock };
     if (Array.isArray(data.skippedRecipes)) skippedRecipes = new Set(data.skippedRecipes.filter(n => typeof n === 'string'));
     if (Array.isArray(data.unlockedSpecial)) unlockedSpecial = new Set(data.unlockedSpecial.filter(n => typeof n === 'string'));
+    if (isSeasonExpired()) {
+        if (data) data['season-on'] = false;
+        const seasonToggle = document.getElementById('season-on');
+        if (seasonToggle) seasonToggle.checked = false;
+    }
     if (Array.isArray(data.priorities)) {
-        const saved = data.priorities.filter(p => PRIORITY_TARGETS.some(t => t.id === p?.target));
-        const missing = PRIORITY_TARGETS.filter(t => !saved.some(p => p.target === t.id)).map(t => ({ target: t.id, on: false }));
-        priorityOrder = [...saved.map(p => ({ target: p.target, on: !!p.on })), ...missing];
-    } else if (data['strategy-coins'] || data['strategy-exp'] || data['strategy-aniipods']) {
-        // Saves from before Priorities picked one "Most ..." tab; carry that choice over.
-        const first = data['strategy-exp'] ? 'aniimo_exp' : data['strategy-aniipods'] ? 'aniipods' : 'coins';
-        priorityOrder = [first, ...PRIORITY_TARGETS.map(t => t.id).filter(id => id !== first)]
-            .map(target => ({ target, on: target === first }));
-        data['strategy-priorities'] = true;
+        const validIds = RV20_PRIORITY_TARGETS.map(t => t.id);
+        const saved = data.priorities.filter(p => validIds.includes(p?.target));
+        const missing = RV20_PRIORITY_TARGETS.filter(t => !saved.some(p => p.target === t.id)).map(t => ({ target: t.id, on: false }));
+        if (saved.length === 0) {
+            priorityOrder = RV20_PRIORITY_TARGETS.map(t => ({ target: t.id, on: false }));
+        } else {
+            priorityOrder = [...saved.map(p => ({ target: p.target, on: !!p.on })), ...missing];
+        }
+    } else {
+        priorityOrder = RV20_PRIORITY_TARGETS.map(t => ({ target: t.id, on: false }));
     }
     if (data.aniimoLevels && typeof data.aniimoLevels === 'object') {
         aniimoLevels = Object.fromEntries(Object.entries(data.aniimoLevels)
@@ -2022,6 +2031,10 @@ function loadInputsFromStorage(data) {
             el.value = data[id];
         }
     });
+    if (isSeasonExpired()) {
+        const seasonToggle = document.getElementById('season-on');
+        if (seasonToggle) seasonToggle.checked = false;
+    }
     levelUpTargetChosen = 'level-up-target' in data;
     updatePowerGauge();
 }
@@ -4136,16 +4149,53 @@ export function renderRosterSummary(plan, options = {}) {
     };
 }
 
-// --- Season (Lễ hội Trung Thu) -------------------------------------------------------------
-// The Harvest Moon Festival (see `SEASON`): on the page from RV 10, or always in Advanced mode,
-// where there's no RV level to go by. While it's on, players can configure dedicated plots for
-// Moondew Radish and Waxing Moon Pepper, select festival dishes to prioritize, and earn Harvest Moon points.
+// --- Season (Lễ hội Trung Thu / Harvest Moon Festival) -------------------------------------
+// Mốc kết thúc sự kiện Trăng Mùa Gặt: 03:00 28/10/2026 GMT+7 (20:00 UTC 27/10/2026)
+export const HARVEST_MOON_END = new Date('2026-10-27T20:00:00Z').getTime();
+
+export function isSeasonExpired() {
+    return Date.now() >= HARVEST_MOON_END;
+}
+
+export function getSeasonRemaining() {
+    const diff = HARVEST_MOON_END - Date.now();
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return { days, hours, minutes, totalMs: diff };
+}
+
+export function updateSeasonTitleCountdown() {
+    const titleEl = document.getElementById('season-title-text') || document.querySelector('.season-title');
+    if (!titleEl) return;
+    if (isSeasonExpired()) {
+        renderSeason();
+        return;
+    }
+
+    const rem = getSeasonRemaining();
+    if (!rem) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const deadline = isVi ? '03:00 28/10/2026' : '03:00 Oct 28, 2026';
+    let timeStr = '';
+    if (rem.days > 0) {
+        timeStr = isVi ? `còn ${rem.days} ngày ${rem.hours} giờ` : `${rem.days}d ${rem.hours}h left`;
+    } else if (rem.hours > 0) {
+        timeStr = isVi ? `còn ${rem.hours} giờ ${rem.minutes} phút` : `${rem.hours}h ${rem.minutes}m left`;
+    } else {
+        timeStr = isVi ? `còn ${rem.minutes} phút` : `${rem.minutes}m left`;
+    }
+    const baseTitle = isVi ? 'Sự kiện Trăng Mùa Gặt' : 'Harvest Moon Festival';
+    titleEl.textContent = `${baseTitle} (Kết thúc: ${deadline} · ${timeStr})`;
+}
 
 let seasonRadishPlots = 2;
 let seasonPepperPlots = 2;
 let selectedSeasonDishes = new Set(SEASON_RECIPES.map(r => r.name));
 
 function seasonAvailable() {
+    if (isSeasonExpired()) return false;
     return !isSimpleMode() || selectedHomeLevel() >= SEASON.minHomeLevel;
 }
 
@@ -4169,9 +4219,20 @@ function updateSeasonPlotsSummary() {
 
 function renderSeason() {
     const seasonSec = document.getElementById('season-section');
-    if (seasonSec) seasonSec.hidden = !seasonAvailable();
+    const divider = document.querySelector('.custom-card-divider');
+    const available = seasonAvailable();
+    if (seasonSec) {
+        seasonSec.hidden = !available;
+        seasonSec.style.display = available ? '' : 'none';
+    }
+    if (divider) {
+        divider.style.display = available ? '' : 'none';
+    }
     const seasonCfg = document.getElementById('season-config');
     if (seasonCfg) seasonCfg.hidden = !seasonActive();
+    if (!available) return;
+
+    updateSeasonTitleCountdown();
 
     // Update stepper inputs
     const radishInput = document.getElementById('season-radish-plots');
@@ -4515,71 +4576,125 @@ function getItemDisplayName(name) {
 }
 
 function isLevelUpStrategy() {
-    return true;
+    return !isRV20Endgame();
 }
 
-// Priorities is removed per user configuration; Level Up is the primary strategy.
-const PRIORITY_TARGETS = [
-    { id: 'coins', label: 'Home Coins' },
-    { id: 'aniimo_exp', label: 'Aniimo EXP' },
-    { id: 'aniipods', label: 'Aniipods' },
-    { id: 'Wood Blocks', label: 'Wood Blocks' },
-    { id: 'Mineral Sand', label: 'Mineral Sand' },
-    { id: 'season_points', label: SEASON.points, season: true },
+// End-game Strategy: Priorities for RV 20 in Simple Mode (Aniimax Style)
+export const RV20_PRIORITY_TARGETS = [
+    {
+        id: 'aniipod_mega',
+        icon: '🔮',
+        item: 'aniipod_mega',
+        labelVi: 'Aniipod Mega',
+        labelEn: 'Aniipod Mega',
+        subVi: 'Sản xuất tại 1 máy Aniipod Maker Lv.3',
+        subEn: 'Produced at 1x Aniipod Maker Lv.3'
+    },
+    {
+        id: 'aniimo_exp',
+        icon: '🌟',
+        item: 'growth_fruit',
+        labelVi: 'Aniimo EXP (Trái tăng trưởng)',
+        labelEn: 'Aniimo EXP (Growth Fruit)',
+        subVi: 'Sản xuất Growth Fruit tại 1 máy Dance Pad Polisher Lv.3',
+        subEn: 'Produce Growth Fruit at 1x Dance Pad Polisher Lv.3'
+    },
+    {
+        id: 'coins',
+        icon: '🪙',
+        item: 'coins',
+        labelVi: 'Xu Gia Viên (Home Coins)',
+        labelEn: 'Home Coins',
+        subVi: 'Tối đa hóa doanh thu Xu Gia Viên từ năng lực còn lại',
+        subEn: 'Maximize Home Coins from remaining capacity'
+    },
+    {
+        id: 'aniimo_food',
+        icon: '🍱',
+        item: null,
+        labelVi: 'Món ăn cho Aniimo',
+        labelEn: 'Aniimo Food',
+        subVi: 'Nuôi dưỡng định mức tổ đội 45 Aniimo',
+        subEn: 'Sustain quota for a team of 45 Aniimo'
+    }
 ];
+
+export function isRV20Endgame() {
+    return isSimpleMode() && selectedHomeLevel() === 20;
+}
+
 
 const ARROW_UP = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 2.5 L10 7 H2 Z" fill="currentColor"/></svg>';
 const ARROW_DOWN = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M6 9.5 L10 5 H2 Z" fill="currentColor"/></svg>';
 
-let priorityOrder = PRIORITY_TARGETS.map(t => ({ target: t.id, on: t.id === 'coins' }));
+let priorityOrder = RV20_PRIORITY_TARGETS.map(t => ({ target: t.id, on: false }));
 
 function isPriorityStrategy() {
-    return false;
+    return isRV20Endgame();
 }
 
 function shownPriorities() {
-    return [];
+    if (!isRV20Endgame()) return [];
+    return priorityOrder.filter(p => RV20_PRIORITY_TARGETS.some(t => t.id === p.target));
 }
 
 function activePriorities() {
-    return [];
+    if (!isRV20Endgame()) return [];
+    return priorityOrder.filter(p => p.on).map(p => p.target);
 }
 
 function wantsAniipods() {
-    return false;
+    return isRV20Endgame() && priorityOrder.some(p => p.target === 'aniipod_mega' && p.on);
 }
 
-// A priority's name, with the Aniipod tier the plan would make.
-function priorityLabel(target, aniipod = bestAniipod()) {
-    if (target === 'aniipods') return aniipod ? prettyItem(aniipod) : 'Aniipods';
-    return PRIORITY_TARGETS.find(t => t.id === target)?.label || CURRENCY_LABELS[target] || target;
+function priorityLabel(target) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const found = RV20_PRIORITY_TARGETS.find(t => t.id === target);
+    if (found) return isVi ? found.labelVi : found.labelEn;
+    return CURRENCY_LABELS[target] || target;
 }
 
 function renderPriorities() {
     const list = document.getElementById('priority-list');
     if (!list) return;
-    const best = bestAniipod();
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const shown = shownPriorities();
+    let currentRank = 0;
     list.innerHTML = shown.map((p, at) => {
-        // Indices into `priorityOrder`, which also holds any priority that isn't shown.
         const i = priorityOrder.indexOf(p);
         const above = at > 0 ? priorityOrder.indexOf(shown[at - 1]) : -1;
         const below = at < shown.length - 1 ? priorityOrder.indexOf(shown[at + 1]) : -1;
-        const label = priorityLabel(p.target, best);
-        const note = p.target === 'aniipods' && !best ? ' <span class="hint small">(no Aniipod Maker yet)</span>' : '';
+        const meta = RV20_PRIORITY_TARGETS.find(t => t.id === p.target) || {
+            icon: '🎯',
+            labelVi: p.target,
+            labelEn: p.target,
+            subVi: '',
+            subEn: ''
+        };
+        const label = isVi ? meta.labelVi : meta.labelEn;
+        const sub = isVi ? meta.subVi : meta.subEn;
+        if (p.on) currentRank++;
+        const rankDisplay = p.on
+            ? `<span class="priority-rank-badge">${currentRank}</span>`
+            : `<span class="priority-rank-empty">-</span>`;
+
         return `
-        <li class="priority${p.on ? '' : ' off'}" draggable="true" data-index="${i}">
-            <span class="drag-handle" aria-hidden="true">⋮⋮</span>
-            <span class="priority-rank">${p.on ? shown.slice(0, at + 1).filter(q => q.on).length : ''}</span>
-            <span class="priority-name">${label}${note}</span>
-            <label class="priority-switch" title="${p.on ? 'On: the plan goes for this' : 'Off: the plan ignores this'}">
+        <li class="priority ${p.on ? 'on' : 'off'}" draggable="true" data-index="${i}">
+            <span class="drag-handle" title="${isVi ? 'Kéo để sắp xếp' : 'Drag to reorder'}" aria-hidden="true">⋮⋮</span>
+            <span class="priority-rank">${rankDisplay}</span>
+            <span class="priority-icon" aria-hidden="true">${meta.icon}</span>
+            <div class="priority-info">
+                <span class="priority-name">${label}</span>
+                ${sub ? `<span class="priority-desc">${sub}</span>` : ''}
+            </div>
+            <label class="priority-switch" title="${p.on ? (isVi ? 'Đang bật: Solver sẽ ưu tiên mục tiêu này' : 'On: the plan prioritizes this') : (isVi ? 'Đang tắt: Solver sẽ bỏ qua mục tiêu này' : 'Off: the plan ignores this')}">
                 <input type="checkbox" role="switch" data-toggle="${i}" aria-label="${label}"${p.on ? ' checked' : ''}>
                 <span class="switch-track" aria-hidden="true"></span>
                 <span class="switch-text">${p.on ? 'On' : 'Off'}</span>
             </label>
             <span class="priority-move">
-                <button type="button" data-move="${i}" data-to="${above}" data-by="-1" aria-label="Move ${label} up"${above < 0 ? ' disabled' : ''}>${ARROW_UP}</button>
-                <button type="button" data-move="${i}" data-to="${below}" data-by="1" aria-label="Move ${label} down"${below < 0 ? ' disabled' : ''}>${ARROW_DOWN}</button>
+                <button type="button" data-move="${i}" data-to="${above}" data-by="-1" title="${isVi ? 'Chuyển lên' : 'Move up'}" aria-label="Move ${label} up"${above < 0 ? ' disabled' : ''}>${ARROW_UP}</button>
+                <button type="button" data-move="${i}" data-to="${below}" data-by="1" title="${isVi ? 'Chuyển xuống' : 'Move down'}" aria-label="Move ${label} down"${below < 0 ? ' disabled' : ''}>${ARROW_DOWN}</button>
             </span>
         </li>`;
     }).join('');
@@ -4591,17 +4706,19 @@ function movePriority(from, to) {
     priorityOrder.splice(to, 0, moved);
     renderPriorities();
     saveInputsToStorage();
+    runFindPlan();
 }
 
 function attachPriorityHandlers() {
     const list = document.getElementById('priority-list');
     if (!list) return;
     list.addEventListener('change', (e) => {
-        const i = e.target.dataset.toggle;
-        if (i === undefined) return;
+        const i = Number(e.target.dataset.toggle);
+        if (Number.isNaN(i) || !priorityOrder[i]) return;
         priorityOrder[i].on = e.target.checked;
         renderPriorities();
         saveInputsToStorage();
+        runFindPlan();
     });
     list.addEventListener('click', (e) => {
         const button = e.target.closest('[data-move]');
@@ -4690,10 +4807,23 @@ function populateLevelUpTargets() {
 
 function renderStrategy() {
     renderSeason();
+    const isRV20 = isRV20Endgame();
+    const prioritiesSec = document.getElementById('priorities-section');
+    if (prioritiesSec) {
+        prioritiesSec.hidden = !isRV20;
+        if (isRV20) {
+            renderPriorities();
+        }
+    }
+
+    const levelUpCard = document.querySelector('.config-strategy-card');
     const levelUpConfig = document.getElementById('level-up-config');
+    if (isRV20) {
+        if (levelUpCard) levelUpCard.style.display = 'none';
+        if (levelUpConfig) levelUpConfig.style.display = 'none';
+        return;
+    }
     if (levelUpConfig) levelUpConfig.style.display = 'block';
-    const prioritiesConfig = document.getElementById('priorities-config');
-    if (prioritiesConfig) prioritiesConfig.style.display = 'none';
 
     // Simple mode always plans the next RV level, so only Advanced picks one.
     const targetRow = document.getElementById('level-up-target-row');
@@ -9232,6 +9362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSpecialistQuotasLimits(selectedHomeLevel());
     initWasm();
 
+    setInterval(updateSeasonTitleCountdown, 30000);
     document.getElementById('optimize-btn').addEventListener('click', runFindPlan);
     document.getElementById('clear-saved-btn').addEventListener('click', clearSavedInputs);
     document.getElementById('rate-unit').addEventListener('change', () => {

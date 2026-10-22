@@ -164,6 +164,20 @@
                 </div>
             </section>
 
+            <!-- Card 2.5: End-game Priorities (RV 20 in Simple Mode) -->
+            <section class="card config-priorities-card" id="priorities-section" hidden>
+                <div class="card-head">
+                    <div class="section-title-group">
+                        <span class="section-star-icon" aria-hidden="true">🎯</span>
+                        <h2 data-i18n="priorities_title">Chiến lược End-game: Thứ tự ưu tiên (Priorities)</h2>
+                    </div>
+                    <span class="priorities-badge">RV 20</span>
+                </div>
+                <div id="priorities-config">
+                    <p class="hint" data-i18n="priorities_hint">Kéo thả hoặc dùng mũi tên để sắp xếp thứ tự ưu tiên. Bật On/Off cho từng mục tiêu bạn muốn tối ưu. Phần công suất còn lại sẽ tự động dồn cho Xu Gia Viên.</p>
+                    <ol class="priority-list" id="priority-list"></ol>
+                </div>
+            </section>
             <!-- Card 3: Season & Special Recipes -->
             <section class="card config-custom-card">
                 <!-- Section 2.1: Sự kiện Trăng Mùa Gặt (Harvest Moon) -->
@@ -174,7 +188,7 @@
                             <span class="switch-track" aria-hidden="true"></span>
                             <span class="season-title-wrapper">
                                 <span class="season-moon-icon" aria-hidden="true">🌕</span>
-                                <span class="season-title" data-i18n="season_title">Sự kiện Trăng Mùa Gặt</span>
+                                <span class="season-title" id="season-title-text" data-i18n="season_title">Sự kiện Trăng Mùa Gặt</span>
                                 <span class="season-badge" data-i18n="season_badge">Sự kiện mùa vụ</span>
                             </span>
                         </label>
