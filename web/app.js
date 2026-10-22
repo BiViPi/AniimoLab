@@ -481,6 +481,53 @@ export function calculateWorkerSpeed(workerLevel, reqLevel = 1, isGathering = fa
     return baseSpeed;
 }
 
+function worksheetStepMode(step) {
+    if (step?.mode === 'electric' || step?.is_emode) return 'electric';
+    if (step?.mode === 'prismana' || step?.mode === 'specialist' || step?.is_specialist) return 'prismana';
+    if (step?.mode === 'manual' || step?.is_manual) return 'manual';
+    return 'manual';
+}
+
+function worksheetFixedPlanLines(plan) {
+    return (plan?.coin_items || [])
+        .filter(step => step.status === 'producing' && step.item_name && (step.facility_count || 0) > 0)
+        .map(step => ({
+            facility: (step.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim(),
+            item_name: step.item_name.replace(/__(manual|specialist)$/, ''),
+            mode: worksheetStepMode(step),
+            facility_count: step.facility_count,
+            crew: Number.isInteger(step.crew) ? step.crew : null
+        }));
+}
+
+function worksheetOverridesFromLines(lines) {
+    const byFacility = new Map();
+    for (const line of lines) {
+        let counts = byFacility.get(line.facility);
+        if (!counts) {
+            counts = { electric_count: 0, specialist_count: 0, manual_count: 0 };
+            byFacility.set(line.facility, counts);
+        }
+        if (line.mode === 'electric') counts.electric_count += line.facility_count;
+        else if (line.mode === 'prismana' && (line.facility === 'Mine' || line.facility === 'Well' || RESIDENT_FACILITIES.has(line.facility) || FACILITIES.find(f => f.name === line.facility)?.hasWorker)) {
+            counts.specialist_count += line.facility_count;
+        } else if (RESIDENT_FACILITIES.has(line.facility)) {
+            counts.manual_count += line.facility_count;
+        }
+    }
+    return [...byFacility.entries()]
+        .filter(([facility]) => {
+            const def = FACILITIES.find(f => f.name === facility);
+            return facility === 'Mine' || facility === 'Well' || def?.hasWorker || RESIDENT_FACILITIES.has(facility);
+        })
+        .map(([facility, counts]) => ({
+            facility,
+            level: getFacilityLevel(facility),
+            target_mode: counts.electric_count > 0 ? 'electric' : (counts.specialist_count > 0 ? 'prismana' : 'manual'),
+            ...counts
+        }));
+}
+
 let isWorksheetReSolving = false;
 window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentModeParam, clickedBtn, stepIndex) {
     if (!lastPlan || !lastPlan.success || isWorksheetReSolving) return;
@@ -492,8 +539,6 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
 
     const rawFac = facility || '';
     const baseFac = rawFac.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
-    const facDef = FACILITIES.find(f => f.name === baseFac);
-    const wattsPerUnit = (selectedHomeLevel() >= 12 && facDef?.supportsEmode) ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
     const generatorCapacity = getGeneratorCapacity();
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
@@ -504,12 +549,16 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         clickedBtn.classList.add('active');
     }
 
-    // 2. Tìm step tương ứng trong lastPlan
+    // 2. Snapshot the current plan, then change only the selected production row.
+    const originalPlan = JSON.parse(JSON.stringify(lastPlan));
+    const originalEmodeCounts = { ...(lastEmodeCounts || {}) };
+    const originalOverrides = facilityOverrides.map(override => ({ ...override }));
     const step = (lastPlan.coin_items && typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < lastPlan.coin_items.length)
         ? lastPlan.coin_items[stepIndex]
         : (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() === baseFac && s.status === 'producing');
+    if (!step) return;
 
-    const prevMode = step?.mode || currentModeParam || 'prismana';
+    const prevMode = step ? worksheetStepMode(step) : (currentModeParam || 'manual');
     if (step) {
         step.mode = targetMode;
         step.is_emode = (targetMode === 'electric');
@@ -517,49 +566,42 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         step.is_manual = (targetMode === 'manual');
     }
 
-    // 3. Đảm bảo lastEmodeCounts có dữ liệu
-    if (!lastEmodeCounts || Object.keys(lastEmodeCounts).length === 0) {
-        lastEmodeCounts = { ...actualEmodeCounts(lastPlan) };
-    }
-
-    // 4. Tính toán số lượng máy phân bổ theo tổng sở hữu (totalOwned)
-    const ownedCounts = getOwnedFacilityCounts();
-    const totalOwned = ownedCounts[baseFac] || stepCount || 1;
-    const quotas = (typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : null) || {};
-    const quotaSpecialist = (baseFac === 'Mine') ? (quotas.earth_4p_mines || 0) : ((baseFac === 'Well') ? (quotas.water_4f_wells || 0) : 0);
-    const availableNonQuota = Math.max(1, totalOwned - quotaSpecialist);
-
-    let curE = 0, curP = 0, curM = 0;
-
-    if (totalOwned === 1) {
-        if (targetMode === 'electric') curE = 1;
-        else if (targetMode === 'prismana') curP = 1;
-        else if (targetMode === 'manual') curM = 1;
-    } else {
-        // Với cơ sở nhiều máy: nếu có quota chuyên gia (như 3 Mine Earth 4P), bảo lưu quota đó
-        if (targetMode === 'electric') {
-            curE = availableNonQuota;
-            curP = quotaSpecialist;
-        } else if (targetMode === 'prismana') {
-            curP = totalOwned;
-        } else if (targetMode === 'manual') {
-            curM = availableNonQuota;
-            curP = quotaSpecialist;
+    const fixedLines = worksheetFixedPlanLines(lastPlan);
+    if (selectedHomeLevel() >= 18 && selectedHomeLevel() <= 19
+        && ['Chimney Kiln', 'Woodworking Bench'].includes(baseFac)
+        && targetMode !== 'electric'
+        && !fixedLines.some(line => line.facility === baseFac && line.mode === 'electric')) {
+        lastPlan = originalPlan;
+        if (clickedBtn?.parentElement) {
+            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
+            clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`)?.classList.add('active');
         }
+        showInvariantWarning(baseFac, 'Ở RV18–19 cần giữ ít nhất một Lò Ống Khói và một Bàn Gia Công Gỗ chạy điện.');
+        return;
+    }
+    const quotas = getSpecialistQuotas() || {};
+    const lockedSpecialists = fixedLines.filter(line => line.facility === baseFac && line.mode === 'prismana')
+        .reduce((sum, line) => sum + line.facility_count, 0);
+    const requiredSpecialists = baseFac === 'Mine' ? (quotas.earth_4p_mines || 0)
+        : (baseFac === 'Well' ? (quotas.water_4f_wells || 0) : 0);
+    if (lockedSpecialists < requiredSpecialists) {
+        lastPlan = originalPlan;
+        if (clickedBtn?.parentElement) {
+            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
+            clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`)?.classList.add('active');
+        }
+        showInvariantWarning(baseFac, `Không thể giảm quota Prismana đã chọn: cần giữ ${requiredSpecialists} máy, hiện chỉ còn ${lockedSpecialists}.`);
+        return;
     }
 
-    // 5. Kiểm tra công suất điện
-    const currentCounts = { ...lastEmodeCounts, [baseFac]: curE };
-    if (curE === 0) delete currentCounts[baseFac];
-    const projectedWatts = calculatePowerWatts(currentCounts);
+    const projectedCounts = {};
+    for (const line of fixedLines.filter(line => line.mode === 'electric')) {
+        projectedCounts[line.facility] = (projectedCounts[line.facility] || 0) + line.facility_count;
+    }
+    const projectedWatts = calculatePowerWatts(projectedCounts);
     if (targetMode === 'electric' && projectedWatts > maxWatts) {
         // Rollback giao diện & state
-        if (step) {
-            step.mode = prevMode;
-            step.is_emode = (prevMode === 'electric');
-            step.is_specialist = (prevMode === 'prismana');
-            step.is_manual = (prevMode === 'manual');
-        }
+        lastPlan = originalPlan;
         if (clickedBtn && clickedBtn.parentElement) {
             clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
             const prevPill = clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`);
@@ -572,31 +614,10 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         return;
     }
 
-    // 6. Cập nhật state điện & power gauge
-    if (curE > 0) {
-        lastEmodeCounts[baseFac] = curE;
-    } else {
-        delete lastEmodeCounts[baseFac];
-    }
+    // 3. Rebuild mode counts and per-facility overrides from the selected rows.
+    lastEmodeCounts = projectedCounts;
     updatePowerGauge(lastEmodeCounts);
-
-    // 7. Cập nhật overrides
-    const facLevel = getFacilityLevel(baseFac);
-    const newOverride = {
-        facility: baseFac,
-        level: facLevel,
-        target_mode: targetMode,
-        electric_count: curE,
-        specialist_count: curP,
-        manual_count: curM
-    };
-
-    const exIdx = facilityOverrides.findIndex(o => o.facility === baseFac);
-    if (exIdx >= 0) {
-        facilityOverrides[exIdx] = newOverride;
-    } else {
-        facilityOverrides.push(newOverride);
-    }
+    facilityOverrides = worksheetOverridesFromLines(fixedLines);
 
     // Hiển thị nút Reset Overrides
     const resetBtn = document.getElementById('btn-reset-overrides');
@@ -606,23 +627,32 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     try {
         isWorksheetReSolving = true;
         document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.add('resolving'));
-        await runFastReSolve();
+        const solved = await runFastReSolve(true);
+        if (!solved) {
+            lastPlan = originalPlan;
+            lastEmodeCounts = originalEmodeCounts;
+            facilityOverrides = originalOverrides;
+            updatePowerGauge(lastEmodeCounts);
+            showSelectedPlan();
+            showInvariantWarning(baseFac, window.__lastFastResolveError || 'Không thể đổi mode mà vẫn giữ nguyên bố trí sản xuất hiện tại.');
+        }
     } finally {
         isWorksheetReSolving = false;
         document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.remove('resolving'));
     }
 };
 
-export async function runFastReSolve() {
+export async function runFastReSolve(fixedLayout = false) {
     try {
-        const input = getPlanInputValues();
+        const input = buildStrategyPlanInput();
         // Bảo toàn các exclusions đã lọc ở Step 4 để không bị trôi dạt vào nguyên liệu thô phụ <= 2%
         if (lastPlanInput?.exclude && lastPlanInput.exclude.length > 0) {
             input.exclude = [...new Set([...(input.exclude || []), ...lastPlanInput.exclude])];
         }
         input.emode_facilities = Object.keys(lastEmodeCounts).filter(f => (lastEmodeCounts[f] || 0) > 0);
         input.emode_facility_counts = { ...(lastEmodeCounts || {}) };
-        input.facility_overrides = getFacilityOverrides();
+        input.facility_overrides = fixedLayout ? worksheetOverridesFromLines(worksheetFixedPlanLines(lastPlan)) : getFacilityOverrides();
+        if (fixedLayout) input.fixed_plan_lines = worksheetFixedPlanLines(lastPlan);
         input.emode_tier_counts = Object.entries(lastEmodeCounts)
             .filter(([_, cnt]) => (cnt || 0) > 0)
             .map(([fac, cnt]) => ({
@@ -647,6 +677,24 @@ export async function runFastReSolve() {
             // Tích hợp đầy đủ các cơ sở chế biến và món ăn sự kiện
             plan = integrateSeasonPlan(plan);
             normalizePlanFacilityCounts(plan);
+            if (fixedLayout) {
+                const lineTotals = (lines) => {
+                    const totals = new Map();
+                    for (const line of lines) {
+                        const key = `${line.facility}|${line.item_name}|${line.mode}`;
+                        totals.set(key, (totals.get(key) || 0) + line.facility_count);
+                    }
+                    return totals;
+                };
+                const expected = lineTotals(worksheetFixedPlanLines(lastPlan));
+                const actual = lineTotals(worksheetFixedPlanLines(plan));
+                const unchanged = expected.size === actual.size
+                    && [...expected].every(([key, count]) => actual.get(key) === count);
+                if (!unchanged) {
+                    window.__lastFastResolveError = 'The constrained mode solve changed a facility/product assignment; the previous layout was kept.';
+                    return false;
+                }
+            }
             plansBySetup[bestSetup] = plan;
             lastPlan = plan;
             lastEmodeCounts = actualEmodeCounts(plan);
@@ -1303,6 +1351,31 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         };
     }
 
+    if (homeLevel === 18 || homeLevel === 19) {
+        let requiredWatts = totalFixedWatts;
+        for (const fac of ['Chimney Kiln', 'Woodworking Bench']) {
+            const tiers = effectiveFacilities[fac] || [];
+            const topLevel = Math.max(0, ...tiers.map(t => t.level || 1));
+            if (!topLevel) continue;
+            const override = overrideForTier(fac, topLevel);
+            if (override && (override.electric_count || 0) === 0) {
+                return {
+                    validation_error: true,
+                    error: `RV${homeLevel}: override hiện tại khóa toàn bộ ${fac} Lv.${topLevel} ở mode không điện, nhưng cần ít nhất một máy cấp cao nhất chạy điện.`
+                };
+            }
+            if (!override || (override.electric_count || 0) < 1) {
+                requiredWatts += getFacilityUnitWatts(fac, topLevel, homeLevel);
+            }
+        }
+        if (requiredWatts > maxWatts) {
+            return {
+                validation_error: true,
+                error: `RV${homeLevel}: Lò Ống Khói + Bàn Gia Công Gỗ cấp cao nhất cần ít nhất ${requiredWatts}W, nhưng điện khả dụng là ${maxWatts}W. Giữ nguyên phân bổ hiện tại.`
+            };
+        }
+    }
+
     const emodeCounts = {};
     const diagnostics = [];
     let usedWatts = 0;
@@ -1373,9 +1446,10 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     // STEP 2: GENERATE CANDIDATES BY SPECIFIC TIER AND UNIT
     // =========================================================================
     const candidates = [];
+    const reserveKilnAndBench = homeLevel === 18 || homeLevel === 19;
 
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
-        if (fac === 'Woodworking Bench' || fac === 'Chimney Kiln') continue;
+        if ((fac === 'Woodworking Bench' || fac === 'Chimney Kiln') && !reserveKilnAndBench) continue;
         let quotaDeduction = 0;
         if (fac === 'Mine' && quotas.earth_4p_mines) quotaDeduction = quotas.earth_4p_mines;
         if (fac === 'Well' && quotas.water_4f_wells) quotaDeduction = quotas.water_4f_wells;
@@ -1425,32 +1499,20 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                 facilities: effectiveFacilities
             });
 
-            // Count active producing units in basePlan for this facility
-            const activeProducingUnits = (basePlan?.coin_items || [])
-                .filter(step => normFac(step.facility) === fac && step.status === 'producing')
-                .reduce((sum, step) => sum + (step.facility_count || 1), 0);
-
-            const isExtractor = fac === 'Mine' || fac === 'Well';
-
             // Upstream suppliers or priority-serving facilities have high strategic value.
             // Keep their value recognized so available grid capacity prioritizes critical targets.
-            if ((estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
+            const isExtractor = (fac === 'Mine' || fac === 'Well') && homeLevel >= 12 && homeLevel <= 19;
+            if ((isExtractor || reserveKilnAndBench || estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
                 for (let u = 0; u < availableInTier; u++) {
-                    const isUnitActive = u < activeProducingUnits;
-                    // Ở cấp RV >= 18 khi người chơi có Aniimo Lv.4 tốc độ cao (2.2x có bonus hoặc 3.0x Prismana):
-                    // 1. Tuyệt đối KHÔNG auto-electrify các cơ sở chế biến thành phẩm cao cấp (Stove, Dryer, Dance Pad, Aniipod Maker),
-                    //    kể cả unit nhàn rỗi, vì solver sẽ dịch chuyển công thức sang máy điện 1.2x làm giảm 45% sản lượng và sụt giảm coins ròng.
-                    // 2. Cơ sở khai thác trực tiếp (Mine, Well): Nếu nhân công Aniimo không bị thiếu hụt (cap >= 30),
-                    //    các active unit chạy bằng Aniimo Lv.4 (2.2x) nhanh hơn nhiều so với Điện (1.2x), do đó không auto-electrify active units của Mine/Well.
+                    const isRequiredProcessor = reserveKilnAndBench
+                        && (fac === 'Woodworking Bench' || fac === 'Chimney Kiln')
+                        && tLevel === Math.max(...(tiers || []).map(t => t.level || 1))
+                        && u === 0;
+                    // Keep other high-tier processors on Aniimo; their E-mode can reduce throughput.
                     const isProtectedProcessor = fac === 'Blazing Stove' || fac === 'Jukebox Dryer' || fac === 'Dance Pad Polisher' || fac === 'Aniipod Maker';
-                    const aniimoCap = options.productionAniimoCap ?? 45;
                     if (isProtectedProcessor && homeLevel >= 18) {
                         continue;
                     }
-                    if (isExtractor && isUnitActive && aniimoCap >= 30 && homeLevel >= 18) {
-                        continue;
-                    }
-
                     candidates.push({
                         facility: fac,
                         level: tLevel,
@@ -1465,7 +1527,8 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                         item: estimate.primaryItem,
                         measurementType: estimate.measurement_type || 'unknown',
                         estimateStatus: estimate.status,
-                        tierAttribution: estimate.diagnostics?.tierAttribution || 'unknown'
+                        tierAttribution: estimate.diagnostics?.tierAttribution || 'unknown',
+                        policyRank: isRequiredProcessor ? 0 : (isExtractor ? 1 : 2)
                     });
                 }
             }
@@ -1476,6 +1539,7 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     // STEP 3: DETERMINISTIC SORTING & KNAPSACK ALLOCATION
     // =========================================================================
     candidates.sort((a, b) => {
+        if (a.policyRank !== b.policyRank) return a.policyRank - b.policyRank;
         if (a.priorityRank !== b.priorityRank) {
             return a.priorityRank - b.priorityRank;
         }
@@ -1552,7 +1616,25 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
     let remainingWatts = maxWatts;
     const allocated = {};
 
-    for (const name of EMODE_PRIORITY) {
+    if (homeLevel === 18 || homeLevel === 19) {
+        for (const name of ['Chimney Kiln', 'Woodworking Bench']) {
+            const tiers = facilities[name] || [];
+            const top = tiers.reduce((best, tier) => !best || tier.level > best.level ? tier : best, null);
+            if (!top || top.count <= 0) continue;
+            const watts = getFacilityUnitWatts(name, top.level, homeLevel);
+            if (remainingWatts < watts) continue;
+            allocated[name] = 1;
+            remainingWatts -= watts;
+        }
+    }
+
+    // During RV12-19 LevelUp, Mine and Well use spare wattage before optional
+    // processors: at 1.2x their 25-minute electric cycle matches ordinary Lv.3.
+    // RV20 keeps its own existing end-game order.
+    const allocationOrder = homeLevel >= 12 && homeLevel <= 19
+        ? ['Well', 'Mine', ...EMODE_PRIORITY.filter(name => name !== 'Well' && name !== 'Mine')]
+        : EMODE_PRIORITY;
+    for (const name of allocationOrder) {
         if (name === 'Woodworking Bench' || name === 'Chimney Kiln') continue;
         const fac = FACILITIES.find(f => f.name === name);
         if (!fac || !fac.supportsEmode) continue;
@@ -1562,6 +1644,11 @@ export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), a
         let availableUnits = name === 'Mine'
             ? emodeMineUnits(homeLevel, facilities[name])
             : (facilities[name] || []).reduce((sum, t) => sum + t.count, 0);
+        if (homeLevel >= 12 && homeLevel <= 19 && name === 'Mine') {
+            availableUnits = Math.max(0, availableUnits - ((getSpecialistQuotas()?.earth_4p_mines) || 0));
+        } else if (homeLevel >= 12 && homeLevel <= 19 && name === 'Well') {
+            availableUnits = Math.max(0, availableUnits - ((getSpecialistQuotas()?.water_4f_wells) || 0));
+        }
         if (activeProducingCounts && typeof activeProducingCounts[name] === 'number') {
             availableUnits = Math.min(availableUnits, activeProducingCounts[name]);
         }
@@ -5634,6 +5721,34 @@ function getPlanInputValues() {
     };
 }
 
+// Policy-specific builders share parsed facility/module data while keeping the two objectives
+// mutually exclusive all the way to the worker/WASM contract.
+function buildLevelUpPlanInput(commonInput = getPlanInputValues()) {
+    return {
+        ...commonInput,
+        strategy_policy: 'level_up',
+        priorities: [],
+        level_up: levelUpInput(),
+        prioritize_byproducts: false,
+    };
+}
+
+function buildEndgamePlanInput(commonInput = getPlanInputValues()) {
+    return {
+        ...commonInput,
+        strategy_policy: 'endgame',
+        priorities: activePriorities(),
+        level_up: null,
+        prioritize_byproducts: false,
+    };
+}
+
+export function buildStrategyPlanInput(commonInput = getPlanInputValues()) {
+    return isRV20Endgame()
+        ? buildEndgamePlanInput(commonInput)
+        : buildLevelUpPlanInput(commonInput);
+}
+
 // Integrates dedicated festival crops and chosen festival dishes into the solved plan
 function integrateSeasonPlan(plan) {
     if (!plan || !plan.success || !seasonActive()) return plan;
@@ -8791,7 +8906,7 @@ async function runFindPlan() {
     stopLayout();
     if (pendingWorkerRequests.size > 0) restartWorker();
     try {
-        const input = getPlanInputValues();
+        const input = buildStrategyPlanInput();
         lastPlanInput = input;
         planContext = {
             levelUp: isLevelUpStrategy(),
@@ -8862,7 +8977,7 @@ async function runFindPlan() {
             const chosenRate = getPowerGridRate();
             const targetWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
             input.facility_overrides = originalOverrides;
-            const allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts, {
+            let allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts, {
                 overrides: originalOverrides,
                 powerGridRate: chosenRate,
                 productionAniimoCap: input.production_aniimo_cap,
@@ -8871,10 +8986,21 @@ async function runFindPlan() {
             });
             const t_alloc = performance.now() - t0_alloc;
 
-            if (allocatedCounts.validation_error) {
-                showInvariantWarning('Validation Error', allocatedCounts.error);
-                return;
+            const allocationValidationError = allocatedCounts.validation_error ? allocatedCounts.error : null;
+            if (allocationValidationError) {
+                // An invalid override must not discard a valid baseline plan. Show the
+                // baseline and expose why E-mode allocation was skipped in its status badge.
+                console.warn(`E-mode allocation skipped: ${allocationValidationError}`);
+                allocatedCounts = {};
             }
+
+            input.required_emode_tiers = (currentRv === 18 || currentRv === 19)
+                ? ['Chimney Kiln', 'Woodworking Bench'].flatMap(facility => {
+                    const tiers = input.facilities[facility] || [];
+                    const highest = Math.max(0, ...tiers.filter(tier => tier.count > 0).map(tier => tier.level || 1));
+                    return highest > 0 ? [{ facility, level: highest, count: 1 }] : [];
+                })
+                : [];
 
             if (Object.keys(allocatedCounts).length > 0) {
                 // STEP 3: Re-solve with optimal E-mode allocation and user's supply rate
@@ -8955,7 +9081,8 @@ async function runFindPlan() {
                 }
             } else {
                 bestPlan = basePlan;
-                bestPlan.solver_source = 'smart_two_stage + manual_only';
+                bestPlan.solver_source = allocationValidationError ? 'base_plan_fallback' : 'smart_two_stage + manual_only';
+                if (allocationValidationError) bestPlan.fallback_reason = allocationValidationError;
                 bestPlan.benchmark_breakdown = {
                     t_base_solve: Math.round(t_base * 10) / 10,
                     t_allocator: Math.round(t_alloc * 10) / 10,

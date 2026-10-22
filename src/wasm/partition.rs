@@ -19,6 +19,7 @@ pub(crate) fn resolve_three_way_split(
     emode_count: u32,
     specialist_quota: u32,
     roster_specialists: u32,
+    reserve_specialist_first: bool,
 ) -> Result<(u32, u32, u32), String> {
     if let Some(ovr) = override_opt {
         let e = ovr.electric_count;
@@ -31,15 +32,25 @@ pub(crate) fn resolve_three_way_split(
         };
         Ok((e, p, std))
     } else {
-        let e = emode_count;
-        let Some(rem1) = total_owned.checked_sub(e) else {
-            return Err(validation_err(format!(
-                "Validation error: E-mode {} count ({}) exceeds owned count ({})",
-                facility_name, e, total_owned
-            )));
+        let (e, p, std) = if reserve_specialist_first {
+            // At RV12-19, automatic LevelUp allocation reserves Prismana quota first.
+            // A large E-mode request must never silently consume the specialist quota.
+            let p = specialist_quota.min(total_owned).min(roster_specialists);
+            let rem = total_owned - p;
+            let e = emode_count.min(rem);
+            (e, p, rem - e)
+        } else {
+            // Preserve the legacy split outside the LevelUp policy boundary.
+            let e = emode_count;
+            let Some(rem) = total_owned.checked_sub(e) else {
+                return Err(validation_err(format!(
+                    "Validation error: E-mode {} count ({}) exceeds owned count ({})",
+                    facility_name, e, total_owned
+                )));
+            };
+            let p = specialist_quota.min(rem).min(roster_specialists);
+            (e, p, rem - p)
         };
-        let p = specialist_quota.min(rem1).min(roster_specialists);
-        let std = rem1 - p;
         Ok((e, p, std))
     }
 }
@@ -119,9 +130,11 @@ pub(crate) fn partition_mine(
         .facility_overrides
         .iter()
         .any(|o| o.facility == "Mine" && (o.electric_count > 0 || o.specialist_count > 0));
-    let is_rv20_or_mine5 =
-        input.home_level.unwrap_or(1) >= 20 || max_mine_level >= 5 || has_mine_override;
-    let total_top_mines = if is_rv20_or_mine5 && max_mine_level > 0 {
+    let home_level = input.home_level.unwrap_or(0);
+    let use_gatherer_modes = (12..=20).contains(&home_level)
+        || (home_level == 0 && max_mine_level >= 5)
+        || has_mine_override;
+    let total_top_mines = if use_gatherer_modes && max_mine_level > 0 {
         facility_counts.get_tier_count("Mine", max_mine_level)
     } else {
         0
@@ -147,6 +160,7 @@ pub(crate) fn partition_mine(
             emode_req,
             quota,
             roster_earth_4p,
+            (12..=19).contains(&input.home_level.unwrap_or(0)),
         )?;
 
         facility_counts.remove_tier("Mine", max_mine_level);
@@ -223,7 +237,9 @@ pub(crate) fn partition_well(
     emode_counts: &mut HashMap<String, u32>,
 ) -> Result<(), String> {
     let max_well_level = facility_counts.get_level("Well");
-    let total_target_wells = if max_well_level >= 3 {
+    let home_level = input.home_level.unwrap_or(0);
+    let use_gatherer_modes = (12..=20).contains(&home_level) || home_level == 0;
+    let total_target_wells = if use_gatherer_modes && max_well_level >= 3 {
         facility_counts.get_tier_count("Well", max_well_level)
     } else {
         0
@@ -249,6 +265,7 @@ pub(crate) fn partition_well(
             emode_req,
             quota,
             roster_water_4f,
+            (12..=19).contains(&input.home_level.unwrap_or(0)),
         )?;
 
         if e_count > 0 || p_count > 0 {
@@ -266,6 +283,9 @@ pub(crate) fn partition_well(
                 {
                     let mut electric_item = item.clone();
                     electric_item.facility = "Well (Electric)".to_string();
+                    // Mine and Well E-mode share the game's 25-minute gather cycle
+                    // at the standard 1.2x grid rate (1800s base / 1.2).
+                    electric_item.emode_base_time = Some(1800.0);
                     partitioned_well_items.push(electric_item);
                 }
             }
@@ -316,6 +336,7 @@ pub(crate) fn partition_well(
 /// Partitions processing facilities with partial or full E-mode assignments across owned tiers
 /// and applies E-mode production times.
 pub(crate) fn partition_processing_facilities(
+    input: &JsPlanInput,
     emode_tier_counts: &[JsEmodeTierCount],
     power_grid_rate: f64,
     facility_counts: &mut FacilityCounts,
@@ -353,6 +374,7 @@ pub(crate) fn partition_processing_facilities(
         }
 
         let mut electric_tiers = Vec::new();
+        let mut specialist_tiers = Vec::new();
         let mut manual_tiers = Vec::new();
 
         let has_specific_tiers = emode_tier_counts.iter().any(|t| t.facility == fac);
@@ -365,6 +387,13 @@ pub(crate) fn partition_processing_facilities(
                 }
             }
 
+            let fixed_modes = !input.fixed_plan_lines.is_empty();
+            let specialist_override = input.facility_overrides.iter()
+                .find(|ovr| ovr.facility == fac)
+                .filter(|ovr| ovr.level == 0 || ovr.level == facility_counts.get_level(&fac))
+                .map(|ovr| ovr.specialist_count)
+                .unwrap_or(0);
+            let mut remaining_specialist = specialist_override;
             for &(count, level) in &existing_tiers {
                 let e_at_level = tier_map.get(&level).copied().unwrap_or(0);
                 let Some(m_at_level) = count.checked_sub(e_at_level) else {
@@ -376,8 +405,14 @@ pub(crate) fn partition_processing_facilities(
                 if e_at_level > 0 {
                     electric_tiers.push((e_at_level, level));
                 }
-                if m_at_level > 0 {
-                    manual_tiers.push((m_at_level, level));
+                let p_at_level = if fixed_modes { m_at_level.min(remaining_specialist) } else { 0 };
+                remaining_specialist -= p_at_level;
+                if p_at_level > 0 {
+                    specialist_tiers.push((p_at_level, level));
+                }
+                let manual_at_level = m_at_level - p_at_level;
+                if manual_at_level > 0 {
+                    manual_tiers.push((manual_at_level, level));
                 }
             }
         } else {
@@ -407,7 +442,38 @@ pub(crate) fn partition_processing_facilities(
         let e_total: u32 = electric_tiers.iter().map(|(c, _)| *c).sum();
         let m_total: u32 = manual_tiers.iter().map(|(c, _)| *c).sum();
 
-        if e_total > 0 && m_total > 0 {
+        let p_total: u32 = specialist_tiers.iter().map(|(c, _)| c).sum();
+        if !input.fixed_plan_lines.is_empty() {
+            let specialist_fac_name = format!("{fac} (Prismana)");
+            let manual_fac_name = format!("{fac} (Manual)");
+            facility_counts.set_tiers(&fac, electric_tiers);
+            facility_counts.set_tiers(&specialist_fac_name, specialist_tiers);
+            facility_counts.set_tiers(&manual_fac_name, manual_tiers);
+            if e_total > 0 && !emode_facilities.contains(&fac) {
+                emode_facilities.push(fac.clone());
+            } else if e_total == 0 {
+                emode_facilities.retain(|name| name != &fac);
+                emode_counts.remove(&fac);
+            }
+            if p_total > 0 {
+                for item in items.iter().filter(|i| i.facility == fac) {
+                    let mut variant = item.clone();
+                    variant.name = format!("{}{}", item.name, crate::models::SPECIALIST_SUFFIX);
+                    variant.facility = specialist_fac_name.clone();
+                    variant.emode_base_time = None;
+                    manual_items.push(variant);
+                }
+            }
+            if m_total > 0 {
+                for item in items.iter().filter(|i| i.facility == fac) {
+                    let mut variant = item.clone();
+                    variant.name = format!("{}{}", item.name, MANUAL_SUFFIX);
+                    variant.facility = manual_fac_name.clone();
+                    variant.emode_base_time = None;
+                    manual_items.push(variant);
+                }
+            }
+        } else if e_total > 0 && m_total > 0 {
             facility_counts.set_tiers(&fac, electric_tiers);
             let manual_fac_name = format!("{fac} (Manual)");
             facility_counts.set_tiers(&manual_fac_name, manual_tiers);
@@ -453,13 +519,32 @@ pub(crate) fn partition_facilities_and_items(
     mut emode_facilities: Vec<String>,
     mut emode_counts: HashMap<String, u32>,
 ) -> Result<(), String> {
-    let emode_tier_counts = sync_overrides_into_emode_counts(
+    let mut emode_tier_counts = sync_overrides_into_emode_counts(
         input,
         facility_counts,
         requested_by_tier,
         &mut emode_facilities,
         &mut emode_counts,
     );
+    // Worksheet re-mode solves need manual item variants even when the selected facility has
+    // no electric units, so the fixed product-to-facility lines remain representable.
+    for line in &input.fixed_plan_lines {
+        if line.mode != "manual" && line.mode != "prismana"
+            || line.facility == "Mine"
+            || line.facility == "Well"
+            || crate::models::is_resident_facility(&line.facility)
+            || line.facility == "Farmland"
+            || line.facility == "Woodland"
+        {
+            continue;
+        }
+        let level = input.facilities.get(&line.facility)
+            .and_then(|tiers| tiers.iter().filter(|tier| tier.count > 0).map(|tier| tier.level).max())
+            .unwrap_or_else(|| facility_counts.get_level(&line.facility));
+        if !emode_tier_counts.iter().any(|tier| tier.facility == line.facility && tier.level == level) {
+            emode_tier_counts.push(JsEmodeTierCount { facility: line.facility.clone(), level, count: 0 });
+        }
+    }
     partition_mine(
         input,
         crew,
@@ -477,6 +562,7 @@ pub(crate) fn partition_facilities_and_items(
         &mut emode_counts,
     )?;
     partition_processing_facilities(
+        input,
         &emode_tier_counts,
         input.power_grid_rate,
         facility_counts,

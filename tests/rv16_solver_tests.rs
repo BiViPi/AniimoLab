@@ -347,6 +347,12 @@ fn test_rv16_tc05_well_dag_balance() {
         0,
         "Well tier 4 should be completely partitioned"
     );
+    let electric_well = prepared.items.iter()
+        .find(|item| item.facility == "Well (Electric)")
+        .expect("E-mode Well recipe should be present");
+    assert_eq!(electric_well.emode_base_time, Some(1800.0));
+    assert!((electric_well.production_time - 1500.0).abs() < 1e-9,
+        "At the standard 1.2x rate, E-mode Well should take 25 minutes");
 
     // 2. Giải solver và kiểm tra DAG flow & tính khả thi:
     let plan = solve_exact(
@@ -832,4 +838,101 @@ fn test_emode_tier_counts_aggregate_mismatch_validation_error() {
     let err_str = res.err().unwrap();
     assert!(err_str.contains("Validation error"), "Error must contain 'Validation error', got: {}", err_str);
     assert!(err_str.contains("does not match emode_facility_counts"), "Error must mention mismatch, got: {}", err_str);
+}
+
+#[test]
+fn test_fixed_plan_lines_keep_prismana_woodworking_bench_recipe() {
+    let input = r#"{
+        "currency": "coins",
+        "home_level": 18,
+        "facilities": { "Woodworking Bench": [{"count": 1, "level": 4}] },
+        "facility_overrides": [{
+            "facility": "Woodworking Bench", "level": 4,
+            "electric_count": 0, "specialist_count": 1, "manual_count": 0
+        }],
+        "fixed_plan_lines": [{
+            "facility": "Woodworking Bench", "item_name": "densified_timber_component",
+            "mode": "prismana", "facility_count": 1
+        }],
+        "aniimo": "best"
+    }"#;
+
+    let prepared = PreparedInput::from_json(input).expect("prepare fixed worksheet line");
+    assert_eq!(prepared.facility_counts.get_tier_count("Woodworking Bench (Prismana)", 4), 1);
+    assert_eq!(prepared.facility_counts.get_count("Woodworking Bench (Manual)"), 0);
+    let fixed = prepared.fixed_recipe_units.expect("fixed line map");
+    assert_eq!(fixed.get("densified_timber_component__specialist"), Some(&0));
+}
+
+#[test]
+fn test_fixed_plan_lines_keep_all_three_mine_modes() {
+    let input = r#"{
+        "currency": "coins",
+        "home_level": 17,
+        "facilities": {"Mine": [{"count": 3, "level": 4}]},
+        "emode_facilities": ["Mine"],
+        "emode_facility_counts": {"Mine": 1},
+        "specialist_quotas": {"earth_4p_mines": 1},
+        "facility_overrides": [{
+            "facility": "Mine", "level": 4,
+            "electric_count": 1, "specialist_count": 1, "manual_count": 1
+        }],
+        "fixed_plan_lines": [
+            {"facility": "Mine", "item_name": "copper_ore", "mode": "electric", "facility_count": 1},
+            {"facility": "Mine", "item_name": "copper_ore", "mode": "prismana", "facility_count": 1},
+            {"facility": "Mine", "item_name": "copper_ore", "mode": "manual", "facility_count": 1}
+        ],
+        "aniimo": "best"
+    }"#;
+
+    let prepared = PreparedInput::from_json(input).expect("prepare fixed Mine modes");
+    let fixed = prepared.fixed_recipe_units.expect("fixed recipe map");
+    assert!(fixed.contains_key("copper_ore"), "Electric Mine recipe must stay fixed");
+    assert!(fixed.contains_key("copper_ore__specialist"), "Prismana Mine recipe must stay fixed");
+    assert!(fixed.contains_key("copper_ore__manual"), "Ordinary Mine recipe must stay fixed");
+}
+
+#[test]
+fn test_rv17_mine_well_electric_allocation_preserves_prismana_quota_first() {
+    let input = r#"{
+        "currency": "coins",
+        "home_level": 17,
+        "facilities": {
+            "Mine": [{"count": 9, "level": 4}],
+            "Well": [{"count": 3, "level": 3}]
+        },
+        "emode_facility_counts": {"Mine": 8, "Well": 2},
+        "specialist_quotas": {"earth_4p_mines": 3, "water_4f_wells": 1},
+        "power_grid_rate": 1.2,
+        "aniimo": "best"
+    }"#;
+
+    let prepared = PreparedInput::from_json(input).expect("prepare RV17 gathering allocation");
+    assert_eq!(prepared.facility_counts.get_tier_count("Mine (Prismana)", 4), 3);
+    assert_eq!(prepared.facility_counts.get_tier_count("Mine (Electric)", 4), 6);
+    assert_eq!(prepared.facility_counts.get_tier_count("Well (Prismana)", 3), 1);
+    assert_eq!(prepared.facility_counts.get_tier_count("Well (Electric)", 3), 2);
+    assert!(prepared.items.iter().filter(|item| item.facility == "Mine (Electric)" || item.facility == "Well (Electric)")
+        .all(|item| item.emode_base_time == Some(1800.0) && (item.production_time - 1500.0).abs() < 1e-9));
+
+    let manual_input = input.replace(
+        "\"emode_facility_counts\": {\"Mine\": 8, \"Well\": 2},",
+        "\"emode_facility_counts\": {},",
+    );
+    let manual = PreparedInput::from_json(&manual_input).expect("prepare ordinary gathering allocation");
+    assert!(manual.items.iter()
+        .filter(|item| item.facility == "Mine (Manual)" || item.facility == "Well (Manual)")
+        .all(|item| (item.production_time - 1500.0).abs() < 1e-9));
+
+    let limited_power_input = input.replace(
+        "\"emode_facility_counts\": {\"Mine\": 8, \"Well\": 2},",
+        "\"emode_facility_counts\": {\"Mine\": 2, \"Well\": 1},",
+    );
+    let limited = PreparedInput::from_json(&limited_power_input).expect("prepare limited-power allocation");
+    assert_eq!(limited.facility_counts.get_tier_count("Mine (Prismana)", 4), 3);
+    assert_eq!(limited.facility_counts.get_tier_count("Mine (Electric)", 4), 2);
+    assert_eq!(limited.facility_counts.get_tier_count("Mine (Manual)", 4), 4);
+    assert_eq!(limited.facility_counts.get_tier_count("Well (Prismana)", 3), 1);
+    assert_eq!(limited.facility_counts.get_tier_count("Well (Electric)", 3), 1);
+    assert_eq!(limited.facility_counts.get_tier_count("Well (Manual)", 3), 1);
 }

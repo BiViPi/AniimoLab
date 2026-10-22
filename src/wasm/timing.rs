@@ -27,7 +27,14 @@ fn apply_partitioned_and_resident_timings(
             let required = requirements.get(base_item_name(&item.name)).map_or(3, |(_, level)| level);
             let worker = Worker::new(3, manual_bonus);
             let wl = item.workload.unwrap_or(2700.0);
-            item.production_time = worker.seconds_for_item(item, wl, required);
+            item.production_time = if (12..=19).contains(&input.home_level.unwrap_or(0)) {
+                // LevelUp policy: the ordinary Lv.3 gathering Aniimo with a matching
+                // personality completes one Mine batch in 25 minutes, equal to E-mode
+                // at the standard 1.2x power-grid rate.
+                1500.0
+            } else {
+                worker.seconds_for_item(item, wl, required)
+            };
             item.workload = Some(wl);
         } else if item.facility == "Well (Prismana)" {
             let required = requirements.get(base_item_name(&item.name)).map_or(1, |(_, level)| level);
@@ -40,9 +47,23 @@ fn apply_partitioned_and_resident_timings(
             let required = requirements.get(base_item_name(&item.name)).map_or(1, |(_, level)| level);
             let worker = Worker::new(3, manual_bonus);
             if let Some(wl) = item.workload {
-                item.production_time = worker.seconds_for_item(item, wl, required);
+                item.production_time = if (12..=19).contains(&input.home_level.unwrap_or(0)) {
+                    1500.0
+                } else {
+                    worker.seconds_for_item(item, wl, required)
+                };
                 item.workload = Some(wl);
             }
+        } else if item.facility.ends_with(" (Prismana)") {
+            let required = requirements.get(base_item_name(&item.name)).map_or(1, |(_, level)| level);
+            let wl = item.workload.unwrap_or(item.production_time);
+            item.production_time = Worker::new(4, true).seconds_for_item(item, wl, required);
+            item.workload = Some(wl);
+        } else if item.facility.ends_with(" (Manual)") {
+            let required = requirements.get(base_item_name(&item.name)).map_or(1, |(_, level)| level);
+            let wl = item.workload.unwrap_or(item.production_time);
+            item.production_time = Worker::new(3, manual_bonus).seconds_for_item(item, wl, required);
+            item.workload = Some(wl);
         } else if is_resident_facility(&item.facility) {
             let (ability, required) = requirements
                 .get(base_item_name(&item.name))

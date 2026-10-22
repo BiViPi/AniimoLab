@@ -391,6 +391,10 @@ fn default_true() -> bool {
 /// rate and facility plan, with no goal amount (see [`JsGoalInput`] for that).
 #[derive(Debug, Clone, Deserialize)]
 pub struct JsPlanInput {
+    /// Optional orchestration policy supplied by the UI/worker. Older payloads omit it and
+    /// retain historical behavior; when present, validate its RV/floor constraints.
+    #[serde(default)]
+    pub strategy_policy: Option<String>,
     /// `"coins"` (matches `ProductionItem::sell_currency`), or a byproduct
     /// pseudo-currency target: `"wood_blocks"`/`"mineral_sand"`; see
     /// `crate::optimizer::byproduct_resource_name`.
@@ -471,9 +475,26 @@ pub struct JsPlanInput {
     /// Detailed facility assignment overrides from the interactive worksheet (Tier 2 Micro).
     #[serde(default)]
     pub facility_overrides: Vec<FacilityAssignmentOverride>,
+    /// Producing facility/product lines held fixed while the worksheet changes operating mode.
+    #[serde(default)]
+    pub fixed_plan_lines: Vec<JsFixedPlanLine>,
+    /// Minimum active production units required at specified facility tiers (e.g. RV18–19's
+    /// highest-tier Electric Kiln and Woodworking Bench).
+    #[serde(default)]
+    pub required_emode_tiers: Vec<crate::exact::RequiredFacilityTier>,
     /// RV Home level (1 to 20). When >= 20, highest-tier locks are lifted.
     #[serde(default)]
     pub home_level: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct JsFixedPlanLine {
+    pub facility: String,
+    pub item_name: String,
+    pub mode: String,
+    pub facility_count: u32,
+    #[serde(default)]
+    pub crew: Option<usize>,
 }
 
 fn default_power_grid_rate() -> f64 {
@@ -1056,12 +1077,14 @@ pub fn exact_byproduct_problems(input_json: &str) -> String {
     let problems: Vec<serde_json::Value> = crate::exact::byproducts(&prepared.items)
         .iter()
         .map(|resource| {
-            let problem = crate::exact::write_lp(
+            let problem = crate::exact::write_lp_with_constraints(
                 &prepared.items,
                 &prepared.input.currency,
                 &prepared.facility_counts,
                 &prepared.module_levels,
                 crate::exact::Goal::MostOf(resource),
+                prepared.fixed_recipe_units.as_ref(),
+                Some(&prepared.input.required_emode_tiers),
             );
             serde_json::json!({ "resource": resource, "lp": problem.lp, "variables": problem.variables, "tiebreak": problem.tiebreak })
         })
@@ -1077,12 +1100,14 @@ pub fn exact_byproduct_problems(input_json: &str) -> String {
 pub fn exact_priority_problem(input_json: &str, stage_json: &str, target: &str) -> String {
     let stage: JsStage = serde_json::from_str(stage_json).unwrap_or_default();
     let lp = match PreparedInput::from_json(input_json) {
-        Ok(prepared) => crate::exact::write_lp(
+        Ok(prepared) => crate::exact::write_lp_with_constraints(
             &prepared.items,
             target,
             &prepared.facility_counts,
             &prepared.module_levels,
             crate::exact::Goal::Earn { floors: &stage.floors },
+            prepared.fixed_recipe_units.as_ref(),
+            Some(&prepared.input.required_emode_tiers),
         ),
         Err(_) => Default::default(),
     };
@@ -1097,12 +1122,14 @@ pub fn exact_priority_problem(input_json: &str, stage_json: &str, target: &str) 
 pub fn exact_level_up_problem(input_json: &str) -> String {
     let lp = match PreparedInput::from_json(input_json) {
         Ok(prepared) => match &prepared.input.level_up {
-            Some(level_up) if prepared.input.currency == "coins" && !level_up.ready() => crate::exact::write_lp(
+            Some(level_up) if prepared.input.currency == "coins" && !level_up.ready() => crate::exact::write_lp_with_constraints(
                 &prepared.items,
                 &prepared.input.currency,
                 &prepared.facility_counts,
                 &prepared.module_levels,
                 crate::exact::Goal::LevelUp(level_up),
+                prepared.fixed_recipe_units.as_ref(),
+                Some(&prepared.input.required_emode_tiers),
             ),
             _ => Default::default(),
         },
@@ -1151,12 +1178,14 @@ pub fn exact_problem(input_json: &str, stage_json: &str) -> String {
     let stage: JsStage = serde_json::from_str(stage_json).unwrap_or_default();
     match PreparedInput::from_json(input_json) {
         Ok(prepared) if !prepared.input.currency.is_empty() => {
-            let lp = crate::exact::write_lp(
+            let lp = crate::exact::write_lp_with_constraints(
                 &prepared.items,
                 &prepared.input.currency,
                 &prepared.facility_counts,
                 &prepared.module_levels,
                 stage.goal(&prepared.input),
+                prepared.fixed_recipe_units.as_ref(),
+                Some(&prepared.input.required_emode_tiers),
             );
             lp_json(&lp)
         }
@@ -1208,7 +1237,7 @@ pub fn exact_plan(input_json: &str, stage_json: &str, solution_json: &str) -> St
         crate::exact::Goal::EarnWhileLevelingUp(level_up, _) | crate::exact::Goal::StockUp(level_up, ..) => Some(level_up),
         _ => None,
     };
-    let Some(exact) = crate::exact::plan_from_values(
+    let Some(exact) = crate::exact::plan_from_values_with_constraints(
         &prepared.items,
         &currency,
         &prepared.facility_counts,
@@ -1217,6 +1246,8 @@ pub fn exact_plan(input_json: &str, stage_json: &str, solution_json: &str) -> St
         &result.values,
         result.proven,
         result.bound,
+        prepared.fixed_recipe_units.as_ref(),
+        Some(&prepared.input.required_emode_tiers),
     ) else {
         return no_plan();
     };

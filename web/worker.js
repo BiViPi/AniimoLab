@@ -45,6 +45,8 @@ function computeStageSignature(payload) {
         const emodeFacs = JSON.stringify(data.emode_facilities || []);
         const quotas = JSON.stringify(data.specialist_quotas || {});
         const overrides = JSON.stringify(data.facility_overrides || []);
+        const fixedPlanLines = JSON.stringify(data.fixed_plan_lines || []);
+        const requiredEmodeTiers = JSON.stringify(data.required_emode_tiers || []);
         const modules = JSON.stringify(data.modules || {});
         const season = Boolean(data.season);
         const byproducts = Boolean(data.prioritize_byproducts);
@@ -59,7 +61,7 @@ function computeStageSignature(payload) {
         const workers = JSON.stringify(data.workers || {});
         const currency = data.currency || '';
         const exclude = JSON.stringify(data.exclude || []);
-        return `${facs}|${emodeCounts}|${emodeTiers}|${emodeFacs}|${quotas}|${overrides}|${modules}|${season}|${byproducts}|${priorities}|${levelUp}|${cap}|${homeLevel}|${powerRate}|${poles}|${aniimo}|${aniimoLevels}|${workers}|${currency}|${exclude}`;
+        return `${facs}|${emodeCounts}|${emodeTiers}|${emodeFacs}|${requiredEmodeTiers}|${quotas}|${overrides}|${fixedPlanLines}|${modules}|${season}|${byproducts}|${priorities}|${levelUp}|${cap}|${homeLevel}|${powerRate}|${poles}|${aniimo}|${aniimoLevels}|${workers}|${currency}|${exclude}`;
     } catch {
         return Math.random().toString();
     }
@@ -122,9 +124,27 @@ function tiebreakOf(problem, values) {
 // as it stands, so they take it from here.
 async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     const { exact_byproduct_problems, exact_priority_problem, exact_level_up_problem, exact_problem, exact_plan } = pkg;
+    const request = JSON.parse(payload);
+    const policy = request.strategy_policy
+        || (request.level_up ? 'level_up' : (request.home_level === 20 ? 'endgame' : 'level_up'));
+    if (policy !== 'level_up' && policy !== 'endgame') {
+        throw new Error(`unsupported strategy policy: ${policy}`);
+    }
+    // RV20 Endgame and RV1–19 LevelUp are separate orchestration paths. Keep the exact
+    // MILP engine shared, but never let persisted Endgame priorities enter a LevelUp solve.
+    if (policy === 'level_up') {
+        request.priorities = [];
+    } else {
+        request.level_up = null;
+        request.prioritize_byproducts = false;
+    }
+    payload = JSON.stringify(request);
     const stage = { floors: [] };
     let allProven = true;
-    for (const problem of JSON.parse(exact_byproduct_problems(payload))) {
+    const byproductProblems = policy === 'level_up'
+        ? JSON.parse(exact_byproduct_problems(payload))
+        : [];
+    for (const problem of byproductProblems) {
         const most = await solveModel(problem);
         if (!most) throw new Error(`no plan found for the most ${problem.resource}`);
         allProven &&= most.proven;
@@ -132,7 +152,7 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     }
     // The player's priorities, in order: each is made as much as the ones before it allow, and
     // the coin solve after them has to keep all of it up.
-    for (const target of JSON.parse(payload).priorities || []) {
+    for (const target of policy === 'endgame' ? (request.priorities || []) : []) {
         step(`priority:${target}`, 'start');
         const alone = stage.floors.length === 0;
         const priority = JSON.parse(exact_priority_problem(payload, JSON.stringify(stage), target));
@@ -146,7 +166,7 @@ async function exactPlanJson(pkg, payload, step = () => {}, first = () => {}) {
     }
 
     let levelUpNote = null;
-    const levelUp = JSON.parse(exact_level_up_problem(payload));
+    const levelUp = policy === 'level_up' ? JSON.parse(exact_level_up_problem(payload)) : { lp: null };
     if (levelUp.lp) {
         step('level_up', 'start');
         const fastest = await solveModel(levelUp);
@@ -389,9 +409,17 @@ self.onmessage = async (event) => {
             } catch (error) {
                 fallbackReason = error && error.message ? error.message : String(error);
                 // The backup planner doesn't know the player's roster, so a roster plan stops here.
-                if (JSON.parse(payload).aniimo?.startsWith('roster')) {
-                    console.warn('Exact planner failed on a roster:', error);
-                    result = JSON.stringify({ success: false, error: `No plan found with these Aniimo: ${fallbackReason}.` });
+                const request = JSON.parse(payload);
+                const hasFixedPlan = (request.fixed_plan_lines || []).length > 0;
+                const hasRequiredEmodeTiers = (request.required_emode_tiers || []).some(tier => (tier.count || 0) > 0);
+                if (request.aniimo?.startsWith('roster') || hasFixedPlan || hasRequiredEmodeTiers) {
+                    const reason = hasRequiredEmodeTiers
+                        ? `Could not keep the required E-mode production lines: ${fallbackReason}.`
+                        : hasFixedPlan
+                        ? `Could not re-mode the existing layout without changing its production lines: ${fallbackReason}.`
+                        : `No plan found with these Aniimo: ${fallbackReason}.`;
+                    console.warn(reason);
+                    result = JSON.stringify({ success: false, error: reason });
                 } else {
                     step('backup', 'start');
                     console.warn('Exact planner failed; using the backup planner instead:', error);

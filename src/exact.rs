@@ -368,6 +368,8 @@ fn build_model<'a>(
     facility_counts: &FacilityCounts,
     module_levels: &ModuleLevels,
     goal: Goal<'a>,
+    fixed_recipe_units: Option<&BTreeMap<String, u32>>,
+    required_facility_tiers: Option<&[RequiredFacilityTier]>,
 ) -> Model<'a> {
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let recipes: Vec<&ProductionItem> = items
@@ -377,6 +379,7 @@ fn build_model<'a>(
                 && facility_counts.can_produce(&item.facility, item.facility_level)
                 && item.module_requirement.as_ref().is_none_or(|(m, l)| module_levels.can_use(m, *l))
                 && item.production_time > 0.0
+                && fixed_recipe_units.is_none_or(|fixed| fixed.contains_key(&item.name))
         })
         .collect();
     let mut model = Model {
@@ -399,10 +402,33 @@ fn build_model<'a>(
     for &recipe in &recipes {
         let rate = model.add(-seed_cost(recipe), (0.0, f64::INFINITY), false, VarKind::Rate(recipe));
         let max = facility_counts.get_count(&recipe.facility) as f64;
-        let units = model.add(0.0, (0.0, max), !takes_turns(recipe), VarKind::Units(recipe));
+        let unit_bounds = fixed_recipe_units
+            .and_then(|fixed| fixed.get(&recipe.name).copied())
+            .map_or((0.0, max), |count| {
+                if count == 0 && takes_turns(recipe) {
+                    // Keep level-up recipes present while allowing their turn shares to be
+                    // recalculated against the same owned machines and changed mode timing.
+                    (1e-6, max)
+                } else {
+                    (count as f64, count as f64)
+                }
+            });
+        let units = model.add(0.0, unit_bounds, !takes_turns(recipe), VarKind::Units(recipe));
         model.constrain(vec![(rate, recipe.production_time), (units, -1.0)], ComparisonOp::Le, 0.0);
         rate_of.push((recipe, rate));
         units_of.push((recipe, units));
+    }
+
+    if let Some(required_tiers) = required_facility_tiers {
+        for required in required_tiers.iter().filter(|tier| tier.count > 0) {
+            let active_units: Vec<(usize, f64)> = units_of.iter()
+                .filter(|(recipe, _)| recipe.facility == required.facility && recipe.facility_level == required.level)
+                .map(|(_, units)| (*units, 1.0))
+                .collect();
+            if !active_units.is_empty() {
+                model.constrain(active_units, ComparisonOp::Ge, required.count as f64);
+            }
+        }
     }
 
     // Item balances: made >= used + sold.
@@ -921,7 +947,7 @@ pub fn solve_exact(
     time_limit: Option<Duration>,
     start: Option<&crate::models::ProductionPlan>,
 ) -> Option<ExactPlan> {
-    let model = build_model(items, currency, facility_counts, module_levels, goal);
+    let model = build_model(items, currency, facility_counts, module_levels, goal, None, None);
     let began = Instant::now();
     let out_of_time = || time_limit.is_some_and(|limit| began.elapsed() >= limit);
     let mut nodes = 0u32;
@@ -1112,7 +1138,7 @@ pub fn solve_relaxed(
     facility_counts: &FacilityCounts,
     module_levels: &ModuleLevels,
 ) -> Option<f64> {
-    let model = build_model(items, currency, facility_counts, module_levels, Goal::Earn { floors: &[] });
+    let model = build_model(items, currency, facility_counts, module_levels, Goal::Earn { floors: &[] }, None, None);
     model.relax(&model.bounds).map(|(value, _)| value)
 }
 
@@ -1444,6 +1470,15 @@ pub struct LpProblem {
     pub tiebreak: Vec<(usize, f64)>,
 }
 
+/// Minimum number of active recipe-units required at one facility tier (used by RV18–19's
+/// mandatory highest-tier E-mode processors).
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RequiredFacilityTier {
+    pub facility: String,
+    pub level: u32,
+    pub count: u32,
+}
+
 /// The model in CPLEX LP format, for solving with an external solver (a solver may leave out any
 /// variable that no constraint mentions).
 pub fn write_lp(
@@ -1453,7 +1488,32 @@ pub fn write_lp(
     module_levels: &ModuleLevels,
     goal: Goal,
 ) -> LpProblem {
-    let model = build_model(items, currency, facility_counts, module_levels, goal);
+    write_lp_with_fixed(items, currency, facility_counts, module_levels, goal, None)
+}
+
+/// Writes an exact model while keeping the given recipe/facility lines and unit counts fixed.
+pub fn write_lp_with_fixed(
+    items: &[ProductionItem],
+    currency: &str,
+    facility_counts: &FacilityCounts,
+    module_levels: &ModuleLevels,
+    goal: Goal,
+    fixed_recipe_units: Option<&BTreeMap<String, u32>>,
+) -> LpProblem {
+    write_lp_with_constraints(items, currency, facility_counts, module_levels, goal, fixed_recipe_units, None)
+}
+
+/// Writes an exact model with locked worksheet routes and mandatory active facility tiers.
+pub fn write_lp_with_constraints(
+    items: &[ProductionItem],
+    currency: &str,
+    facility_counts: &FacilityCounts,
+    module_levels: &ModuleLevels,
+    goal: Goal,
+    fixed_recipe_units: Option<&BTreeMap<String, u32>>,
+    required_facility_tiers: Option<&[RequiredFacilityTier]>,
+) -> LpProblem {
+    let model = build_model(items, currency, facility_counts, module_levels, goal, fixed_recipe_units, required_facility_tiers);
     let term = |c: f64, v: usize| format!("{} {} x{v}", if c < 0.0 { "-" } else { "+" }, c.abs());
     let mut out = String::from("Maximize\n obj:");
     for (v, &c) in model.objective.iter().enumerate() {
@@ -1505,7 +1565,40 @@ pub fn plan_from_values(
     proven_optimal: bool,
     upper_bound: f64,
 ) -> Option<ExactPlan> {
-    let model = build_model(items, currency, facility_counts, module_levels, goal);
+    plan_from_values_with_fixed(items, currency, facility_counts, module_levels, goal, values, proven_optimal, upper_bound, None)
+}
+
+/// Rebuilds an external solver result using the same fixed recipe/facility lines as its model.
+#[allow(clippy::too_many_arguments)]
+pub fn plan_from_values_with_fixed(
+    items: &[ProductionItem],
+    currency: &str,
+    facility_counts: &FacilityCounts,
+    module_levels: &ModuleLevels,
+    goal: Goal,
+    values: &[f64],
+    proven_optimal: bool,
+    upper_bound: f64,
+    fixed_recipe_units: Option<&BTreeMap<String, u32>>,
+) -> Option<ExactPlan> {
+    plan_from_values_with_constraints(items, currency, facility_counts, module_levels, goal, values, proven_optimal, upper_bound, fixed_recipe_units, None)
+}
+
+/// Rebuilds a solver result under the same worksheet locks and required active facility tiers.
+#[allow(clippy::too_many_arguments)]
+pub fn plan_from_values_with_constraints(
+    items: &[ProductionItem],
+    currency: &str,
+    facility_counts: &FacilityCounts,
+    module_levels: &ModuleLevels,
+    goal: Goal,
+    values: &[f64],
+    proven_optimal: bool,
+    upper_bound: f64,
+    fixed_recipe_units: Option<&BTreeMap<String, u32>>,
+    required_facility_tiers: Option<&[RequiredFacilityTier]>,
+) -> Option<ExactPlan> {
+    let model = build_model(items, currency, facility_counts, module_levels, goal, fixed_recipe_units, required_facility_tiers);
     if values.len() != model.objective.len() {
         return None;
     }

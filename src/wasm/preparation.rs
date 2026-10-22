@@ -1,6 +1,6 @@
 //! Plan request preparation pipeline (`PreparedInput::from_json`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::data::{
     embedded_aniimo_requirements, embedded_grower_steps, embedded_items, embedded_season_items,
@@ -71,6 +71,50 @@ pub struct PreparedInput {
     pub crew: Option<Crew>,
     pub requirements: AniimoRequirements,
     pub grower_steps: GrowerSteps,
+    /// Exact active recipes and their facility counts for worksheet-only mode changes.
+    pub fixed_recipe_units: Option<BTreeMap<String, u32>>,
+}
+
+fn fixed_recipe_units(input: &JsPlanInput, items: &[ProductionItem], counts: &FacilityCounts) -> Result<Option<BTreeMap<String, u32>>, String> {
+    if input.fixed_plan_lines.is_empty() {
+        return Ok(None);
+    }
+
+    let mut fixed = BTreeMap::new();
+    for line in &input.fixed_plan_lines {
+        let base_facility = line.facility.as_str();
+        // E-mode conversion clears workload on electric recipe clones. Do not use that
+        // transformed workload flag to classify a facility as unworked: Mine/Well and
+        // processors still need their Manual/Prismana recipe variants.
+        let is_unworked_facility = crate::models::is_resident_facility(base_facility)
+            || matches!(base_facility, "Farmland" | "Woodland");
+        let (facility, item_suffix) = match line.mode.as_str() {
+            "electric" if base_facility == "Mine" || base_facility == "Well" =>
+                (format!("{base_facility} (Electric)"), ""),
+            "manual" if !is_unworked_facility => (format!("{base_facility} (Manual)"), crate::models::MANUAL_SUFFIX),
+            "manual" => (base_facility.to_string(), ""),
+            "prismana" if !is_unworked_facility =>
+                (format!("{base_facility} (Prismana)"), crate::models::SPECIALIST_SUFFIX),
+            "electric" | "prismana" => (base_facility.to_string(), ""),
+            mode => return Err(validation::validation_err(format!("Unknown worksheet mode '{mode}' for {base_facility}"))),
+        };
+        let expected_item = format!("{}{item_suffix}", line.item_name);
+        let recipe = items.iter().find(|item| {
+            item.facility == facility
+                && crate::models::base_item_name(&item.name) == crate::models::base_item_name(&expected_item)
+                && counts.can_produce(&item.facility, item.facility_level)
+                && line.crew.map_or(item.crew.is_none(), |member| item.crew == Some(member))
+        });
+        let Some(recipe) = recipe else {
+            return Err(validation::validation_err(format!(
+                "Cannot keep worksheet line: {base_facility} making {} in {} mode is unavailable with the selected Aniimo setup.",
+                line.item_name, line.mode
+            )));
+        };
+        let locked_units = if crate::exact::takes_turns(recipe) { 0 } else { line.facility_count };
+        *fixed.entry(recipe.name.clone()).or_insert(0) += locked_units;
+    }
+    Ok(Some(fixed))
 }
 
 impl PreparedInput {
@@ -121,6 +165,27 @@ impl PreparedInput {
             emode_counts,
         )?;
 
+        for required in input.required_emode_tiers.iter().filter(|tier| tier.count > 0) {
+            if facility_counts.get_tier_count(&required.facility, required.level) < required.count {
+                return Err(validation::validation_err(format!(
+                    "Required E-mode tier {} Lv.{} has fewer assigned units than required ({})",
+                    required.facility, required.level, required.count
+                )));
+            }
+            if !items.iter().any(|item| {
+                item.facility == required.facility
+                    && item.facility_level == required.level
+                    && facility_counts.can_produce(&item.facility, item.facility_level)
+                    && item.module_requirement.as_ref().is_none_or(|(module, level)| module_levels.can_use(module, *level))
+                    && item.production_time > 0.0
+            }) {
+                return Err(validation::validation_err(format!(
+                    "Required E-mode tier {} Lv.{} has no available production recipe",
+                    required.facility, required.level
+                )));
+            }
+        }
+
         // 5. Apply Aniimo worker timings & compute guard/worker caps
         let setup = input
             .aniimo
@@ -137,6 +202,7 @@ impl PreparedInput {
             &mut facility_counts,
             items,
         );
+        let fixed_recipe_units = fixed_recipe_units(&input, &items, &facility_counts)?;
 
         Ok(PreparedInput {
             input,
@@ -147,6 +213,7 @@ impl PreparedInput {
             crew,
             requirements,
             grower_steps,
+            fixed_recipe_units,
         })
     }
 }

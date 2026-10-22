@@ -11,6 +11,30 @@ pub(crate) fn validation_err(msg: impl Into<String>) -> String {
     serde_json::to_string(&empty_production_plan(false, Some(msg.into()))).unwrap_or_default()
 }
 
+/// Validates the explicit strategy contract while retaining compatibility with old payloads.
+pub(crate) fn validate_strategy_policy(input: &JsPlanInput) -> Result<(), String> {
+    match input.strategy_policy.as_deref() {
+        None => Ok(()),
+        Some("level_up") if !input.priorities.is_empty() => Err(validation_err(
+            "Validation error: LevelUp policy cannot include Endgame priorities",
+        )),
+        Some("level_up") => Ok(()),
+        Some("endgame") if input.home_level != Some(20) => Err(validation_err(
+            "Validation error: Endgame policy is only valid at RV20",
+        )),
+        Some("endgame") if input.level_up.is_some() => Err(validation_err(
+            "Validation error: Endgame policy cannot include a LevelUp target",
+        )),
+        Some("endgame") if input.prioritize_byproducts => Err(validation_err(
+            "Validation error: Endgame policy cannot add byproduct floors",
+        )),
+        Some("endgame") => Ok(()),
+        Some(other) => Err(validation_err(format!(
+            "Validation error: unknown strategy policy '{other}'",
+        ))),
+    }
+}
+
 /// Ensures none of the 5 resident facilities (`ANIIMO_RESIDENT_FACILITIES`) are configured in Electric mode.
 pub(crate) fn validate_resident_facilities_no_emode(
     input: &JsPlanInput,
@@ -230,9 +254,53 @@ pub(crate) fn validate_plan_input(
     emode_facilities: &[String],
     emode_counts: &HashMap<String, u32>,
 ) -> Result<BTreeMap<(String, u32), u32>, String> {
+    validate_strategy_policy(input)?;
     validate_resident_facilities_no_emode(input, emode_facilities, emode_counts)?;
     validate_facility_overrides(input, facility_counts)?;
     let requested_by_tier = aggregate_and_validate_emode_tiers(input)?;
     validate_emode_cross_consistency(input, facility_counts, &requested_by_tier)?;
     Ok(requested_by_tier)
+}
+
+#[cfg(test)]
+mod strategy_policy_tests {
+    use super::validate_strategy_policy;
+    use crate::wasm::JsPlanInput;
+
+    fn input(json: &str) -> JsPlanInput {
+        serde_json::from_str(json).expect("valid test request")
+    }
+
+    #[test]
+    fn legacy_payload_without_policy_remains_accepted() {
+        assert!(validate_strategy_policy(&input(r#"{"home_level":19}"#)).is_ok());
+    }
+
+    #[test]
+    fn level_up_policy_rejects_endgame_priorities() {
+        let result = validate_strategy_policy(&input(
+            r#"{"home_level":17,"strategy_policy":"level_up","priorities":["coins"]}"#,
+        ));
+        assert!(result.unwrap_err().contains("LevelUp policy cannot include Endgame priorities"));
+    }
+
+    #[test]
+    fn endgame_policy_is_rv20_only_and_excludes_levelup_floors() {
+        for json in [
+            r#"{"home_level":19,"strategy_policy":"endgame","prioritize_byproducts":false}"#,
+            r#"{"home_level":20,"strategy_policy":"endgame","level_up":{"cost":[],"stock":[]},"prioritize_byproducts":false}"#,
+            r#"{"home_level":20,"strategy_policy":"endgame","prioritize_byproducts":true}"#,
+        ] {
+            assert!(validate_strategy_policy(&input(json)).is_err(), "accepted {json}");
+        }
+        assert!(validate_strategy_policy(&input(
+            r#"{"home_level":20,"strategy_policy":"endgame","prioritize_byproducts":false}"#,
+        )).is_ok());
+    }
+
+    #[test]
+    fn unknown_policy_is_rejected() {
+        let result = validate_strategy_policy(&input(r#"{"strategy_policy":"mixed"}"#));
+        assert!(result.unwrap_err().contains("unknown strategy policy"));
+    }
 }
