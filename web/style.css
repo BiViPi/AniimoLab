@@ -6433,6 +6433,12 @@ body.light .facility-power-badge {
     font-size: 0.82rem;
 }
 
+.mode-selector-pills.resolving {
+    opacity: 0.6;
+    pointer-events: none;
+    cursor: wait;
+}
+
 .mode-selector-pills {
     display: inline-flex;
     gap: 3px;

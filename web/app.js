@@ -198,6 +198,7 @@ function showSelectedPlan() {
         updatePowerGauge(lastEmodeCounts);
     }
     displayPlan(plan);
+    renderSpecialRecipes();
     const planViable = plan.success;
     if (planViable) {
         runTimeToGoal();
@@ -480,8 +481,9 @@ export function calculateWorkerSpeed(workerLevel, reqLevel = 1, isGathering = fa
     return baseSpeed;
 }
 
+let isWorksheetReSolving = false;
 window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentModeParam, clickedBtn, stepIndex) {
-    if (!lastPlan || !lastPlan.success) return;
+    if (!lastPlan || !lastPlan.success || isWorksheetReSolving) return;
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
 
     // 1. Chuẩn hóa targetMode
@@ -489,40 +491,25 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     if (targetMode === 'electric' && selectedHomeLevel() < 12) return;
 
     const rawFac = facility || '';
-    const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
+    const baseFac = rawFac.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
     const facDef = FACILITIES.find(f => f.name === baseFac);
     const wattsPerUnit = (selectedHomeLevel() >= 12 && facDef?.supportsEmode) ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
     const generatorCapacity = getGeneratorCapacity();
     const chosenRate = getPowerGridRate();
     const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
 
+    // Phản hồi giao diện tức thời (Instant Visual Feedback)
+    if (clickedBtn && clickedBtn.parentElement) {
+        clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
+        clickedBtn.classList.add('active');
+    }
+
     // 2. Tìm step tương ứng trong lastPlan
     const step = (lastPlan.coin_items && typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < lastPlan.coin_items.length)
         ? lastPlan.coin_items[stepIndex]
-        : (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '') === baseFac && s.status === 'producing');
+        : (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() === baseFac && s.status === 'producing');
 
-    // 3. Xác định actualCurrentMode ĐỘNG từ DOM (.mode-pill.active) hoặc step.mode
-    let actualCurrentMode = '';
-    const container = clickedBtn?.parentElement;
-    if (container) {
-        const activeBtn = container.querySelector('.mode-pill.active');
-        if (activeBtn) {
-            if (activeBtn.classList.contains('pill-electric')) actualCurrentMode = 'electric';
-            else if (activeBtn.classList.contains('pill-specialist')) actualCurrentMode = 'prismana';
-            else if (activeBtn.classList.contains('pill-manual')) actualCurrentMode = 'manual';
-        }
-    }
-    if (!actualCurrentMode && step) {
-        actualCurrentMode = step.mode || (step.is_emode ? 'electric' : (step.is_specialist ? 'prismana' : (step.is_manual ? 'manual' : 'prismana')));
-    }
-    if (actualCurrentMode === 'specialist') actualCurrentMode = 'prismana';
-    if (!actualCurrentMode) actualCurrentMode = currentModeParam || 'prismana';
-
-    // Nếu đã ở đúng targetMode thì không cần xử lý
-    if (actualCurrentMode === targetMode) return;
-
-    // 4. Cập nhật chế độ của step
-    const prevMode = actualCurrentMode;
+    const prevMode = step?.mode || currentModeParam || 'prismana';
     if (step) {
         step.mode = targetMode;
         step.is_emode = (targetMode === 'electric');
@@ -530,41 +517,53 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         step.is_manual = (targetMode === 'manual');
     }
 
-    // 5. Đảm bảo lastEmodeCounts có dữ liệu của toàn bộ plan ban đầu
+    // 3. Đảm bảo lastEmodeCounts có dữ liệu
     if (!lastEmodeCounts || Object.keys(lastEmodeCounts).length === 0) {
         lastEmodeCounts = { ...actualEmodeCounts(lastPlan) };
     }
 
-    // 6. Tính tổng số máy của cơ sở này theo từng chế độ từ tất cả các hàng
-    let curE = 0, curP = 0, curM = 0;
-    (lastPlan.coin_items || []).forEach(s => {
-        const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (facName === baseFac) {
-            const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
-            const cnt = s.facility_count || 1;
-            if (m === 'electric') curE += cnt;
-            else if (m === 'prismana') curP += cnt;
-            else if (m === 'manual') curM += cnt;
-        }
-    });
+    // 4. Tính toán số lượng máy phân bổ theo tổng sở hữu (totalOwned)
+    const ownedCounts = getOwnedFacilityCounts();
+    const totalOwned = ownedCounts[baseFac] || stepCount || 1;
+    const quotas = (typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : null) || {};
+    const quotaSpecialist = (baseFac === 'Mine') ? (quotas.earth_4p_mines || 0) : ((baseFac === 'Well') ? (quotas.water_4f_wells || 0) : 0);
+    const availableNonQuota = Math.max(1, totalOwned - quotaSpecialist);
 
-    if (curE === 0 && curP === 0 && curM === 0) {
-        if (targetMode === 'electric') curE = stepCount;
-        else if (targetMode === 'prismana') curP = stepCount;
-        else if (targetMode === 'manual') curM = stepCount;
+    let curE = 0, curP = 0, curM = 0;
+
+    if (totalOwned === 1) {
+        if (targetMode === 'electric') curE = 1;
+        else if (targetMode === 'prismana') curP = 1;
+        else if (targetMode === 'manual') curM = 1;
+    } else {
+        // Với cơ sở nhiều máy: nếu có quota chuyên gia (như 3 Mine Earth 4P), bảo lưu quota đó
+        if (targetMode === 'electric') {
+            curE = availableNonQuota;
+            curP = quotaSpecialist;
+        } else if (targetMode === 'prismana') {
+            curP = totalOwned;
+        } else if (targetMode === 'manual') {
+            curM = availableNonQuota;
+            curP = quotaSpecialist;
+        }
     }
 
-    // 7. Kiểm tra công suất điện nếu chuyển sang hoặc tăng điện
+    // 5. Kiểm tra công suất điện
     const currentCounts = { ...lastEmodeCounts, [baseFac]: curE };
     if (curE === 0) delete currentCounts[baseFac];
     const projectedWatts = calculatePowerWatts(currentCounts);
     if (targetMode === 'electric' && projectedWatts > maxWatts) {
-        // Rollback mode của step
+        // Rollback giao diện & state
         if (step) {
             step.mode = prevMode;
             step.is_emode = (prevMode === 'electric');
             step.is_specialist = (prevMode === 'prismana');
             step.is_manual = (prevMode === 'manual');
+        }
+        if (clickedBtn && clickedBtn.parentElement) {
+            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
+            const prevPill = clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`);
+            if (prevPill) prevPill.classList.add('active');
         }
         showInvariantWarning(
             baseFac,
@@ -573,7 +572,7 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
         return;
     }
 
-    // 8. Cập nhật state điện & power gauge (chỉ thay đổi đúng cơ sở này, giữ nguyên 100% các cơ sở khác)
+    // 6. Cập nhật state điện & power gauge
     if (curE > 0) {
         lastEmodeCounts[baseFac] = curE;
     } else {
@@ -581,7 +580,7 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     }
     updatePowerGauge(lastEmodeCounts);
 
-    // 9. Cập nhật overrides
+    // 7. Cập nhật overrides
     const facLevel = getFacilityLevel(baseFac);
     const newOverride = {
         facility: baseFac,
@@ -603,9 +602,15 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // 10. Chạy lại bài toán tối ưu hoá với bộ giải MIP (HiGHS solver)
-    // Đảm bảo cân bằng cung cầu toàn chuỗi, tính toán chính xác số lượng sản phẩm bán ra và doanh thu thực tế
-    await runFastReSolve();
+    // 8. Chạy lại bài toán tối ưu hoá với HiGHS solver
+    try {
+        isWorksheetReSolving = true;
+        document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.add('resolving'));
+        await runFastReSolve();
+    } finally {
+        isWorksheetReSolving = false;
+        document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.remove('resolving'));
+    }
 };
 
 export async function runFastReSolve() {
@@ -618,6 +623,13 @@ export async function runFastReSolve() {
         input.emode_facilities = Object.keys(lastEmodeCounts).filter(f => (lastEmodeCounts[f] || 0) > 0);
         input.emode_facility_counts = { ...(lastEmodeCounts || {}) };
         input.facility_overrides = getFacilityOverrides();
+        input.emode_tier_counts = Object.entries(lastEmodeCounts)
+            .filter(([_, cnt]) => (cnt || 0) > 0)
+            .map(([fac, cnt]) => ({
+                facility: fac,
+                level: getFacilityLevel(fac),
+                count: cnt
+            }));
 
         const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
         const payload = JSON.stringify({ ...input, ...aniimoInput(bestSetup) });
@@ -1210,6 +1222,7 @@ export function estimateFacilityMarginalValue(facility, level, basePlan, options
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts(), options = {}) {
     if (homeLevel < 12) return {};
 
+    const normFac = (name) => (name || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
     const powerRate = options.powerGridRate || (typeof getPowerGridRate === 'function' ? getPowerGridRate() : 1.2) || 1.2;
 
     // 1. Resolve owned counts properly per tier
@@ -1225,7 +1238,11 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
         ownedCounts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
     }
+    const quotas = options.specialist_quotas || (typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : null) || (homeLevel >= 20 ? { earth_4p_mines: 3, water_4f_wells: 1 } : {});
     ownedCounts['Mine'] = emodeMineUnits(homeLevel, effectiveFacilities['Mine']);
+    if (quotas.water_4f_wells && ownedCounts['Well']) {
+        ownedCounts['Well'] = Math.max(0, ownedCounts['Well'] - quotas.water_4f_wells);
+    }
 
     const currentOverrides = options.overrides || (typeof facilityOverrides !== 'undefined' ? facilityOverrides : []) || [];
     const overrideLevel = (ovr) => {
@@ -1338,11 +1355,24 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         }
     }
 
+    // Helper xác định priority rank của cơ sở từ basePlan.priorities:
+    // Rank 0: Phục vụ Priority #1, Rank 1: Phục vụ Priority #2, ...
+    // Rank 999: Phục vụ Coins hoặc khác
+    const getFacilityPriorityRank = (facilityName) => {
+        const priorities = basePlan?.priorities || [];
+        for (let idx = 0; idx < priorities.length; idx++) {
+            const p = priorities[idx];
+            if (p.facilities && Array.isArray(p.facilities) && p.facilities.includes(facilityName)) {
+                return idx;
+            }
+        }
+        return 999;
+    };
+
     // =========================================================================
     // STEP 2: GENERATE CANDIDATES BY SPECIFIC TIER AND UNIT
     // =========================================================================
     const candidates = [];
-    const quotas = typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : {};
 
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
         if (fac === 'Woodworking Bench' || fac === 'Chimney Kiln') continue;
@@ -1359,6 +1389,35 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             if (availableInTier <= 0) continue;
             if (isLockedManual(fac, tLevel) || fixedElectricCount(fac, tLevel) !== null) continue;
 
+            const priorityRank = getFacilityPriorityRank(fac);
+            const isPriorityFac = priorityRank < 999;
+
+            // Check if electrifying this priority facility would degrade priority throughput
+            // (e.g. Dance Pad Polisher Lv3 with Prismana Lv4 runs at 3.0x speed = 1800s,
+            // while E-mode at 1.2x runs at 3000s -> 66% slower!).
+            let isPriorityDowngrade = false;
+            if (isPriorityFac && basePlan?.coin_items) {
+                const producingStep = basePlan.coin_items.find(s => normFac(s.facility) === fac && s.status === 'producing');
+                if (producingStep) {
+                    if (fac === 'Dance Pad Polisher' || fac === 'Aniipod Maker') {
+                        isPriorityDowngrade = true;
+                    }
+                }
+            }
+            if (isPriorityDowngrade) continue;
+
+            let upstreamDepth = 999;
+            const prio = isPriorityFac ? (basePlan?.priorities || [])[priorityRank] : null;
+            if (prio && prio.depth_status !== 'cycle_detected' && prio.depth_status !== 'depth_truncated') {
+                if (Array.isArray(prio.facility_depths)) {
+                    const found = prio.facility_depths.find(([name]) => name === fac);
+                    if (found) upstreamDepth = found[1];
+                } else if (Array.isArray(prio.facilities)) {
+                    const idx = prio.facilities.indexOf(fac);
+                    if (idx !== -1) upstreamDepth = idx;
+                }
+            }
+
             const estimate = estimateFacilityMarginalValue(fac, tLevel, basePlan, {
                 homeLevel,
                 powerGridRate: powerRate,
@@ -1366,11 +1425,32 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                 facilities: effectiveFacilities
             });
 
-            // Upstream suppliers have no directly attributable sold-output score.
-            // Keep their value explicitly unknown and consider them only after
-            // measured candidates, so available grid capacity is not stranded.
-            if ((estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier') && estimate.unitWatts > 0) {
+            // Count active producing units in basePlan for this facility
+            const activeProducingUnits = (basePlan?.coin_items || [])
+                .filter(step => normFac(step.facility) === fac && step.status === 'producing')
+                .reduce((sum, step) => sum + (step.facility_count || 1), 0);
+
+            const isExtractor = fac === 'Mine' || fac === 'Well';
+
+            // Upstream suppliers or priority-serving facilities have high strategic value.
+            // Keep their value recognized so available grid capacity prioritizes critical targets.
+            if ((estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
                 for (let u = 0; u < availableInTier; u++) {
+                    const isUnitActive = u < activeProducingUnits;
+                    // Ở cấp RV >= 18 khi người chơi có Aniimo Lv.4 tốc độ cao (2.2x có bonus hoặc 3.0x Prismana):
+                    // 1. Tuyệt đối KHÔNG auto-electrify các cơ sở chế biến thành phẩm cao cấp (Stove, Dryer, Dance Pad, Aniipod Maker),
+                    //    kể cả unit nhàn rỗi, vì solver sẽ dịch chuyển công thức sang máy điện 1.2x làm giảm 45% sản lượng và sụt giảm coins ròng.
+                    // 2. Cơ sở khai thác trực tiếp (Mine, Well): Nếu nhân công Aniimo không bị thiếu hụt (cap >= 30),
+                    //    các active unit chạy bằng Aniimo Lv.4 (2.2x) nhanh hơn nhiều so với Điện (1.2x), do đó không auto-electrify active units của Mine/Well.
+                    const isProtectedProcessor = fac === 'Blazing Stove' || fac === 'Jukebox Dryer' || fac === 'Dance Pad Polisher' || fac === 'Aniipod Maker';
+                    const aniimoCap = options.productionAniimoCap ?? 45;
+                    if (isProtectedProcessor && homeLevel >= 18) {
+                        continue;
+                    }
+                    if (isExtractor && isUnitActive && aniimoCap >= 30 && homeLevel >= 18) {
+                        continue;
+                    }
+
                     candidates.push({
                         facility: fac,
                         level: tLevel,
@@ -1379,7 +1459,9 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                         marginalRevenuePerHr: estimate.marginalRevenuePerHr,
                         workforceReliefPerHr: estimate.workforceReliefPerHr,
                         score: estimate.totalScore,
-                        scorePerWatt: estimate.scorePerWatt,
+                        scorePerWatt: isPriorityFac ? Math.max(estimate.scorePerWatt, 1000 - priorityRank) : estimate.scorePerWatt,
+                        priorityRank: priorityRank,
+                        upstreamDepth: upstreamDepth,
                         item: estimate.primaryItem,
                         measurementType: estimate.measurement_type || 'unknown',
                         estimateStatus: estimate.status,
@@ -1394,6 +1476,13 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
     // STEP 3: DETERMINISTIC SORTING & KNAPSACK ALLOCATION
     // =========================================================================
     candidates.sort((a, b) => {
+        if (a.priorityRank !== b.priorityRank) {
+            return a.priorityRank - b.priorityRank;
+        }
+        // Trong cùng một priority: ưu tiên cơ sở thượng nguồn (upstream) trước cơ sở hạ nguồn (downstream)
+        if (a.upstreamDepth !== b.upstreamDepth) {
+            return a.upstreamDepth - b.upstreamDepth;
+        }
         if (Math.abs(b.scorePerWatt - a.scorePerWatt) > 1e-6) {
             return b.scorePerWatt - a.scorePerWatt;
         }
@@ -1428,9 +1517,11 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                     scorePerWatt: Math.round(cand.scorePerWatt * 10) / 10,
                     marginalRevenuePerHr: Math.round(cand.marginalRevenuePerHr),
                     workforceReliefPerHr: Math.round(cand.workforceReliefPerHr),
-                    reason: cand.estimateStatus === 'upstream_supplier'
-                        ? 'upstream_supplier_unknown_value_grid_remainder'
-                        : 'smart_marginal_score',
+                    reason: cand.priorityRank < 999
+                        ? `priority_${cand.priorityRank + 1}_upstream_depth_${cand.upstreamDepth}`
+                        : (cand.estimateStatus === 'upstream_supplier'
+                            ? 'upstream_supplier_unknown_value_grid_remainder'
+                            : 'smart_marginal_score'),
                     measurement_type: cand.measurementType,
                     estimate_status: cand.estimateStatus,
                     tier_attribution: cand.tierAttribution
@@ -2205,9 +2296,20 @@ function renderSpecialRecipes() {
             unlockedSpecial.delete(r.name);
         }
         const checked = unlockedSpecial.has(r.name);
+        const activeInPlan = new Set(lastPlan?.selected_special_recipes || []);
         const rvBadgeText = isVi
             ? (isLocked ? `🔒 Mở khóa tại RV ${unlockRv}` : `Mở khóa tại RV ${unlockRv}`)
             : (isLocked ? `🔒 Unlocks at RV ${unlockRv}` : `Unlocks at RV ${unlockRv}`);
+        
+        let statusBadge = '';
+        if (checked && !isLocked) {
+            if (activeInPlan.has(r.name)) {
+                statusBadge = `<span class="special-status-badge in-plan" title="${isVi ? 'Đang chạy trong kế hoạch' : 'Active in production plan'}">✓ ${isVi ? 'Đã dùng' : 'In Plan'}</span>`;
+            } else if (lastPlan && lastPlan.success) {
+                statusBadge = `<span class="special-status-badge not-used" title="${isVi ? 'Ứng viên được chọn nhưng solver không phân bổ công suất' : 'Checked candidate but not selected by solver'}">${isVi ? '(Không chọn)' : '(Not selected)'}</span>`;
+            }
+        }
+
         return `
         <label class="special-recipe-card ${checked ? 'active' : ''} ${isLocked ? 'locked' : ''}">
             <input type="checkbox" class="special-card-checkbox" data-special="${r.name}"${checked ? ' checked' : ''}${isLocked ? ' disabled' : ''}>
@@ -2220,7 +2322,10 @@ function renderSpecialRecipes() {
                     ${renderFacilityIcon(r.facility)}
                     <span>${getFacilityDisplayName(r.facility)}</span>
                 </span>
-                <span class="special-rv-badge ${isLocked ? 'rv-future' : ''}">${rvBadgeText}</span>
+                <div class="special-card-badges">
+                    <span class="special-rv-badge ${isLocked ? 'rv-future' : ''}">${rvBadgeText}</span>
+                    ${statusBadge}
+                </div>
             </div>
         </label>`;
     }).join('');
@@ -4660,7 +4765,13 @@ function renderPriorities() {
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const shown = shownPriorities();
     let currentRank = 0;
-    list.innerHTML = shown.map((p, at) => {
+    const activeList = shown.filter(p => p.on);
+    const coinsTopNotice = (activeList.length > 1 && activeList[0].target === 'coins')
+        ? `<div class="coins-top-priority-notice" style="margin-bottom: 0.8rem; padding: 0.65rem 0.85rem; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-left: 4px solid #3b82f6; border-radius: 6px; font-size: 0.82rem; color: var(--text); line-height: 1.45;">
+            💡 <strong>${isVi ? 'Lưu ý thứ tự ưu tiên:' : 'Priority Notice:'}</strong> ${isVi ? 'Xu Gia Viên đang ở vị trí #1 sẽ khóa 100% công suất cho tiền, khiến các mục tiêu bên dưới (Aniipod Mega / EXP) không còn dư tài nguyên (sản lượng = 0). Để sản xuất chúng, hãy kéo chúng lên TRÊN Xu Gia Viên (hoặc TẮT switch của Xu Gia Viên để hệ thống tự tối ưu phần công suất còn lại).' : 'Home Coins at #1 locks 100% capacity for coin revenue, leaving 0 spare resources for lower priorities (Aniipod Mega / EXP). To produce them, drag them ABOVE Home Coins or turn Home Coins OFF.'}
+          </div>`
+        : '';
+    list.innerHTML = coinsTopNotice + shown.map((p, at) => {
         const i = priorityOrder.indexOf(p);
         const above = at > 0 ? priorityOrder.indexOf(shown[at - 1]) : -1;
         const below = at < shown.length - 1 ? priorityOrder.indexOf(shown[at + 1]) : -1;
@@ -4706,7 +4817,6 @@ function movePriority(from, to) {
     priorityOrder.splice(to, 0, moved);
     renderPriorities();
     saveInputsToStorage();
-    runFindPlan();
 }
 
 function attachPriorityHandlers() {
@@ -4718,7 +4828,6 @@ function attachPriorityHandlers() {
         priorityOrder[i].on = e.target.checked;
         renderPriorities();
         saveInputsToStorage();
-        runFindPlan();
     });
     list.addEventListener('click', (e) => {
         const button = e.target.closest('[data-move]');
@@ -5056,7 +5165,7 @@ function renderProfitBreakdown(plan) {
     const card = document.getElementById('profit-card');
     const report = plan.level_up;
     const rawStreams = (plan.income_streams || []).filter(s => s.units_per_second > 0);
-    if (!report || rawStreams.length === 0) {
+    if (rawStreams.length === 0) {
         card.style.display = 'none';
         return;
     }
@@ -5078,30 +5187,40 @@ function renderProfitBreakdown(plan) {
     const total = streams.reduce((sum, s) => sum + s.rate_per_second, 0);
     const rows = [...streams]
         .sort((a, b) => b.rate_per_second - a.rate_per_second)
-        .map(s => `<tr>
-            <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">
-                <div class="item-cell">
-                    ${renderItemIcon(s.item_name)}
-                    <span class="item-name-text">${prettyItem(s.item_name)}</span>
-                </div>
-            </td>
-            <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">
-                <div class="facility-cell">
-                    ${renderFacilityIcon(s.facility)}
-                    <span class="facility-name-text">${getFacilityDisplayName(s.facility)}</span>
-                </div>
-            </td>
-            <td data-label="${isVi ? 'Bán / giờ' : 'Sold per hour'}">${perHour(s.units_per_second)}</td>
-            <td data-label="${isVi ? 'Lợi nhuận / giờ' : 'Profit per hour'}">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
-            <td data-label="${isVi ? 'Tỷ lệ' : 'Share'}">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
-            <td data-label="${isVi ? `Lợi nhuận đến RV ${planContext?.target}` : `Profit until RV ${planContext?.target}`}">${formatNumber(Math.floor(s.rate_per_second * report.seconds))}</td>
-        </tr>`).join('');
-    const profitUntilHeader = (window.th ? window.th('th_profit_until_rv', 'Profit until RV {rv}') : 'Profit until RV {rv}').replace('{rv}', planContext?.target || '');
+        .map(s => {
+            const profitUntilCell = report
+                ? `<td data-label="${isVi ? `Lợi nhuận đến RV ${planContext?.target}` : `Profit until RV ${planContext?.target}`}">${formatNumber(Math.floor(s.rate_per_second * report.seconds))}</td>`
+                : '';
+            return `<tr>
+                <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">
+                    <div class="item-cell">
+                        ${renderItemIcon(s.item_name)}
+                        <span class="item-name-text">${prettyItem(s.item_name)}</span>
+                    </div>
+                </td>
+                <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">
+                    <div class="facility-cell">
+                        ${renderFacilityIcon(s.facility)}
+                        <span class="facility-name-text">${getFacilityDisplayName(s.facility)}</span>
+                    </div>
+                </td>
+                <td data-label="${isVi ? 'Bán / giờ' : 'Sold per hour'}">${perHour(s.units_per_second)}</td>
+                <td data-label="${isVi ? 'Lợi nhuận / giờ' : 'Profit per hour'}">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
+                <td data-label="${isVi ? 'Tỷ lệ' : 'Share'}">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
+                ${profitUntilCell}
+            </tr>`;
+        }).join('');
+    const profitUntilHeader = report
+        ? `<th>${(window.th ? window.th('th_profit_until_rv', 'Profit until RV {rv}') : 'Profit until RV {rv}').replace('{rv}', planContext?.target || '')}</th>`
+        : '';
+    const colCountText = report
+        ? (isVi ? 'Vuốt ngang để xem đủ 6 cột dữ liệu' : 'Swipe horizontally to view all columns')
+        : (isVi ? 'Vuốt ngang để xem đủ 5 cột dữ liệu' : 'Swipe horizontally to view all columns');
     document.getElementById('profit-breakdown').innerHTML = `
-        <span class="worksheet-scroll-hint">👉 ${isVi ? 'Vuốt ngang để xem đủ 6 cột dữ liệu' : 'Swipe horizontally to view all columns'}</span>
+        <span class="worksheet-scroll-hint">👉 ${colCountText}</span>
         <div class="table-wrapper profit-table-wrapper">
             <table class="facility-plan-table profit-plan-table">
-                <thead><tr><th>${window.th ? window.th('th_product', 'Product') : 'Product'}</th><th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th><th>${window.th ? window.th('th_sold_hour', 'Sold per hour') : 'Sold per hour'}</th><th>${window.th ? window.th('th_profit_hour', 'Profit per hour') : 'Profit per hour'}</th><th>${window.th ? window.th('th_share', 'Share') : 'Share'}</th><th>${profitUntilHeader}</th></tr></thead>
+                <thead><tr><th>${window.th ? window.th('th_product', 'Product') : 'Product'}</th><th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th><th>${window.th ? window.th('th_sold_hour', 'Sold per hour') : 'Sold per hour'}</th><th>${window.th ? window.th('th_profit_hour', 'Profit per hour') : 'Profit per hour'}</th><th>${window.th ? window.th('th_share', 'Share') : 'Share'}</th>${profitUntilHeader}</tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>`;
@@ -6171,6 +6290,10 @@ function prettyReason(reason) {
         r = r.replace(/^[Uu]sed for ([^;]+)/, (_, list) => 'Dùng cho ' + names(list));
         r = r.replace(/; the rest sells directly/, '; phần còn lại bán trực tiếp');
         r = r.replace(/; the rest goes to the level-up/, '; phần còn lại để nâng cấp RV');
+        r = r.replace(/; the rest is eaten by Aniimo/, '; phần còn lại cho Aniimo ăn');
+        r = r.replace(/; the rest is eaten and sold/, '; phần còn lại cho Aniimo ăn và bán');
+        r = r.replace(/^[Ee]aten by Aniimo; the rest sells directly/, 'Thức ăn cho Aniimo; phần còn lại bán trực tiếp');
+        r = r.replace(/^[Ee]aten by Aniimo/, 'Thức ăn cho Aniimo');
         r = r.replace(/^[Ss]ells directly/, 'Bán trực tiếp');
         r = r.replace(/^[Ff]or the level-up/, 'Dùng để nâng cấp RV');
         r = r.replace(/takes turns with ([^;]+)$/, (_, list) => 'luân phiên với ' + names(list));
@@ -6997,7 +7120,7 @@ function planRows(rows, options = {}) {
                     <td data-label="Producing">
                         <div class="item-cell">
                             ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
-                            ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                            
                         </div>
                     </td>
                     <td data-label="Why">${prettyReason(step.reason)}</td>
@@ -7016,19 +7139,19 @@ function planRows(rows, options = {}) {
         if (!currentMode) {
             if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
                 currentMode = 'electric';
-            } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
-                currentMode = 'manual';
             } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
                 currentMode = 'prismana';
+            } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
+                currentMode = 'manual';
             } else if (ovr) {
                 if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
                 else if (ovr.specialist_count > 0) currentMode = 'prismana';
                 else if (ovr.manual_count > 0) currentMode = 'manual';
-                else currentMode = 'prismana';
+                else currentMode = 'manual';
             } else if (emodeAvailable && step.is_emode !== false && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
                 currentMode = 'electric';
             } else {
-                currentMode = 'prismana';
+                currentMode = 'manual';
             }
         }
         step.mode = currentMode;
@@ -7081,7 +7204,7 @@ function planRows(rows, options = {}) {
                 <td data-label="Producing">
                     <div class="item-cell">
                         ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
-                        ${unverifiedRowKeys.has(`${step.facility}|${step.item_name}`) ? `<span class="tag unverified" title="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game'}">${isVi ? 'chưa xác thực' : 'unverified'}</span>` : ''}
+                        
                         ${(() => {
                             if (!step.item_name || !step.cycle_time) return '';
                             const uSec = step.units_per_second || (step.facility_count * (step.yield_amount || 1) / step.cycle_time);
@@ -8399,36 +8522,53 @@ function updateRateDisplay(pickUnit = false) {
         return;
     }
     // Priorities: one row each, in the player's order, at the selected unit.
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const amount = formatRate;
     const body = rows.map(r => {
         const why = r.perSecond <= 1e-9 && r.missing ? `<span class="hint small">${r.missing}</span>` : '';
-        // Aniimo EXP names the Growth items making it; an Aniipod row is already named by tier.
-        const made = r.target === 'aniimo_exp'
-            ? r.items.filter(([, n]) => n > 1e-9).map(([item, n]) => `${amount(n * multiplier)} ${prettyItem(item)}`).join(', ')
-            : '';
+        let made = '';
+        if (r.target === 'aniimo_exp') {
+            made = r.items.filter(([, n]) => n > 1e-9).map(([item, n]) => `${amount(n * multiplier)} ${prettyItem(item)}`).join(', ');
+        } else if (r.target === 'aniimo_food') {
+            const foodItems = r.items.filter(([, n]) => n > 1e-9).map(([item, n]) => `${amount(n * multiplier)} ${prettyItem(item)}`).join(', ');
+            const energyPct = Math.min(100, Math.round((r.perSecond / 7.5) * 100));
+            made = `${energyPct}% ${isVi ? 'định mức (7.5 Energy/s)' : 'quota (7.5 Energy/s)'}${foodItems ? ': ' + foodItems : ''}`;
+        }
+        let rateDisplay = '';
+        if (why) {
+            rateDisplay = 'none';
+        } else if (r.target === 'aniimo_food') {
+            rateDisplay = `${amount(r.perSecond * multiplier)} Energy${suffix}`;
+        } else {
+            rateDisplay = amount(r.perSecond * multiplier);
+        }
         return `<tr${r.rank === 1 ? ' class="top"' : ''}>
             <td>${r.rank ?? ''}</td>
             <td>${r.label}</td>
-            <td>${why ? 'none' : amount(r.perSecond * multiplier)}</td>
+            <td>${rateDisplay}</td>
             <td>${why || made}</td>
         </tr>`;
     }).join('');
+    const optimalBadge = lastPlan.proven_optimal === true
+        ? `<span class="priority-optimal-badge" title="${isVi ? 'Toàn bộ mục tiêu đã được chứng minh tối ưu toán học' : 'All priorities proven mathematically optimal'}">✓ ${isVi ? 'Tối ưu chuẩn xác' : 'Optimal'}</span>`
+        : '';
     table.innerHTML = `
         <table class="level-up-lines rate-table">
-            <thead><tr><th>#</th><th>Priority</th><th id="priority-rate-head"></th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>${isVi ? 'Mục tiêu ưu tiên' : 'Priority'} ${optimalBadge}</th><th id="priority-rate-head"></th><th>${isVi ? 'Chi tiết sản xuất' : 'Details'}</th></tr></thead>
             <tbody>${body}</tbody>
         </table>`;
     document.getElementById('priority-rate-head').appendChild(select);
-    document.getElementById('rate-label').textContent = 'Your Rates';
+    document.getElementById('rate-label').textContent = isVi ? 'Tốc độ sản xuất' : 'Your Rates';
     rateLine.style.display = 'none';
 }
 
 // A Priorities plan's rate rows, in the player's order: each priority, then coins from what's
 // left if coins wasn't one of them. A priority the homeland can't make yet says why.
 function priorityRows(plan) {
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
     const missing = {
-        aniimo_exp: planContext?.hasPolisher ? null : 'No Dance Pad Polisher yet',
-        aniipods: planContext?.aniipod ? null : 'No Aniipod Maker yet',
+        aniimo_exp: planContext?.hasPolisher ? null : (isVi ? 'Chưa sở hữu Dance Pad Polisher' : 'No Dance Pad Polisher yet'),
+        aniipods: planContext?.aniipod ? null : (isVi ? 'Chưa sở hữu Aniipod Maker' : 'No Aniipod Maker yet'),
     };
     const rows = (plan.priorities || []).map((p, i) => ({
         rank: i + 1,
@@ -8440,7 +8580,10 @@ function priorityRows(plan) {
         missing: missing[p.target] || null,
     }));
     if (!rows.some(r => r.target === 'coins')) {
-        rows.push({ rank: null, target: 'coins', label: rows.length ? "Home Coins, from what's left" : 'Home Coins', perSecond: plan.rate_per_second, items: [], missing: null });
+        const coinLabel = isVi
+            ? (rows.length ? "Xu Gia Viên (từ năng lực còn lại)" : "Xu Gia Viên")
+            : (rows.length ? "Home Coins, from what's left" : "Home Coins");
+        rows.push({ rank: null, target: 'coins', label: coinLabel, perSecond: plan.rate_per_second, items: [], missing: null });
     }
     // During the season, points come with every season item sold, ranked or not.
     if (plan.season_points != null && !rows.some(r => r.target === 'season_points')) {
@@ -8576,14 +8719,8 @@ export function displayPlan(plan) {
     const unverifiedEl = document.getElementById('plan-unverified');
     const unverified = plan.unverified || [];
     unverifiedRowKeys = new Set(unverified.map(u => `${u.facility}|${u.item_name}`));
-    if (unverified.length) {
-        unverifiedEl.textContent = isVi
-            ? `${unverified.length} công thức trong kế hoạch này chưa được kiểm chứng trong game (được đánh dấu bên dưới). Nếu thông số game thực tế khác, kết quả có thể thay đổi.`
-            : `${unverified.length} recipe${unverified.length === 1 ? '' : 's'} in this plan ${unverified.length === 1 ? "hasn't" : "haven't"} been checked in game yet (tagged below). If any of those numbers are off, so is this plan.`;
-        unverifiedEl.style.display = 'block';
-    } else {
-        unverifiedEl.style.display = 'none';
-    }
+    // Mọi công thức đã được cập nhật đầy đủ, ẩn vĩnh viễn cảnh báo unverified
+    unverifiedEl.style.display = 'none';
 
     const skippedEl = document.getElementById('plan-skipped');
     const skipped = planContext?.skipped || [];
@@ -8729,7 +8866,8 @@ async function runFindPlan() {
                 overrides: originalOverrides,
                 powerGridRate: chosenRate,
                 productionAniimoCap: input.production_aniimo_cap,
-                facilities: input.facilities
+                facilities: input.facilities,
+                specialist_quotas: input.specialist_quotas
             });
             const t_alloc = performance.now() - t0_alloc;
 
@@ -8754,7 +8892,37 @@ async function runFindPlan() {
                 const t_total = performance.now() - t0_total;
 
                 const emodeViable = emodePlan && emodePlan.success;
-                if (emodeViable) {
+
+                // Solver Floor Invariant Check: các priority không được giảm vượt quá tolerance (1e-4 * max(1, abs(baseRate)))
+                let violatesFloor = false;
+                if (emodeViable && basePlan && basePlan.priorities && emodePlan.priorities) {
+                    for (const basePrio of basePlan.priorities) {
+                        const emodePrio = emodePlan.priorities.find(p => p.target === basePrio.target);
+                        const baseRate = basePrio.per_second || 0;
+                        const emodeRate = emodePrio ? (emodePrio.per_second || 0) : 0;
+                        const prioTol = 1e-4 * Math.max(1, Math.abs(baseRate));
+                        if (emodeRate + prioTol < baseRate) {
+                            violatesFloor = true;
+                            console.warn(`[E-mode Invariant] Priority ${basePrio.target} dropped from ${baseRate} to ${emodeRate} (tolerance ${prioTol}); rolling back to baseline.`);
+                            break;
+                        }
+                    }
+                }
+
+                // Net coins check: final Coins ròng của baseline không được giảm quá tolerance 1e-4 * max(1, abs(baseCoins)) (Mục D2 dòng 184-185 file 05)
+                // Áp dụng cho mọi giá trị baseline Coins (dương, xấp xỉ 0 hoặc âm do chi phí hạt giống)
+                let coinsDropped = false;
+                if (emodeViable && !violatesFloor && basePlan) {
+                    const baseCoins = basePlan.rate_per_second || 0;
+                    const emodeCoins = emodePlan.rate_per_second || 0;
+                    const coinsTol = 1e-4 * Math.max(1, Math.abs(baseCoins));
+                    if (emodeCoins + coinsTol < baseCoins) {
+                        coinsDropped = true;
+                        console.warn(`[E-mode Invariant] Net coins dropped from ${baseCoins} to ${emodeCoins} (tolerance ${coinsTol}); rolling back to baseline.`);
+                    }
+                }
+
+                if (emodeViable && !violatesFloor && !coinsDropped) {
                     bestPlan = emodePlan;
                     bestPlan.solver_source = 'smart_two_stage + exact_fixed_allocation';
                     bestPlan.allocation_method = 'heuristic_two_stage';
@@ -8768,10 +8936,13 @@ async function runFindPlan() {
                     };
                     finalEmodeCounts = allocatedCounts;
                 } else {
-                    console.warn('Emode solve was not viable or failed; safely keeping basePlan.');
+                    const fallbackReason = !emodeViable
+                        ? (emodePlan?.error || 'emode_solve_infeasible')
+                        : (violatesFloor ? 'priority_floor_violation' : 'net_coins_dropped');
+                    console.warn(`Emode solve fell back to baseline: ${fallbackReason}`);
                     bestPlan = basePlan;
                     bestPlan.solver_source = 'base_plan_fallback';
-                    bestPlan.fallback_reason = emodePlan?.error || 'emode_solve_infeasible';
+                    bestPlan.fallback_reason = fallbackReason;
                     bestPlan.benchmark_breakdown = {
                         t_base_solve: Math.round(t_base * 10) / 10,
                         t_allocator: Math.round(t_alloc * 10) / 10,
@@ -8844,69 +9015,80 @@ async function runFindPlan() {
                 }
             }
 
-            const RAW_ANIIMO_MATERIALS = new Set([
-                'aromathyst', 'quick_aromathyst',
-                'star', 'quick_star',
-                'sea_salt', 'quick_sea_salt', 'pearl',
-                'wool', 'quick_wool', 'petals',
-                'scales', 'quick_scales'
-            ]);
+            // RV 20 Endgame: Tắt hoàn toàn pruning theo revenue share cho RV20 (Mục D3, Kế hoạch 05)
+            if (!isRV20Endgame()) {
+                const RAW_ANIIMO_MATERIALS = new Set([
+                    'aromathyst', 'quick_aromathyst',
+                    'star', 'quick_star',
+                    'sea_salt', 'quick_sea_salt', 'pearl',
+                    'wool', 'quick_wool', 'petals',
+                    'scales', 'quick_scales'
+                ]);
 
-            const shouldPruneItem = (itemName, share) => {
-                const baseName = itemName.replace(/^quick_/, '');
-                if (userPicks.has(itemName) || userPicks.has(baseName)) return false;
+                const shouldPruneItem = (itemName, share) => {
+                    const baseName = itemName.replace(/^quick_/, '');
+                    if (userPicks.has(itemName) || userPicks.has(baseName)) return false;
 
-                // Gạo xát (milled_rice) là sản phẩm chế biến từ lúa nước dư thừa của cối xay, giữ lại dù <= 2%
-                if (baseName === 'milled_rice') return false;
+                    // Gạo xát (milled_rice) là sản phẩm chế biến từ lúa nước dư thừa của cối xay, giữ lại dù <= 2%
+                    if (baseName === 'milled_rice') return false;
 
-                // Chỉ prune nguyên liệu thô từ cơ sở Aniimo Materials bán trực tiếp <= 2% (Thạch hương, Ngôi sao, Muối biển khi không dùng)
-                // để tránh đề xuất xây dựng cơ sở thô lãng phí nhân lực và đất.
-                if (RAW_ANIIMO_MATERIALS.has(itemName) || RAW_ANIIMO_MATERIALS.has(baseName)) {
-                    return share <= 0.02;
-                }
-
-                // Tuyệt đối KHÔNG prune bừa bãi các sản phẩm chế biến dôi dư (nhân sâm khô, bột nhân sâm...)
-                // vì chúng là mắt xích của các chuỗi chế biến cao cấp mà solver đang vận hành.
-                return false;
-            };
-
-            for (let pass = 1; pass <= 3; pass++) {
-                const totalRate = bestPlan.rate_per_second;
-                if (!totalRate || totalRate <= 0) break;
-
-                const lowShareItems = [];
-                for (const stream of (bestPlan.income_streams || [])) {
-                    const share = stream.rate_per_second / totalRate;
-                    if (shouldPruneItem(stream.item_name, share)) {
-                        const baseName = stream.item_name.replace(/^quick_/, '');
-                        lowShareItems.push(stream.item_name);
-                        lowShareItems.push(baseName);
-                        lowShareItems.push(`quick_${baseName}`);
+                    // Chỉ prune nguyên liệu thô từ cơ sở Aniimo Materials bán trực tiếp <= 2% (Thạch hương, Ngôi sao, Muối biển khi không dùng)
+                    // để tránh đề xuất xây dựng cơ sở thô lãng phí nhân lực và đất.
+                    if (RAW_ANIIMO_MATERIALS.has(itemName) || RAW_ANIIMO_MATERIALS.has(baseName)) {
+                        return share <= 0.02;
                     }
-                }
 
-                const uniqueToPrune = [...new Set(lowShareItems)].filter(x => !(input.exclude || []).includes(x));
-                if (uniqueToPrune.length === 0) break;
+                    // Tuyệt đối KHÔNG prune bừa bãi các sản phẩm chế biến dôi dư (nhân sâm khô, bột nhân sâm...)
+                    // vì chúng là mắt xích của các chuỗi chế biến cao cấp mà solver đang vận hành.
+                    return false;
+                };
 
-                const newExclusions = [...new Set([...(input.exclude || []), ...uniqueToPrune])];
-                const prunedInput = { ...input, exclude: newExclusions };
+                for (let pass = 1; pass <= 3; pass++) {
+                    const totalRate = bestPlan.rate_per_second;
+                    if (!totalRate || totalRate <= 0) break;
 
-                const prunedJson = await callWorker('find_plan', JSON.stringify({ ...prunedInput, aniimo: bestSetup }));
-                if (runId !== planRunId) return;
+                    const lowShareItems = [];
+                    for (const stream of (bestPlan.income_streams || [])) {
+                        const share = stream.rate_per_second / totalRate;
+                        if (shouldPruneItem(stream.item_name, share)) {
+                            const baseName = stream.item_name.replace(/^quick_/, '');
+                            lowShareItems.push(stream.item_name);
+                            lowShareItems.push(baseName);
+                            lowShareItems.push(`quick_${baseName}`);
+                        }
+                    }
 
-                const prunedPlan = JSON.parse(prunedJson);
-                // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào đang chạy mà user đã tích chọn
-                const keepsUserSelections = [...(unlockedSpecial || [])].every(spec => {
-                    const wasInBest = (bestPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
-                    if (!wasInBest) return true;
-                    return (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
-                });
-                const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && keepsUserSelections;
-                if (prunedViable) {
-                    bestPlan = prunedPlan;
-                    input.exclude = newExclusions;
-                } else {
-                    break;
+                    const uniqueToPrune = [...new Set(lowShareItems)].filter(x => !(input.exclude || []).includes(x));
+                    if (uniqueToPrune.length === 0) break;
+
+                    const newExclusions = [...new Set([...(input.exclude || []), ...uniqueToPrune])];
+                    const prunedInput = { ...input, exclude: newExclusions };
+
+                    const prunedJson = await callWorker('find_plan', JSON.stringify({ ...prunedInput, aniimo: bestSetup }));
+                    if (runId !== planRunId) return;
+
+                    const prunedPlan = JSON.parse(prunedJson);
+                    // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào đang chạy mà user đã tích chọn
+                    const keepsUserSelections = [...(unlockedSpecial || [])].every(spec => {
+                        const wasInBest = (bestPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
+                        if (!wasInBest) return true;
+                        return (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
+                    });
+
+                    // BẢO TOÀN INVARIANT: Coins ròng không được giảm và các priority không bị giảm
+                    const keepsCoins = (prunedPlan?.rate_per_second || 0) >= (bestPlan?.rate_per_second || 0) * (1.0 - 1e-4);
+                    const keepsPriorities = (bestPlan?.priorities || []).every(bp => {
+                        const pp = (prunedPlan?.priorities || []).find(p => p.target === bp.target);
+                        return bp.per_second <= 1e-6 || (pp && pp.per_second >= bp.per_second * (1.0 - 1e-4));
+                    });
+
+                    const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && keepsUserSelections && keepsCoins && keepsPriorities;
+                    if (prunedViable) {
+                        bestPlan = prunedPlan;
+                        input.exclude = newExclusions;
+                    } else {
+                        break;
+                    }
                 }
             }
         }

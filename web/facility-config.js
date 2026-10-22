@@ -260,13 +260,13 @@ export const FACILITIES = [
         tooltip: "Lv.1: Cotton Thread&#10;Lv.2: Woolen Yarn, Cotton Fabric&#10;Lv.3: Palm Rope, Wool Fabric&#10;Lv.4: Dyed Cotton Fabric"
     },
     {
-        name: 'Dance Pad Polisher', slug: 'dance-pad-polisher', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
+        name: 'Dance Pad Polisher', slug: 'dance-pad-polisher', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', supportsEmode: true, baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 2, 2: 5, 3: 7 },
         counts: [0, 1],
         tooltip: "Lv.1: Growth Bud&#10;Lv.2: Growth Flower&#10;Lv.3: Growth Fruit&#10;Makes Aniimo EXP, not Home Coins.&#10;Unlock levels not yet confirmed in game."
     },
     {
-        name: 'Aniipod Maker', slug: 'aniipod-maker', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
+        name: 'Aniipod Maker', slug: 'aniipod-maker', defaultCount: 0, category: 'Materials Processing', hasWorker: true, ability: 'Lightning', supportsEmode: true, baseWatts: 30, get powerWatts() { return getFacilityUnitWatts(this.name); },
         unlocks: { 1: 3, 2: 6, 3: 9 },
         counts: [0, 0, 1],
         tooltip: "Lv.1: Aniipod&#10;Lv.2: Aniipod Pro&#10;Lv.3: Aniipod Mega&#10;Aniipods are for catching Aniimo, not for selling.&#10;Unlock levels not yet confirmed in game."

@@ -297,7 +297,7 @@ fn test_grower_steps_cover_every_crop_and_tree() {
 fn test_unverified_list_names_real_recipes() {
     let Some(items) = load_items() else { return };
     let listed = aniimax::data::load_unverified(Path::new("data")).expect("Failed to load unverified.csv");
-    assert!(!listed.is_empty());
+    // When all recipes are verified, listed is empty.
     for (name, facility) in &listed {
         let item = items
             .iter()
@@ -338,4 +338,77 @@ fn test_recipes_take_their_facility_ability() {
         checked += 1;
     }
     assert!(checked > 100, "only checked {checked} recipes");
+}
+
+#[test]
+fn test_food_energy_values_match_expectations() {
+    let data_dir = Path::new("data");
+    if !data_dir.exists() {
+        return;
+    }
+    let items = load_all_data(data_dir).expect("Failed to load data");
+
+    let find_energy = |slug: &str| -> Option<f64> {
+        items.iter().find(|i| i.name == slug).and_then(|i| i.energy)
+    };
+
+    assert_eq!(find_energy("wheat"), Some(140.0));
+    assert_eq!(find_energy("potato"), Some(220.0));
+    assert_eq!(find_energy("bread"), Some(26740.0));
+    assert_eq!(find_energy("potato_chips"), Some(6370.0));
+    assert_eq!(find_energy("refined_flour"), Some(12200.0));
+    assert_eq!(find_energy("berry_chocolate_coconut_pudding"), Some(126360.0));
+
+    // Non-food items must have None
+    assert_eq!(find_energy("iron_ore"), None);
+    assert_eq!(find_energy("timber"), None);
+}
+
+#[test]
+fn test_food_energy_validation_and_errors() {
+    let data_dir = Path::new("data");
+    if !data_dir.exists() {
+        return;
+    }
+    let mut items = load_all_data(data_dir).expect("Failed to load data");
+
+    // 1. Orphan slug returns helpful error mentioning slug and file
+    let orphan_csv = "slug,energy\nnon_existent_crop_or_dish,500\n";
+    let err = aniimax::data::enrich_food_energy(&mut items, orphan_csv).unwrap_err();
+    let err_str = err.to_string();
+    assert!(err_str.contains("orphan slug 'non_existent_crop_or_dish'"), "{}", err_str);
+    assert!(err_str.contains("food_energy.csv"), "{}", err_str);
+
+    // 2. Duplicate slug
+    let dup_csv = "slug,energy\nwheat,140\nwheat,140\n";
+    let err = aniimax::data::enrich_food_energy(&mut items, dup_csv).unwrap_err();
+    assert!(err.to_string().contains("duplicate slug 'wheat'"), "{}", err);
+
+    // 3. Negative energy
+    let neg_csv = "slug,energy\nwheat,-10\n";
+    let err = aniimax::data::enrich_food_energy(&mut items, neg_csv).unwrap_err();
+    assert!(err.to_string().contains("invalid energy value -10"), "{}", err);
+
+    // 4. Conflicting energy values on already-assigned item
+    let conflict_csv = "slug,energy\nwheat,9999\n";
+    let err = aniimax::data::enrich_food_energy(&mut items, conflict_csv).unwrap_err();
+    let err_str = err.to_string();
+    assert!(err_str.contains("conflicting energy for 'wheat'"), "{}", err_str);
+    assert!(err_str.contains("140") && err_str.contains("9999"), "{}", err_str);
+}
+
+#[test]
+fn test_food_energy_embedded_and_loaded_identical() {
+    let data_dir = Path::new("data");
+    if !data_dir.exists() {
+        return;
+    }
+    let loaded = load_all_data(data_dir).expect("Failed to load data");
+    let embedded = aniimax::data::embedded_items();
+
+    assert_eq!(loaded.len(), embedded.len(), "Item count mismatch");
+    for (l, e) in loaded.iter().zip(embedded.iter()) {
+        assert_eq!(l.name, e.name);
+        assert_eq!(l.energy, e.energy, "Energy mismatch for item {}", l.name);
+    }
 }

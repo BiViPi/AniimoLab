@@ -1,8 +1,5 @@
-﻿slug,vi_name,en_name,unlock_rv,facility,facility_level,energy,feeds,coins,energy_per_coin,time_normal_sec,time_emode_sec,ingredients,climate,module
+slug,vi_name,en_name,unlock_rv,facility,facility_level,energy,feeds,coins,energy_per_coin,time_normal_sec,time_emode_sec,ingredients,climate,module
 wheat,Lúa Mì,Wheat,1,Farmland,1,140,14 min,1,140.0,240,240,Hạt giống (Chi phí: 0 coins),,
-grapes,Grapes,Grapes,1,Nông sản thô / Khác,1,1210,2h 1m,0,0,0,0,Không xác định,,
-energy_bites,Energy Bites,Energy Bites,1,Nông sản thô / Khác,1,1000,1h 40m,0,0,0,0,Không xác định,,
-captain_spud,Captain Spud,Captain Spud,1,Nông sản thô / Khác,1,600,1h,0,0,0,0,Không xác định,,
 wheatmeal,Bột Lúa Mì,Wheatmeal,2,Carousel Mill,1,9370,15h 37m,70,133.86,54,54,Lúa Mì x50,,
 potato,Khoai Tây,Potato,2,Farmland,2,220,22 min,8,27.5,640,640,Hạt giống (Chi phí: 1 coins),,
 bread,Bánh Mì,Bread,4,Claw Game Cooker,1,26740,1d 20h,280,95.5,108,108,Bột Lúa Mì x2; Nước Giếng x5,,
@@ -28,12 +25,7 @@ sugarcane,Mía,Sugarcane,9,Farmland,5,1800,3h,81,22.22,2400,2400,Hạt giống (
 strawberry,Dâu Tây,Strawberry,9,Farmland,5,950,1h 35m,61,15.57,2400,2400,Hạt giống (Chi phí: 32 coins),Cool,
 soy_sauce_tofu,Đậu Phụ Chiên Tương,Soy Sauce Tofu,10,Blazing Stove,2,45280,3d 3h,1470,30.8,203,162,Đậu Phụ x1; Nước Tương x1,,
 tanghulu,Kẹo Hồ Lô,Tanghulu,10,Blazing Stove,2,45280,3d 3h,2260,20.04,203,162,Dâu Tây x8; Đường Phèn x1,,
-moondew_radish_slices,Củ Cải Sương Dạ Nguyệt Thái Lát,Moondew Radish Slices,10,Harvest Moon Festival,1,45280,3d 3h,2370,19.11,203,0,Củ Cải Sương Dạ Nguyệt x8; Đường Phèn x1,,
 sugar_roasted_chestnuts,Hạt Dẻ Rang Đường,Sugar-Roasted Chestnuts,10,Blazing Stove,2,45280,3d 3h,2470,18.33,203,162,Hạt Dẻ x7; Đường Phèn x1,,
-moondew_radish,Củ Cải Sương Dạ Nguyệt,Moondew Radish,10,Harvest Moon Festival,1,1350,2h 15m,74,18.24,0,0, x,,
-waxing_moon_pepper,Ớt Trăng Khuyết,Waxing Moon Pepper,10,Harvest Moon Festival,1,1350,2h 15m,74,18.24,0,0, x,,
-umbral_hot_pot,Lẩu Song Nguyệt,Umbral Hot Pot,10,Harvest Moon Festival,1,38810,2d 16h,2150,18.05,203,0,Củ Cải Sương Dạ Nguyệt x8; Ớt Trăng Khuyết x8; Nước Ngọt x8,,
-roasted_waxing_moon_pepper,Ớt Trăng Khuyết Nướng,Roasted Waxing Moon Pepper,10,Harvest Moon Festival,1,26040,1d 19h,1520,17.13,162,0,Ớt Trăng Khuyết x8; Muối Biển x23,,
 dried_strawberries,Dâu Tây Sấy Khô,Dried Strawberries,10,Jukebox Dryer,4,9060,15h 6m,690,13.13,68,54,Dâu Tây x8,,
 grape_candy,Kẹo Nho,Grape Candy,12,Claw Game Cooker,5,45570,3d 3h,2850,15.99,243,162,Nho x9; Đường Phèn x1,,
 caramel_nut_chips,Bánh Hạt Phủ Caramel,Caramel Nut Chips,12,Claw Game Cooker,5,45570,3d 3h,3130,14.56,243,162,Hạt Cứng x1; Siro Cây Phong x9,,

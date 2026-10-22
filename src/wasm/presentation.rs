@@ -329,6 +329,7 @@ impl PreparedInput {
             unverified,
             level_up: None,
             priorities: vec![],
+            selected_special_recipes: vec![],
             season_points,
             staffing: Vec::new(),
             guards: self.facility_counts.guards(),

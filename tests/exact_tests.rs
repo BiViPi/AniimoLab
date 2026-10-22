@@ -491,3 +491,638 @@ fn crew_residents_take_a_whole_aniimo() {
     let (two, items) = solve_with_crew(&counts, crew_of(&[(2, &[("Leisure", 2)])]));
     assert_eq!(sandcastles(&two, &items), 2);
 }
+
+#[test]
+fn test_aniimo_food_target_returns_energy_and_items() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[("Farmland", 6, 3)]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "aniimo_food",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("food plan");
+
+    assert!(plan.proven_optimal);
+    assert!(plan.rate_per_second > 0.0, "Food rate should be positive");
+    assert!(!plan.eaten.is_empty(), "Should have eaten food items");
+
+    // Check plan passes independent re-check for aniimo_food
+    let recomputed = check_plan(&plan, &items, "aniimo_food", &counts, &modules, None)
+        .expect("check_plan passes for aniimo_food");
+    assert!((recomputed - plan.rate_per_second).abs() < 1e-6);
+
+    // Target rate matches
+    let tr = aniimax::exact::target_rate(&plan, &items, "aniimo_food");
+    assert!((tr - plan.rate_per_second).abs() < 1e-6);
+
+    // Target items returns item names and eaten rates
+    let ti = aniimax::exact::target_items(&plan, &items, "aniimo_food");
+    assert!(!ti.is_empty());
+    for (name, rate) in &ti {
+        assert!(*rate > 0.0);
+        assert!(plan.eaten.contains_key(name));
+    }
+
+    // Target streams returns (energy_rate, lead_time)
+    let ts = aniimax::exact::target_streams(&plan, &items, "aniimo_food");
+    assert!(!ts.is_empty());
+    let stream_sum: f64 = ts.iter().map(|&(r, _)| r).sum();
+    assert!((stream_sum - tr).abs() < 1e-6);
+
+    // Production plan reasons
+    let prod_plan = to_production_plan(&plan, &items, "aniimo_food", &counts);
+    for step in &prod_plan.coin_items {
+        if step.status == aniimax::models::PlanStepStatus::Producing {
+            assert!(
+                step.reason.contains("Eaten by Aniimo") || step.reason.contains("Used for"),
+                "Unexpected reason: {}", step.reason
+            );
+        }
+    }
+}
+
+#[test]
+fn test_food_and_sold_split_no_double_count() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Farmland", 8, 3), // potato has cost 1, sell 8, energy 220
+    ]);
+    let modules = ModuleLevels::default();
+
+    // Floor of 0.5 energy/s for Food, maximizing Coins
+    let floor_val = 0.5;
+    let plan = solve_exact(
+        &items,
+        "coins",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[("aniimo_food".to_string(), floor_val)] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("coins plan with food floor");
+
+    assert!(plan.proven_optimal);
+    let food_rate = aniimax::exact::target_rate(&plan, &items, "aniimo_food");
+    assert!(
+        food_rate >= floor_val * (1.0 - 1e-4),
+        "Food rate {food_rate} must satisfy floor {floor_val}"
+    );
+
+    // check_plan verifies inventory balances and seed costs
+    let recomputed_coins = check_plan(&plan, &items, "coins", &counts, &modules, None)
+        .expect("check_plan passes");
+    assert!((recomputed_coins - plan.rate_per_second).abs() < 1e-6);
+
+    // Verify net inventory balances are all non-negative
+    let nets = net_rates(&plan, &items);
+    for (item, net) in &nets {
+        assert!(*net >= -1e-6, "Item {item} has negative net balance {net}");
+    }
+
+    // Verify seed costs deducted properly in to_production_plan
+    let prod_plan = to_production_plan(&plan, &items, "coins", &counts);
+    let stream_sum: f64 = prod_plan.income_streams.iter().map(|s| s.rate_per_second).sum();
+    assert!(
+        (stream_sum - plan.rate_per_second).abs() < 1e-6,
+        "Income streams sum {stream_sum} must match net rate {}", plan.rate_per_second
+    );
+}
+
+#[test]
+fn test_aniimo_food_7_5_energy_cap() {
+    let Some(items) = load_items() else { return };
+    // Huge capacity that would easily exceed 7.5 energy/s without the cap
+    let counts = FacilityCounts::from_pairs(&[
+        ("Farmland", 40, 5),
+        ("Carousel Mill", 10, 4),
+        ("Claw Game Cooker", 10, 4),
+    ]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "aniimo_food",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("capped food plan");
+
+    let food_rate = aniimax::exact::target_rate(&plan, &items, "aniimo_food");
+    assert!(
+        food_rate <= 7.5 + 1e-6,
+        "Food rate {food_rate} must not exceed 7.5 Energy/s cap"
+    );
+    assert!(
+        (food_rate - 7.5).abs() < 1e-4,
+        "With huge capacity, food rate should hit exactly the 7.5 cap, got {food_rate}"
+    );
+
+    check_plan(&plan, &items, "aniimo_food", &counts, &modules, None)
+        .expect("check_plan passes with 7.5 cap");
+}
+
+#[test]
+fn test_aniipod_mega_maps_to_aniipods() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Aniipod Maker", 1, 1),
+        ("Woodland", 4, 3),
+        ("Mine", 4, 3),
+    ]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "aniipod_mega",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("aniipod plan");
+
+    let rate = aniimax::exact::target_rate(&plan, &items, "aniipod_mega");
+    assert!(rate > 0.0, "Aniipod Mega rate should be positive");
+    let target_items = aniimax::exact::target_items(&plan, &items, "aniipod_mega");
+    assert!(!target_items.is_empty(), "Should produce aniipods items");
+
+    check_plan(&plan, &items, "aniipod_mega", &counts, &modules, None)
+        .expect("check_plan passes for aniipod_mega");
+}
+
+#[test]
+fn test_target_facilities_and_dependency_closure() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Aniipod Maker", 1, 1),
+        ("Woodland", 4, 3),
+        ("Mine", 4, 3),
+    ]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "aniipod_mega",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("aniipod plan");
+
+    let facs = aniimax::exact::target_facilities(&plan, &items, "aniipod_mega");
+    assert!(facs.contains(&"Aniipod Maker".to_string()), "Target facilities must include Aniipod Maker");
+    assert!(facs.iter().any(|f| f == "Woodland" || f == "Mine"), "Target facilities must include dependencies");
+}
+
+#[test]
+fn test_lexicographic_food_floor_preserves_energy_and_maximizes_residual_coins() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Farmland", 6, 3),
+        ("Stove", 2, 3),
+        ("Woodland", 4, 3),
+    ]);
+    let modules = ModuleLevels::default();
+
+    // Step 1: Solve for food priority
+    let food_plan = solve_exact(
+        &items,
+        "aniimo_food",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("food plan");
+    let food_rate = aniimax::exact::target_rate(&food_plan, &items, "aniimo_food");
+    assert!(food_rate > 0.0, "Food rate should be positive");
+
+    // Step 2: Solve coins with food floor locked
+    let floors = vec![("aniimo_food".to_string(), food_rate)];
+    let coins_plan = solve_exact(
+        &items,
+        "coins",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &floors },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("coins plan with food floor");
+
+    // Step 3: Verify invariants
+    let actual_food = aniimax::exact::target_rate(&coins_plan, &items, "aniimo_food");
+    assert!(
+        actual_food >= food_rate * (1.0 - 1e-4),
+        "Actual food rate {actual_food} must preserve floor {food_rate}"
+    );
+    assert!(coins_plan.rate_per_second >= 0.0, "Residual coins should be non-negative");
+
+    let food_facs = aniimax::exact::target_facilities(&coins_plan, &items, "aniimo_food");
+    assert!(food_facs.contains(&"Stove".to_string()) || food_facs.contains(&"Farmland".to_string()));
+
+    check_plan(&coins_plan, &items, "coins", &counts, &modules, None)
+        .expect("check_plan passes for lexicographic plan");
+}
+
+#[test]
+fn test_target_facilities_resolves_variants_and_upstream_closure() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Farmland", 6, 3),
+        ("Carousel Mill", 2, 3),
+        ("Stove", 2, 3),
+    ]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "coins",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("coins plan");
+
+    let facs = aniimax::exact::target_facilities(&plan, &items, "coins");
+    assert!(!facs.is_empty(), "Target facilities for coins should not be empty");
+    // If milling or cooking occurs, both processor and Farmland must be included in dependency closure
+    if facs.iter().any(|f| f == "Carousel Mill" || f == "Stove") {
+        assert!(facs.contains(&"Farmland".to_string()), "Upstream Farmland must be included in closure");
+    }
+}
+
+#[test]
+fn test_selected_special_recipes_filters_only_validated_specials() {
+    use aniimax::wasm::SPECIAL_RECIPE_NAMES;
+
+    fn clean_item(name: &str) -> &str {
+        let base = aniimax::models::base_item_name(name);
+        base.strip_prefix("quick_").unwrap_or(base)
+    }
+
+    // Scenario 1: Only regular recipes running
+    let mut regular_rates = std::collections::BTreeMap::new();
+    regular_rates.insert("wheat".to_string(), 1.0);
+    regular_rates.insert("milled_rice__by1".to_string(), 0.5);
+    regular_rates.insert("wood_block__manual".to_string(), 0.2);
+
+    let specials: Vec<String> = regular_rates
+        .iter()
+        .filter(|(_, &rate)| rate > 1e-9)
+        .map(|(name, _)| clean_item(name))
+        .filter(|&name| SPECIAL_RECIPE_NAMES.contains(&name))
+        .map(|s| s.to_string())
+        .collect();
+    assert!(specials.is_empty(), "Regular recipes must not be classified as special");
+
+    // Scenario 2: With special recipe running (even with variant suffix)
+    let mut with_special = regular_rates;
+    with_special.insert("rose_shortbread__specialist".to_string(), 0.1);
+    with_special.insert("strawberry_candy".to_string(), 0.05);
+
+    let mut specials2: Vec<String> = with_special
+        .iter()
+        .filter(|(_, &rate)| rate > 1e-9)
+        .map(|(name, _)| clean_item(name))
+        .filter(|&name| SPECIAL_RECIPE_NAMES.contains(&name))
+        .map(|s| s.to_string())
+        .collect();
+    specials2.sort();
+    specials2.dedup();
+
+    assert_eq!(specials2, vec!["rose_shortbread".to_string(), "strawberry_candy".to_string()]);
+}
+
+#[test]
+fn test_target_facility_depths_orders_upstream_before_downstream() {
+    let Some(items) = load_items() else { return };
+    let counts = FacilityCounts::from_pairs(&[
+        ("Farmland", 6, 3),
+        ("Carousel Mill", 2, 3),
+        ("Stove", 2, 3),
+    ]);
+    let modules = ModuleLevels::default();
+
+    let plan = solve_exact(
+        &items,
+        "aniimo_food",
+        &counts,
+        &modules,
+        Goal::Earn { floors: &[] },
+        Some(Duration::from_secs(60)),
+        None,
+    ).expect("food plan");
+
+    let depths = aniimax::exact::target_facility_depths(&plan, &items, "aniimo_food").expect("food depths");
+    assert!(!depths.is_empty(), "Facility depths should not be empty");
+
+    // If both Farmland (raw crop grower) and processor (Stove/Mill) run:
+    let farmland_depth = depths.iter().find(|(f, _)| f == "Farmland").map(|(_, d)| *d);
+    let stove_depth = depths.iter().find(|(f, _)| f == "Stove").map(|(_, d)| *d);
+    let mill_depth = depths.iter().find(|(f, _)| f == "Carousel Mill").map(|(_, d)| *d);
+
+    if let (Some(farm_d), Some(stove_d)) = (farmland_depth, stove_depth) {
+        assert_eq!(farm_d, 0, "Furthest upstream raw material grower must have depth 0");
+        assert!(farm_d < stove_d, "Upstream Farmland depth ({farm_d}) must be less than downstream Stove depth ({stove_d})");
+    }
+
+    if let (Some(farm_d), Some(mill_d)) = (farmland_depth, mill_depth) {
+        assert_eq!(farm_d, 0, "Furthest upstream raw material grower must have depth 0");
+        assert!(farm_d < mill_d, "Upstream Farmland depth ({farm_d}) must be less than Mill depth ({mill_d})");
+    }
+
+    // target_facilities must preserve the exact upstream-to-downstream order
+    let facs = aniimax::exact::target_facilities(&plan, &items, "aniimo_food");
+    if let (Some(idx_farm), Some(idx_stove)) = (
+        facs.iter().position(|f| f == "Farmland"),
+        facs.iter().position(|f| f == "Stove"),
+    ) {
+        assert!(idx_farm < idx_stove, "Farmland index ({idx_farm}) must appear before Stove index ({idx_stove})");
+    }
+}
+
+#[test]
+fn test_target_facility_depths_multi_path_longest_dependency() {
+    use std::collections::BTreeMap;
+
+    // Graph scenario:
+    // "dish" (Stove) requires "wheat" (direct path, len 1) AND "flour" (Mill, path len 1).
+    // "flour" (Mill) requires "wheat" (path len 2 from dish).
+    // "wheat" is grown at "Farmland".
+    //
+    // Under shortest-path BFS without relaxation:
+    // - dish -> wheat (dist 1) puts Farmland at dist 1 and marks wheat visited.
+    // - dish -> flour (dist 1) puts Mill at dist 1.
+    // - flour -> wheat (dist 2) would be skipped because wheat was visited.
+    // Result without relaxation: Farmland dist 1, Mill dist 1 -> both depth 0 (tied!).
+    //
+    // Under longest-path relaxation:
+    // - wheat gets relaxed to dist 2.
+    // - Farmland gets max_dist = 2 -> depth 2 - 2 = 0.
+    // - Mill stays at dist 1 -> depth 2 - 1 = 1.
+    // - Stove stays at dist 0 -> depth 2 - 0 = 2.
+    // Result: Farmland (0) < Mill (1) < Stove (2). Farmland strictly upstream of Mill!
+
+    let wheat = ProductionItem {
+        name: "wheat".to_string(),
+        facility: "Farmland".to_string(),
+        raw_materials: None,
+        required_amount: None,
+        cost: Some(0.0),
+        sell_currency: "coins".to_string(),
+        sell_value: 1.0,
+        production_time: 10.0,
+        yield_amount: 1,
+        energy: None,
+        facility_level: 1,
+        module_requirement: None,
+        workload: None,
+        emode_base_time: None,
+        byproduct: None,
+        environment: None,
+        season: None,
+        crew: None,
+    };
+
+    let flour = ProductionItem {
+        name: "flour".to_string(),
+        facility: "Carousel Mill".to_string(),
+        raw_materials: Some(vec!["wheat".to_string()]),
+        required_amount: Some(vec![1]),
+        cost: None,
+        sell_currency: "coins".to_string(),
+        sell_value: 5.0,
+        production_time: 10.0,
+        yield_amount: 1,
+        energy: None,
+        facility_level: 1,
+        module_requirement: None,
+        workload: None,
+        emode_base_time: None,
+        byproduct: None,
+        environment: None,
+        season: None,
+        crew: None,
+    };
+
+    let dish = ProductionItem {
+        name: "dish".to_string(),
+        facility: "Stove".to_string(),
+        raw_materials: Some(vec!["wheat".to_string(), "flour".to_string()]),
+        required_amount: Some(vec![1, 1]),
+        cost: None,
+        sell_currency: "coins".to_string(),
+        sell_value: 20.0,
+        production_time: 10.0,
+        yield_amount: 1,
+        energy: Some(500.0),
+        facility_level: 1,
+        module_requirement: None,
+        workload: None,
+        emode_base_time: None,
+        byproduct: None,
+        environment: None,
+        season: None,
+        crew: None,
+    };
+
+    let items = vec![wheat, flour, dish];
+
+    let mut recipe_rates = BTreeMap::new();
+    recipe_rates.insert("dish".to_string(), 1.0);
+    recipe_rates.insert("flour".to_string(), 1.0);
+    recipe_rates.insert("wheat".to_string(), 2.0);
+
+    let mut eaten = BTreeMap::new();
+    eaten.insert("dish".to_string(), 1.0);
+
+    let plan = ExactPlan {
+        rate_per_second: 500.0,
+        objective: 500.0,
+        upper_bound: 500.0,
+        proven_optimal: true,
+        nodes: 1,
+        recipe_rates,
+        units: BTreeMap::new(),
+        sold: BTreeMap::new(),
+        eaten,
+        environment: Vec::new(),
+        pairs: Vec::new(),
+        pace: None,
+        staffing: Vec::new(),
+        guard_staffing: Vec::new(),
+    };
+
+    let depths = aniimax::exact::target_facility_depths(&plan, &items, "aniimo_food").expect("food depths");
+    assert_eq!(depths.len(), 3);
+
+    let depth_map: BTreeMap<String, u32> = depths.into_iter().collect();
+    let farm_d = *depth_map.get("Farmland").expect("Farmland present");
+    let mill_d = *depth_map.get("Carousel Mill").expect("Mill present");
+    let stove_d = *depth_map.get("Stove").expect("Stove present");
+
+    assert_eq!(farm_d, 0, "Farmland is the furthest upstream supplier (depth 0)");
+    assert_eq!(mill_d, 1, "Carousel Mill is intermediate processor (depth 1)");
+    assert_eq!(stove_d, 2, "Stove is final food maker (depth 2)");
+
+    let facs = aniimax::exact::target_facilities(&plan, &items, "aniimo_food");
+    assert_eq!(facs, vec!["Farmland".to_string(), "Carousel Mill".to_string(), "Stove".to_string()]);
+}
+
+#[test]
+fn test_target_facility_depths_detects_cycle() {
+    use std::collections::BTreeMap;
+    use aniimax::exact::DependencyDepthError;
+
+    // A depends on B, B depends on A
+    let item_a = ProductionItem {
+        name: "item_a".to_string(),
+        facility: "FacA".to_string(),
+        raw_materials: Some(vec!["item_b".to_string()]),
+        required_amount: Some(vec![1]),
+        cost: None,
+        sell_currency: "coins".to_string(),
+        sell_value: 10.0,
+        production_time: 10.0,
+        yield_amount: 1,
+        energy: Some(100.0),
+        facility_level: 1,
+        module_requirement: None,
+        workload: None,
+        emode_base_time: None,
+        byproduct: None,
+        environment: None,
+        season: None,
+        crew: None,
+    };
+    let item_b = ProductionItem {
+        name: "item_b".to_string(),
+        facility: "FacB".to_string(),
+        raw_materials: Some(vec!["item_a".to_string()]),
+        required_amount: Some(vec![1]),
+        cost: None,
+        sell_currency: "coins".to_string(),
+        sell_value: 10.0,
+        production_time: 10.0,
+        yield_amount: 1,
+        energy: None,
+        facility_level: 1,
+        module_requirement: None,
+        workload: None,
+        emode_base_time: None,
+        byproduct: None,
+        environment: None,
+        season: None,
+        crew: None,
+    };
+
+    let items = vec![item_a, item_b];
+    let mut recipe_rates = BTreeMap::new();
+    recipe_rates.insert("item_a".to_string(), 1.0);
+    recipe_rates.insert("item_b".to_string(), 1.0);
+    let mut eaten = BTreeMap::new();
+    eaten.insert("item_a".to_string(), 1.0);
+
+    let plan = ExactPlan {
+        rate_per_second: 100.0,
+        objective: 100.0,
+        upper_bound: 100.0,
+        proven_optimal: true,
+        nodes: 1,
+        recipe_rates,
+        units: BTreeMap::new(),
+        sold: BTreeMap::new(),
+        eaten,
+        environment: Vec::new(),
+        pairs: Vec::new(),
+        pace: None,
+        staffing: Vec::new(),
+        guard_staffing: Vec::new(),
+    };
+
+    let res = aniimax::exact::target_facility_depths(&plan, &items, "aniimo_food");
+    assert_eq!(res, Err(DependencyDepthError::CycleDetected));
+
+    // target_facilities returns empty list on cycle, not a misleading partial closure
+    let facs = aniimax::exact::target_facilities(&plan, &items, "aniimo_food");
+    assert!(facs.is_empty(), "target_facilities should be empty when a cycle is detected");
+}
+
+#[test]
+fn test_target_facility_depths_detects_depth_truncated() {
+    use std::collections::BTreeMap;
+    use aniimax::exact::{DependencyDepthError, MAX_DEPENDENCY_DEPTH};
+
+    // Chain of length MAX_DEPENDENCY_DEPTH + 1 items: item_0 -> item_1 -> ... -> item_64
+    let count = (MAX_DEPENDENCY_DEPTH + 1) as usize;
+    let mut items = Vec::new();
+    let mut recipe_rates = BTreeMap::new();
+
+    for i in 0..count {
+        let name = format!("chain_item_{i}");
+        let raw_materials = if i + 1 < count {
+            Some(vec![format!("chain_item_{}", i + 1)])
+        } else {
+            None
+        };
+        let energy = if i == 0 { Some(100.0) } else { None };
+        items.push(ProductionItem {
+            name: name.clone(),
+            facility: format!("Facility_{i}"),
+            raw_materials,
+            required_amount: Some(vec![1]),
+            cost: None,
+            sell_currency: "coins".to_string(),
+            sell_value: 1.0,
+            production_time: 1.0,
+            yield_amount: 1,
+            energy,
+            facility_level: 1,
+            module_requirement: None,
+            workload: None,
+            emode_base_time: None,
+            byproduct: None,
+            environment: None,
+            season: None,
+            crew: None,
+        });
+        recipe_rates.insert(name, 1.0);
+    }
+
+    let mut eaten = BTreeMap::new();
+    eaten.insert("chain_item_0".to_string(), 1.0);
+
+    let plan = ExactPlan {
+        rate_per_second: 100.0,
+        objective: 100.0,
+        upper_bound: 100.0,
+        proven_optimal: true,
+        nodes: 1,
+        recipe_rates,
+        units: BTreeMap::new(),
+        sold: BTreeMap::new(),
+        eaten,
+        environment: Vec::new(),
+        pairs: Vec::new(),
+        pace: None,
+        staffing: Vec::new(),
+        guard_staffing: Vec::new(),
+    };
+
+    let res = aniimax::exact::target_facility_depths(&plan, &items, "aniimo_food");
+    assert_eq!(res, Err(DependencyDepthError::DepthTruncated));
+
+    // target_facilities returns empty list on truncation, not a misleading partial closure
+    let facs = aniimax::exact::target_facilities(&plan, &items, "aniimo_food");
+    assert!(facs.is_empty(), "target_facilities should be empty when depth exceeds MAX_DEPENDENCY_DEPTH");
+}

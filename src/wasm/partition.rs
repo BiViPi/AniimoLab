@@ -157,11 +157,11 @@ pub(crate) fn partition_mine(
                 emode_facilities.push("Mine (Electric)".to_string());
             }
             emode_counts.insert("Mine (Electric)".to_string(), e_count);
-            if let Some(q_ore) = items
+            for item in items
                 .iter()
-                .find(|i| i.facility == "Mine" && i.facility_level == max_mine_level)
+                .filter(|i| i.facility == "Mine" && i.facility_level <= max_mine_level)
             {
-                let mut electric_item = q_ore.clone();
+                let mut electric_item = item.clone();
                 electric_item.facility = "Mine (Electric)".to_string();
                 electric_item.emode_base_time = Some(1800.0);
                 partitioned_mine_items.push(electric_item);
@@ -170,12 +170,13 @@ pub(crate) fn partition_mine(
 
         if p_count > 0 {
             facility_counts.add_tier("Mine (Prismana)", p_count, max_mine_level);
-            if let Some(q_ore) = items
+            if let Some(top_ore) = items
                 .iter()
-                .find(|i| i.facility == "Mine" && i.facility_level == max_mine_level)
+                .filter(|i| i.facility == "Mine" && i.facility_level <= max_mine_level)
+                .max_by_key(|i| i.facility_level)
             {
-                let mut prismana_item = q_ore.clone();
-                prismana_item.name = format!("{}{}", q_ore.name, SPECIALIST_SUFFIX);
+                let mut prismana_item = top_ore.clone();
+                prismana_item.name = format!("{}{}", top_ore.name, SPECIALIST_SUFFIX);
                 prismana_item.facility = "Mine (Prismana)".to_string();
                 prismana_item.emode_base_time = None;
                 prismana_item.workload = Some(2700.0);
@@ -185,7 +186,10 @@ pub(crate) fn partition_mine(
 
         if std_count > 0 {
             facility_counts.add_tier("Mine (Manual)", std_count, max_mine_level);
-            for item in items.iter().filter(|i| i.facility == "Mine") {
+            for item in items
+                .iter()
+                .filter(|i| i.facility == "Mine" && i.facility_level <= max_mine_level)
+            {
                 let mut manual_item = item.clone();
                 manual_item.name = format!("{}{}", item.name, MANUAL_SUFFIX);
                 manual_item.facility = "Mine (Manual)".to_string();
@@ -199,7 +203,7 @@ pub(crate) fn partition_mine(
             emode_facilities.retain(|f| f != "Mine");
             emode_counts.remove("Mine");
         } else {
-            items.retain(|i| !(i.facility == "Mine" && i.facility_level == max_mine_level));
+            items.retain(|i| !(i.facility == "Mine" && i.facility_level <= max_mine_level));
             emode_facilities.retain(|f| f != "Mine");
             emode_counts.remove("Mine");
         }

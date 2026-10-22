@@ -9,6 +9,13 @@ pub(crate) mod validation;
 
 pub use self::preparation::PreparedInput;
 
+#[wasm_bindgen(start)]
+pub fn init_console() {
+    std::panic::set_hook(Box::new(|info| {
+        web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&info.to_string()));
+    }));
+}
+
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -832,6 +839,16 @@ impl From<JsEnvironmentAssignment> for crate::models::EnvironmentAssignment {
 /// holds on to this after [`find_production_plan`] and passes it back unmodified as part of
 /// [`JsGoalInput`] to [`time_to_reach_goal`], without ever needing to re-run the facility-
 /// allocation solve just because the goal amount changed.
+/// Validated list of special recipe IDs unlocked with rare currency.
+pub const SPECIAL_RECIPE_NAMES: &[&str] = &[
+    "rose_shortbread",
+    "potato_kvass",
+    "ginseng_porridge",
+    "strawberry_candy",
+    "flowers_in_a_bottle",
+    "lotion",
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsProductionPlan {
     pub success: bool,
@@ -869,6 +886,9 @@ pub struct JsProductionPlan {
     /// What the plan makes of each priority it was asked for, in order.
     #[serde(default)]
     pub priorities: Vec<JsPriority>,
+    /// Recipes currently active with positive rate.
+    #[serde(default)]
+    pub selected_special_recipes: Vec<String>,
     /// During the season, its points per second from everything the plan sells.
     #[serde(default)]
     pub season_points: Option<f64>,
@@ -897,6 +917,19 @@ pub struct JsPriority {
     /// [`crate::exact::target_streams`]), so a goal counts each one's wait; empty for coins.
     #[serde(default)]
     pub streams: Vec<(f64, f64)>,
+    /// Facilities participating in producing this priority (including dependencies, ordered upstream to downstream).
+    #[serde(default)]
+    pub facilities: Vec<String>,
+    /// Upstream dependency depth for each facility (0 = raw material supplier, higher = downstream processor).
+    #[serde(default)]
+    pub facility_depths: Vec<(String, u32)>,
+    /// Status of dependency resolution: "ok", "cycle_detected", or "depth_truncated".
+    #[serde(default = "default_depth_status")]
+    pub depth_status: String,
+}
+
+fn default_depth_status() -> String {
+    "ok".to_string()
 }
 
 /// How long a level-up plan takes to cover the level-up's cost.
@@ -942,6 +975,7 @@ pub(crate) fn empty_production_plan(success: bool, error: Option<String>) -> JsP
         unverified: vec![],
         level_up: None,
         priorities: vec![],
+        selected_special_recipes: vec![],
         season_points: None,
         staffing: Vec::new(),
         guards: 0,
@@ -1186,7 +1220,11 @@ pub fn exact_plan(input_json: &str, stage_json: &str, solution_json: &str) -> St
     ) else {
         return no_plan();
     };
-    if exact.rate_per_second <= 0.0 && level_up.is_none() {
+    let has_target_output = prepared.input.priorities.iter().any(|target| {
+        crate::exact::target_rate(&exact, &prepared.items, target) > 0.0
+    }) || !exact.eaten.is_empty() || !exact.sold.is_empty();
+
+    if exact.rate_per_second <= 0.0 && level_up.is_none() && !has_target_output {
         return no_plan();
     }
     // Independent re-check of every limit before trusting the plan; the caller falls back to the
@@ -1207,15 +1245,41 @@ pub fn exact_plan(input_json: &str, stage_json: &str, solution_json: &str) -> St
     if prepared.input.season {
         js.season_points = Some(crate::exact::target_rate(&exact, &prepared.items, crate::models::SEASON_POINTS));
     }
+    fn clean_special(name: &str) -> &str {
+        let base = crate::models::base_item_name(name);
+        base.strip_prefix("quick_").unwrap_or(base)
+    }
+    let mut selected_specials: Vec<String> = exact
+        .recipe_rates
+        .iter()
+        .filter(|(_, &rate)| rate > 1e-9)
+        .map(|(recipe_name, _)| clean_special(recipe_name))
+        .filter(|&name| SPECIAL_RECIPE_NAMES.contains(&name))
+        .map(|s| s.to_string())
+        .collect();
+    selected_specials.sort();
+    selected_specials.dedup();
+    js.selected_special_recipes = selected_specials;
     js.priorities = prepared
         .input
         .priorities
         .iter()
-        .map(|target| JsPriority {
-            target: target.clone(),
-            per_second: crate::exact::target_rate(&exact, &prepared.items, target),
-            items: crate::exact::target_items(&exact, &prepared.items, target),
-            streams: crate::exact::target_streams(&exact, &prepared.items, target),
+        .map(|target| {
+            let (facility_depths, depth_status) = match crate::exact::target_facility_depths(&exact, &prepared.items, target) {
+                Ok(depths) => (depths, "ok".to_string()),
+                Err(crate::exact::DependencyDepthError::CycleDetected) => (Vec::new(), "cycle_detected".to_string()),
+                Err(crate::exact::DependencyDepthError::DepthTruncated) => (Vec::new(), "depth_truncated".to_string()),
+            };
+            let facilities = facility_depths.iter().map(|(fac, _)| fac.clone()).collect();
+            JsPriority {
+                target: target.clone(),
+                per_second: crate::exact::target_rate(&exact, &prepared.items, target),
+                items: crate::exact::target_items(&exact, &prepared.items, target),
+                streams: crate::exact::target_streams(&exact, &prepared.items, target),
+                facilities,
+                facility_depths,
+                depth_status,
+            }
         })
         .collect();
     serde_json::to_string(&js).unwrap_or_default()
@@ -1477,6 +1541,95 @@ pub fn get_all_items() -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_rv20_emode_input_error() {
+        let json_str = r#"{
+            "home_level": 20,
+            "currency": "coins",
+            "priorities": ["aniimo_exp"],
+            "prioritize_byproducts": false,
+            "level_up": null,
+            "exclude": [],
+            "season": false,
+            "emode_facilities": ["Blazing Stove","Bouncy Brew Keg","Jukebox Dryer","Crafting Table","Phonolfactory Table","Joy Wheel Loom","Simmering Pot","Well","Mine","Carousel Mill"],
+            "emode_facility_counts": {"Blazing Stove":2,"Bouncy Brew Keg":2,"Jukebox Dryer":2,"Crafting Table":2,"Phonolfactory Table":2,"Joy Wheel Loom":2,"Simmering Pot":2,"Well":4,"Mine":7,"Carousel Mill":2},
+            "emode_tier_counts": [
+                {"facility":"Blazing Stove","level":5,"count":2},
+                {"facility":"Bouncy Brew Keg","level":5,"count":2},
+                {"facility":"Jukebox Dryer","level":7,"count":2},
+                {"facility":"Crafting Table","level":8,"count":2},
+                {"facility":"Phonolfactory Table","level":6,"count":2},
+                {"facility":"Joy Wheel Loom","level":4,"count":2},
+                {"facility":"Simmering Pot","level":6,"count":2},
+                {"facility":"Well","level":5,"count":4},
+                {"facility":"Mine","level":6,"count":7},
+                {"facility":"Carousel Mill","level":6,"count":2}
+            ],
+            "power_grid_rate": 1.2,
+            "production_aniimo_cap": 45,
+            "power_poles": 3,
+            "specialist_quotas": {
+                "earth_4p_mines": 3,
+                "water_4f_wells": 1
+            },
+            "facility_overrides": [],
+            "facilities": {"Farmland":[{"count":40,"level":7}],"Woodland":[{"count":20,"level":6}],"Mine":[{"count":10,"level":6}],"Well":[{"count":4,"level":5}],"Tidewhisper Sandcastle":[{"count":2,"level":3}],"Dewy House":[{"count":2,"level":2}],"Nimbus Bed":[{"count":2,"level":3}],"Starfall Hammock":[{"count":2,"level":1}],"Floral Windmill":[{"count":1,"level":1}],"Heat Furnace":[{"count":3,"level":1}],"Cooling Unit":[{"count":3,"level":1}],"Sunlamp":[{"count":3,"level":1}],"Carousel Mill":[{"count":2,"level":6}],"Crafting Table":[{"count":2,"level":8}],"Claw Game Cooker":[{"count":2,"level":7}],"Jukebox Dryer":[{"count":2,"level":7}],"Simmering Pot":[{"count":2,"level":6}],"Phonolfactory Table":[{"count":2,"level":6}],"Bouncy Brew Keg":[{"count":2,"level":5}],"Blazing Stove":[{"count":2,"level":5}],"Pickling Jar":[{"count":1,"level":5}],"Joy Wheel Loom":[{"count":2,"level":4}],"Dance Pad Polisher":[{"count":1,"level":3}],"Aniipod Maker":[{"count":1,"level":3}],"Woodworking Bench":[{"count":4,"level":4}],"Chimney Kiln":[{"count":4,"level":4}]},
+            "modules": {"ecological_module":8,"kitchen_module":7,"resource_detector":8,"crafting_module":7,"power_module":5,"plant_research_module":4,"incubation_reaction_module":1,"signal_emitter":3},
+            "aniimo": "best"
+        }"#;
+
+        match super::PreparedInput::from_json(json_str) {
+            Ok(prepared) => {
+                println!("PreparedInput succeeded!");
+                let problem = crate::exact::write_lp(
+                    &prepared.items,
+                    "aniimo_exp",
+                    &prepared.facility_counts,
+                    &prepared.module_levels,
+                    crate::exact::Goal::Earn { floors: &[] },
+                );
+                println!("problem lp len: {}", problem.lp.len());
+            }
+            Err(e) => println!("PreparedInput FAILED: {}", e),
+        }
+    }
+
+    #[test]
+    fn test_rv20_exact_solve() {
+        let json_str = r#"{
+            "home_level": 20,
+            "currency": "coins",
+            "priorities": ["aniimo_exp"],
+            "prioritize_byproducts": false,
+            "level_up": null,
+            "exclude": [],
+            "season": false,
+            "emode_facilities": [],
+            "emode_facility_counts": {},
+            "power_grid_rate": 1.2,
+            "production_aniimo_cap": 45,
+            "power_poles": 3,
+            "specialist_quotas": {
+                "earth_4p_mines": 3,
+                "water_4f_wells": 1
+            },
+            "facility_overrides": [],
+            "facilities": {"Farmland":[{"count":40,"level":7}],"Woodland":[{"count":20,"level":6}],"Mine":[{"count":10,"level":6}],"Well":[{"count":4,"level":5}],"Tidewhisper Sandcastle":[{"count":2,"level":3}],"Dewy House":[{"count":2,"level":2}],"Nimbus Bed":[{"count":2,"level":3}],"Starfall Hammock":[{"count":2,"level":1}],"Floral Windmill":[{"count":1,"level":1}],"Heat Furnace":[{"count":3,"level":1}],"Cooling Unit":[{"count":3,"level":1}],"Sunlamp":[{"count":3,"level":1}],"Carousel Mill":[{"count":2,"level":6}],"Crafting Table":[{"count":2,"level":8}],"Claw Game Cooker":[{"count":2,"level":7}],"Jukebox Dryer":[{"count":2,"level":7}],"Simmering Pot":[{"count":2,"level":6}],"Phonolfactory Table":[{"count":2,"level":6}],"Bouncy Brew Keg":[{"count":2,"level":5}],"Blazing Stove":[{"count":2,"level":5}],"Pickling Jar":[{"count":1,"level":5}],"Joy Wheel Loom":[{"count":2,"level":4}],"Dance Pad Polisher":[{"count":1,"level":3}],"Aniipod Maker":[{"count":1,"level":3}],"Woodworking Bench":[{"count":4,"level":4}],"Chimney Kiln":[{"count":4,"level":4}]},
+            "modules": {"ecological_module":8,"kitchen_module":7,"resource_detector":8,"crafting_module":7,"power_module":5,"plant_research_module":4,"incubation_reaction_module":1,"signal_emitter":3},
+            "aniimo": "best"
+        }"#;
+
+        let prepared = super::PreparedInput::from_json(json_str).expect("parse input");
+        let problem = crate::exact::write_lp(
+            &prepared.items,
+            "aniimo_exp",
+            &prepared.facility_counts,
+            &prepared.module_levels,
+            crate::exact::Goal::Earn { floors: &[] },
+        );
+        println!("problem lp len: {}", problem.lp.len());
+    }
     use super::{embedded_aniimo_requirements, embedded_grower_steps, get_embedded_items};
 
     // Every crop and tree the web build knows has its Aniimo jobs listed.
@@ -1654,5 +1807,52 @@ only embedded: {only_embedded:#?}"
         let manual_well = js_plan.coin_items.iter().any(|i| i.facility.contains("Well") && !i.is_emode);
         assert!(emode_well, "Expected at least 1 Well unit in E-mode");
         assert!(manual_well, "Expected 1 Well unit in manual mode");
+    }
+
+    #[test]
+    fn test_exact_plan_succeeds_when_coins_zero_but_food_positive() {
+        let input_json = r#"{
+            "currency": "coins",
+            "facilities": {
+                "Farmland": [{"count": 2, "level": 1}]
+            },
+            "modules": {},
+            "priorities": ["aniimo_food"]
+        }"#;
+
+        // Stage with food floor from priority solve
+        let stage_json = r#"{"floors": [["aniimo_food", 0.04]]}"#;
+
+        // Solve the priority problem to get model and solution
+        let problem_json = super::exact_priority_problem(input_json, r#"{"floors": []}"#, "aniimo_food");
+        let problem_val: serde_json::Value = serde_json::from_str(&problem_json).expect("valid problem json");
+        let lp_str = problem_val["lp"].as_str().expect("lp str");
+        assert!(!lp_str.is_empty(), "LP should not be empty");
+
+        // Now solve exact_problem with stage_json
+        let final_problem_json = super::exact_problem(input_json, stage_json);
+        let final_val: serde_json::Value = serde_json::from_str(&final_problem_json).expect("valid final json");
+        let final_lp = final_val["lp"].as_str().expect("final lp str");
+        assert!(!final_lp.is_empty());
+
+        // Use solve_exact directly to get exact plan
+        let prepared = super::PreparedInput::from_json(input_json).expect("parse input");
+        let stage: super::JsStage = serde_json::from_str(stage_json).expect("parse stage");
+        let plan = crate::exact::solve_exact(
+            &prepared.items,
+            &prepared.input.currency,
+            &prepared.facility_counts,
+            &prepared.module_levels,
+            stage.goal(&prepared.input),
+            Some(std::time::Duration::from_secs(60)),
+            None,
+        ).expect("solve exact plan");
+
+        // Production plan from exact
+        let prod_plan = crate::exact::to_production_plan(&plan, &prepared.items, &prepared.input.currency, &prepared.facility_counts);
+        let js = prepared.to_js(prod_plan, None);
+        assert!(!js.coin_items.is_empty());
+        let food_rate = crate::exact::target_rate(&plan, &prepared.items, "aniimo_food");
+        assert!(food_rate >= 0.04 * (1.0 - 1e-4), "Food rate {food_rate} must meet floor 0.04");
     }
 }

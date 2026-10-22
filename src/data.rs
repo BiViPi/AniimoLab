@@ -541,6 +541,73 @@ pub fn load_processing_no_energy(
     parse_processing_no_energy(&std::fs::read_to_string(path)?, facility_name)
 }
 
+/// One row of `food_energy.csv`. Extra columns are ignored by serde.
+#[derive(Debug, serde::Deserialize)]
+struct FoodEnergyRow {
+    slug: String,
+    energy: f64,
+}
+
+/// Enriches production items with food energy values from `food_energy.csv`.
+///
+/// Matches each row's `slug` against production items (matching exact name, base name,
+/// or base name stripped of `quick_`).
+/// Validates:
+/// - slug is not empty
+/// - energy is finite and non-negative
+/// - slug is not duplicated
+/// - every slug corresponds to at least one production item (no orphan slugs)
+/// - conflicting energy values on already-assigned items return an error
+pub fn enrich_food_energy(items: &mut [ProductionItem], csv_text: &str) -> Result<(), Box<dyn Error>> {
+    let mut rdr = ReaderBuilder::new()
+        .trim(csv::Trim::All)
+        .flexible(true)
+        .from_reader(csv_text.as_bytes());
+
+    let mut seen_slugs = std::collections::HashSet::new();
+
+    for result in rdr.deserialize::<FoodEnergyRow>() {
+        let row = result.map_err(|e| format!("food_energy.csv: invalid schema or format: {e}"))?;
+        let slug = row.slug.trim();
+        if slug.is_empty() {
+            return Err("food_energy.csv: empty slug encountered".into());
+        }
+        if !row.energy.is_finite() || row.energy < 0.0 {
+            return Err(format!("food_energy.csv: invalid energy value {} for slug '{}'", row.energy, slug).into());
+        }
+        if !seen_slugs.insert(slug.to_string()) {
+            return Err(format!("food_energy.csv: duplicate slug '{}'", slug).into());
+        }
+
+        let mut matched = false;
+        for item in items.iter_mut() {
+            let base = crate::models::base_item_name(&item.name);
+            let norm = base.strip_prefix("quick_").unwrap_or(base);
+            if item.name == slug || base == slug || norm == slug {
+                matched = true;
+                if let Some(existing) = item.energy {
+                    if (existing - row.energy).abs() > 1e-6 {
+                        return Err(format!(
+                            "food_energy.csv: conflicting energy for '{}': existing {} vs new {}",
+                            slug, existing, row.energy
+                        ).into());
+                    }
+                }
+                item.energy = Some(row.energy);
+            }
+        }
+
+        if !matched {
+            return Err(format!(
+                "food_energy.csv: orphan slug '{}' has no corresponding production item",
+                slug
+            ).into());
+        }
+    }
+
+    Ok(())
+}
+
 /// Loads all production data from the data directory.
 ///
 /// This function loads data from all facility types:
@@ -598,6 +665,8 @@ pub fn load_all_data(data_dir: &Path) -> Result<Vec<ProductionItem>, Box<dyn Err
     for (file, facility) in PROCESSOR_FILES {
         all_items.extend(load_processing_no_energy(&data_dir.join(file), facility)?);
     }
+
+    enrich_food_energy(&mut all_items, &std::fs::read_to_string(data_dir.join("food_energy.csv"))?)?;
 
     crate::models::add_uncovered_variants(&mut all_items);
     crate::models::apply_watering(&mut all_items);
@@ -686,6 +755,9 @@ pub fn embedded_items() -> Vec<ProductionItem> {
                 .unwrap_or_else(|e| panic!("embedded CSV for {facility} is valid: {e}")),
         );
     }
+
+    enrich_food_energy(&mut all_items, include_str!("../data/food_energy.csv"))
+        .expect("embedded food_energy.csv is valid");
 
     crate::models::add_uncovered_variants(&mut all_items);
     crate::models::apply_watering(&mut all_items);

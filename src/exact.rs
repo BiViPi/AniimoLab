@@ -107,6 +107,39 @@ pub struct ExactEnvironment {
     pub option: CoverageOption,
 }
 
+/// Maximum energy per second for Aniimo Food quota (45 Aniimo team: 45 * (10/60) = 7.5 Energy/s).
+pub const MAX_ANIIMO_FOOD_ENERGY_PER_SEC: f64 = 7.5;
+
+/// Common tolerance used for priority floor lower bounds (0.01% slack).
+pub const PRIORITY_FLOOR_TOLERANCE: f64 = 1e-4;
+
+/// Maximum allowed upstream dependency depth before considering the chain truncated or cycling.
+pub const MAX_DEPENDENCY_DEPTH: u32 = 64;
+
+/// Error conditions when resolving facility dependency depth.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DependencyDepthError {
+    /// A cycle was detected in the active recipe dependency graph.
+    CycleDetected,
+    /// Upstream dependency chain reached or exceeded [`MAX_DEPENDENCY_DEPTH`].
+    DepthTruncated,
+}
+
+impl std::fmt::Display for DependencyDepthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CycleDetected => write!(f, "Cycle detected in active recipe dependency graph"),
+            Self::DepthTruncated => write!(
+                f,
+                "Dependency depth reached or exceeded maximum allowed depth ({})",
+                MAX_DEPENDENCY_DEPTH
+            ),
+        }
+    }
+}
+
+impl std::error::Error for DependencyDepthError {}
+
 /// The result of [`solve_exact`].
 #[derive(Debug, Clone)]
 pub struct ExactPlan {
@@ -127,6 +160,8 @@ pub struct ExactPlan {
     pub units: BTreeMap<String, u32>,
     /// Units/sec sold of each item.
     pub sold: BTreeMap<String, f64>,
+    /// Units/sec eaten of each food item.
+    pub eaten: BTreeMap<String, f64>,
     pub environment: Vec<ExactEnvironment>,
     /// Overlapping pairs of environment buildings (see [`ExactPair`]).
     pub pairs: Vec<ExactPair>,
@@ -238,6 +273,7 @@ enum VarKind<'a> {
     Rate(&'a ProductionItem),
     Units(&'a ProductionItem),
     Sold(&'a str),
+    Eaten(&'a str),
     Pace,
     /// Made beyond what the level-up needs, of one of its costs.
     Extra,
@@ -354,9 +390,9 @@ fn build_model<'a>(
         tiebreak: Vec::new(),
     };
 
+    let eff_currency = if currency == "aniipod_mega" { "aniipods" } else { currency };
     // Seeds are paid in coins, so they only come off a coin total.
-    let seed_cost = |recipe: &ProductionItem| if currency == "coins" { recipe.cost.unwrap_or(0.0) } else { 0.0 };
-
+    let seed_cost = |recipe: &ProductionItem| if eff_currency == "coins" { recipe.cost.unwrap_or(0.0) } else { 0.0 };
     // Recipe rates and units.
     let mut rate_of: Vec<(&ProductionItem, usize)> = Vec::new();
     let mut units_of: Vec<(&ProductionItem, usize)> = Vec::new();
@@ -384,21 +420,40 @@ fn build_model<'a>(
             }
         }
     }
+    let needs_food = eff_currency == "aniimo_food" || match goal {
+        Goal::Earn { floors } => floors.iter().any(|(name, _)| name == "aniimo_food"),
+        _ => false,
+    };
     // A floor naming a currency ("aniimo_exp", "aniipods") keeps a plan making that much of it
     // while it earns `currency`; those items need sell variables too, worth nothing here.
     let floor_currencies: Vec<&str> = match goal {
-        Goal::Earn { floors } => floors.iter().map(|(name, _)| name.as_str()).collect(),
+        Goal::Earn { floors } => floors.iter().map(|(name, _)| if name == "aniipod_mega" { "aniipods" } else { name.as_str() }).collect(),
         _ => Vec::new(),
     };
     let mut sold_of: Vec<(usize, &ProductionItem)> = Vec::new();
+    let mut eaten_of: Vec<(usize, &ProductionItem, f64)> = Vec::new();
     for (&item_name, terms) in &mut balance {
         let base_name = crate::models::base_item_name(item_name);
         if let Some(item) = find_item(item_name, &all) {
-            if item.earns(currency) > 0.0 || floor_currencies.iter().any(|&c| item.earns(c) > 0.0) {
-                let sold = model.add(item.earns(currency), (0.0, f64::INFINITY), false, VarKind::Sold(base_name));
+            if item.earns(eff_currency) > 0.0 || floor_currencies.iter().any(|&c| item.earns(c) > 0.0) {
+                let sold = model.add(item.earns(eff_currency), (0.0, f64::INFINITY), false, VarKind::Sold(base_name));
                 sold_of.push((sold, item));
                 terms.push((sold, -1.0));
             }
+            if needs_food {
+                if let Some(energy) = item.energy.filter(|&e| e > 0.0) {
+                    let obj = if eff_currency == "aniimo_food" { energy } else { 0.0 };
+                    let eaten = model.add(obj, (0.0, f64::INFINITY), false, VarKind::Eaten(base_name));
+                    eaten_of.push((eaten, item, energy));
+                    terms.push((eaten, -1.0));
+                }
+            }
+        }
+    }
+    if needs_food {
+        let total_food_terms: Vec<(usize, f64)> = eaten_of.iter().map(|&(v, _, energy)| (v, energy)).collect();
+        if !total_food_terms.is_empty() {
+            model.constrain(total_food_terms, ComparisonOp::Le, MAX_ANIIMO_FOOD_ENERGY_PER_SEC);
         }
     }
     // Every variable added from here on earns nothing.
@@ -649,7 +704,15 @@ fn build_model<'a>(
                 if *floor <= 0.0 {
                     continue;
                 }
-                let byproduct = byproduct_terms(resource);
+                let res_name = if resource == "aniipod_mega" { "aniipods" } else { resource.as_str() };
+                if res_name == "aniimo_food" {
+                    let food_terms: Vec<(usize, f64)> = eaten_of.iter().map(|&(v, _, energy)| (v, energy)).collect();
+                    if !food_terms.is_empty() {
+                        model.constrain(food_terms, ComparisonOp::Ge, floor * (1.0 - PRIORITY_FLOOR_TOLERANCE));
+                    }
+                    continue;
+                }
+                let byproduct = byproduct_terms(res_name);
                 if !byproduct.is_empty() {
                     // A hair of slack: the floor is another solve's exact maximum.
                     model.constrain(byproduct, ComparisonOp::Ge, floor * (1.0 - 1e-6));
@@ -658,16 +721,16 @@ fn build_model<'a>(
                 // Otherwise it's a currency: everything sold for it, at its value, less seed costs
                 // for coins (seeds are paid in coins).
                 let mut sold: Vec<(usize, f64)> =
-                    sold_of.iter().filter(|(_, item)| item.earns(resource) > 0.0).map(|&(v, item)| (v, item.earns(resource))).collect();
-                if resource == "coins" {
+                    sold_of.iter().filter(|(_, item)| item.earns(res_name) > 0.0).map(|&(v, item)| (v, item.earns(res_name))).collect();
+                if res_name == "coins" {
                     sold.extend(rate_of.iter().filter(|(r, _)| r.cost.unwrap_or(0.0) > 0.0).map(|&(r, v)| (v, -r.cost.unwrap_or(0.0))));
                 }
                 if !sold.is_empty() {
-                    model.constrain(sold, ComparisonOp::Ge, floor * (1.0 - 1e-4));
+                    model.constrain(sold, ComparisonOp::Ge, floor * (1.0 - PRIORITY_FLOOR_TOLERANCE));
                 }
             }
             // Maximizing a byproduct (Wood Blocks, Mineral Sand) rather than a currency.
-            let byproduct = byproduct_terms(currency);
+            let byproduct = byproduct_terms(eff_currency);
             if !byproduct.is_empty() {
                 model.objective.iter_mut().for_each(|c| *c = 0.0);
                 for (v, amount) in byproduct {
@@ -1057,6 +1120,7 @@ fn plan_from(model: &Model, value: f64, upper_bound: f64, proven_optimal: bool, 
     let mut recipe_rates = BTreeMap::new();
     let mut units = BTreeMap::new();
     let mut sold = BTreeMap::new();
+    let mut eaten = BTreeMap::new();
     let mut environment = Vec::new();
     let mut pairs: Vec<ExactPair> = Vec::new();
     let mut pace = None;
@@ -1079,6 +1143,9 @@ fn plan_from(model: &Model, value: f64, upper_bound: f64, proven_optimal: bool, 
             }
             VarKind::Sold(name) if v > 1e-9 => {
                 sold.insert(name.to_string(), v);
+            }
+            VarKind::Eaten(name) if v > 1e-9 => {
+                eaten.insert(name.to_string(), v);
             }
             VarKind::EnvironmentPair { buildings, modes, types, option } if v > 0.5 => {
                 let middle = crate::coverage::mode_temperature(modes.0)
@@ -1127,6 +1194,7 @@ fn plan_from(model: &Model, value: f64, upper_bound: f64, proven_optimal: bool, 
         recipe_rates,
         units,
         sold,
+        eaten,
         environment,
         pairs,
         pace,
@@ -1185,12 +1253,28 @@ pub fn check_plan(
             earned -= rate * recipe.cost.unwrap_or(0.0);
         }
     }
+    let eff_currency = if currency == "aniipod_mega" { "aniipods" } else { currency };
     for (name, &sold) in &plan.sold {
         let item = find_item(name.as_str(), &all).ok_or(format!("unknown item {name}"))?;
         *made.entry(made_item(&item.name, &all)).or_default() -= sold;
         // An item sold for another currency (Aniimo EXP, Aniipods) leaves the balance the same
         // way, but earns nothing towards `currency`.
-        earned += sold * item.earns(currency);
+        earned += sold * item.earns(eff_currency);
+    }
+    for (name, &eaten_rate) in &plan.eaten {
+        let item = find_item(name.as_str(), &all).ok_or(format!("unknown food item {name}"))?;
+        let energy = item.energy.ok_or(format!("{name} has no energy but was eaten"))?;
+        if energy <= 0.0 {
+            return Err(format!("{name} has non-positive energy ({energy}) but was eaten"));
+        }
+        *made.entry(made_item(&item.name, &all)).or_default() -= eaten_rate;
+    }
+    let total_eaten_energy: f64 = plan.eaten.iter().filter_map(|(name, &rate)| {
+        let item = find_item(name.as_str(), &all)?;
+        Some(rate * item.energy.unwrap_or(0.0))
+    }).sum();
+    if total_eaten_energy > MAX_ANIIMO_FOOD_ENERGY_PER_SEC + TOLERANCE {
+        return Err(format!("total eaten energy {total_eaten_energy:.4} exceeds limit {MAX_ANIIMO_FOOD_ENERGY_PER_SEC}"));
     }
     if let Some(level_up) = level_up {
         let pace = plan.pace.ok_or("the plan has no level-up pace")?;
@@ -1337,10 +1421,15 @@ pub fn check_plan(
             return Err(format!("{plots} {facility} plots need {environment} but {have} are covered"));
         }
     }
-    if (earned - plan.rate_per_second).abs() > 1e-6 * earned.abs().max(1.0) {
-        return Err(format!("plan says {} but its sales and costs add up to {earned}", plan.rate_per_second));
+    let expected_rate = if eff_currency == "aniimo_food" {
+        total_eaten_energy
+    } else {
+        earned
+    };
+    if (expected_rate - plan.rate_per_second).abs() > 1e-6 * expected_rate.abs().max(1.0) {
+        return Err(format!("plan says {} but its calculations add up to {expected_rate}", plan.rate_per_second));
     }
-    Ok(earned)
+    Ok(expected_rate)
 }
 
 /// A model written out for an external solver.
@@ -1441,9 +1530,21 @@ pub fn plan_from_values(
 /// What `exact` makes per second of `currency`, at its items' sell values: the Aniimo EXP or
 /// Aniipods a coin plan keeps up alongside its coins.
 pub fn currency_rate(exact: &ExactPlan, items: &[ProductionItem], currency: &str) -> f64 {
+    let eff_currency = if currency == "aniipod_mega" { "aniipods" } else { currency };
+    if eff_currency == "aniimo_food" {
+        let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
+        return exact
+            .eaten
+            .iter()
+            .filter_map(|(name, &rate)| {
+                let item = find_item(name.as_str(), &all)?;
+                Some(rate * item.energy.unwrap_or(0.0))
+            })
+            .sum();
+    }
     items
         .iter()
-        .map(|item| exact.sold.get(&item.name).copied().unwrap_or(0.0) * item.earns(currency))
+        .map(|item| exact.sold.get(&item.name).copied().unwrap_or(0.0) * item.earns(eff_currency))
         .sum()
 }
 
@@ -1453,9 +1554,18 @@ pub fn target_items(exact: &ExactPlan, items: &[ProductionItem], target: &str) -
     if target == "coins" {
         return Vec::new();
     }
+    if target == "aniimo_food" {
+        return exact
+            .eaten
+            .iter()
+            .filter(|&(_, &rate)| rate > 1e-9)
+            .map(|(name, &rate)| (name.clone(), rate))
+            .collect();
+    }
+    let eff_target = if target == "aniipod_mega" { "aniipods" } else { target };
     items
         .iter()
-        .filter(|item| item.earns(target) > 0.0)
+        .filter(|item| item.earns(eff_target) > 0.0)
         .filter_map(|item| exact.sold.get(&item.name).filter(|&&n| n > 1e-9).map(|&n| (item.name.clone(), n)))
         .collect()
 }
@@ -1470,11 +1580,23 @@ pub fn target_streams(exact: &ExactPlan, items: &[ProductionItem], target: &str)
     }
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let lead = |name: &str| crate::optimizer::item_lead_time(name, &all, 0);
+    if target == "aniimo_food" {
+        return exact
+            .eaten
+            .iter()
+            .filter_map(|(name, &rate)| {
+                let item = find_item(name.as_str(), &all)?;
+                let energy = item.energy.unwrap_or(0.0);
+                (energy > 0.0 && rate > 1e-9).then(|| (rate * energy, lead(name)))
+            })
+            .collect();
+    }
+    let eff_target = if target == "aniipod_mega" { "aniipods" } else { target };
     let byproduct: Vec<(f64, f64)> = exact
         .recipe_rates
         .iter()
         .filter_map(|(name, rate)| match &all.get(name.as_str())?.byproduct {
-            Some((resource, amount)) if resource == target => Some((rate * *amount as f64, lead(name))),
+            Some((resource, amount)) if resource == eff_target => Some((rate * *amount as f64, lead(name))),
             _ => None,
         })
         .collect();
@@ -1485,38 +1607,241 @@ pub fn target_streams(exact: &ExactPlan, items: &[ProductionItem], target: &str)
         .sold
         .iter()
         .filter_map(|(name, &sold)| {
-            let earns = all.get(name.as_str())?.earns(target);
+            let earns = all.get(name.as_str())?.earns(eff_target);
             (earns > 0.0 && sold > 0.0).then(|| (sold * earns, lead(name)))
         })
         .collect()
 }
 
 /// What `exact` makes per second of a priority `target`: coins (net of seed costs), another
-/// currency ("aniimo_exp", "aniipods"), or a byproduct ("Wood Blocks", "Mineral Sand").
+/// currency ("aniimo_exp", "aniipods"), Aniimo Food ("aniimo_food"), or a byproduct ("Wood Blocks", "Mineral Sand").
 pub fn target_rate(exact: &ExactPlan, items: &[ProductionItem], target: &str) -> f64 {
+    if target == "aniimo_food" {
+        let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
+        return exact
+            .eaten
+            .iter()
+            .filter_map(|(name, &rate)| {
+                let item = find_item(name.as_str(), &all)?;
+                Some(rate * item.energy.unwrap_or(0.0))
+            })
+            .sum();
+    }
+    let eff_target = if target == "aniipod_mega" { "aniipods" } else { target };
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let byproduct: f64 = exact
         .recipe_rates
         .iter()
         .filter_map(|(name, rate)| match &all.get(name.as_str())?.byproduct {
-            Some((resource, amount)) if resource == target => Some(rate * *amount as f64),
+            Some((resource, amount)) if resource == eff_target => Some(rate * *amount as f64),
             _ => None,
         })
         .sum();
     if byproduct > 0.0 {
         return byproduct;
     }
-    let seeds: f64 = if target == "coins" {
+    let seeds: f64 = if eff_target == "coins" {
         exact.recipe_rates.iter().filter_map(|(name, rate)| Some(rate * all.get(name.as_str())?.cost.unwrap_or(0.0))).sum()
     } else {
         0.0
     };
-    currency_rate(exact, items, target) - seeds
+    currency_rate(exact, items, eff_target) - seeds
 }
 
 /// Each item's rate per second made, less what the plan's recipes use and sell, including Wood
 /// Blocks and Mineral Sand (as `wood_block` and `mineral_sand`). Negative for an item drawn from
 /// stock.
+/// Which facilities participate in producing a priority `target` (including all raw material dependencies),
+/// along with their upstream dependency depth (0 = furthest upstream raw material/root supplier, higher = downstream processor).
+/// Uses longest-path relaxation to ensure facilities reached via multiple paths always receive their deepest upstream depth.
+pub fn target_facility_depths(
+    exact: &ExactPlan,
+    items: &[ProductionItem],
+    target: &str,
+) -> Result<Vec<(String, u32)>, DependencyDepthError> {
+    use std::collections::HashMap;
+    let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
+    let eff_target = if target == "aniipod_mega" { "aniipods" } else { target };
+
+    let clean_item = |name: &str| -> String {
+        let base = crate::models::base_item_name(name);
+        base.strip_prefix("quick_").unwrap_or(base).to_string()
+    };
+    let eff_target_clean = clean_item(eff_target);
+
+    // Map each clean item to the active recipes producing it
+    let mut active_producers: HashMap<String, Vec<&ProductionItem>> = HashMap::new();
+    for recipe in items {
+        let runs = exact.recipe_rates.get(&recipe.name).copied().unwrap_or(0.0) > 1e-9;
+        if runs {
+            let main = clean_item(&recipe.name);
+            active_producers.entry(main).or_default().push(recipe);
+            if let Some((b, _)) = &recipe.byproduct {
+                let by = clean_item(b);
+                active_producers.entry(by).or_default().push(recipe);
+            }
+        }
+    }
+
+    // Initial root items and their initial distance from target
+    let mut root_items: Vec<(String, u32)> = Vec::new();
+    // facility -> longest distance from target that this facility operates at
+    let mut facility_max_dist: HashMap<String, u32> = HashMap::new();
+
+    if eff_target == "aniimo_food" {
+        for (name, &rate) in &exact.eaten {
+            if rate > 1e-9 {
+                root_items.push((clean_item(name), 0));
+            }
+        }
+    } else if eff_target == "coins" {
+        for (name, &sold) in &exact.sold {
+            if sold > 1e-9 {
+                root_items.push((clean_item(name), 0));
+            }
+        }
+    } else {
+        // Byproduct or currency target
+        for (name, &rate) in &exact.recipe_rates {
+            if rate > 1e-9 {
+                if let Some(recipe) = all.get(name.as_str()) {
+                    if let Some((resource, _)) = &recipe.byproduct {
+                        if clean_item(resource) == eff_target_clean {
+                            facility_max_dist.entry(recipe.facility.clone()).and_modify(|d| *d = (*d).max(0)).or_insert(0);
+                            if let Some(mats) = &recipe.raw_materials {
+                                for mat in mats {
+                                    root_items.push((clean_item(mat), 1));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (name, &sold) in &exact.sold {
+            if sold > 1e-9 {
+                if let Some(item) = all.get(name.as_str()) {
+                    if item.earns(eff_target) > 0.0 {
+                        root_items.push((clean_item(name), 0));
+                    }
+                }
+            }
+        }
+        // Direct item match if target is a specific item name
+        if let Some(item) = find_item(eff_target, &all) {
+            root_items.push((clean_item(&item.name), 0));
+        }
+    }
+
+    // Phase 1: Cycle detection and Topological sort using 3-color DFS
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum VisitState {
+        Visiting,
+        Visited,
+    }
+
+    let mut visit_states: HashMap<String, VisitState> = HashMap::new();
+    let mut post_order: Vec<String> = Vec::new();
+
+    fn dfs(
+        item: &str,
+        visit_states: &mut HashMap<String, VisitState>,
+        post_order: &mut Vec<String>,
+        active_producers: &HashMap<String, Vec<&ProductionItem>>,
+        clean_item: &impl Fn(&str) -> String,
+    ) -> Result<(), DependencyDepthError> {
+        match visit_states.get(item) {
+            Some(VisitState::Visiting) => return Err(DependencyDepthError::CycleDetected),
+            Some(VisitState::Visited) => return Ok(()),
+            None => {}
+        }
+
+        visit_states.insert(item.to_string(), VisitState::Visiting);
+
+        if let Some(recipes) = active_producers.get(item) {
+            for recipe in recipes {
+                if let Some(mats) = &recipe.raw_materials {
+                    for mat in mats {
+                        let clean_mat = clean_item(mat);
+                        dfs(&clean_mat, visit_states, post_order, active_producers, clean_item)?;
+                    }
+                }
+            }
+        }
+
+        visit_states.insert(item.to_string(), VisitState::Visited);
+        post_order.push(item.to_string());
+        Ok(())
+    }
+
+    for (root, _) in &root_items {
+        dfs(root, &mut visit_states, &mut post_order, &active_producers, &clean_item)?;
+    }
+
+    // Topological order: dependencies come after producers in post_order.reverse()
+    post_order.reverse();
+
+    // Phase 2: Longest-path relaxation on DAG
+    let mut item_max_dist: HashMap<String, u32> = HashMap::new();
+    for (root, dist) in &root_items {
+        item_max_dist
+            .entry(root.clone())
+            .and_modify(|d| *d = (*d).max(*dist))
+            .or_insert(*dist);
+    }
+
+    for item in &post_order {
+        let curr_dist = match item_max_dist.get(item).copied() {
+            Some(d) => d,
+            None => continue,
+        };
+
+        if let Some(recipes) = active_producers.get(item) {
+            for recipe in recipes {
+                facility_max_dist
+                    .entry(recipe.facility.clone())
+                    .and_modify(|d| *d = (*d).max(curr_dist))
+                    .or_insert(curr_dist);
+
+                if let Some(mats) = &recipe.raw_materials {
+                    for mat in mats {
+                        let next_dist = curr_dist + 1;
+                        if next_dist >= MAX_DEPENDENCY_DEPTH {
+                            return Err(DependencyDepthError::DepthTruncated);
+                        }
+                        let clean_mat = clean_item(mat);
+                        item_max_dist
+                            .entry(clean_mat)
+                            .and_modify(|d| *d = (*d).max(next_dist))
+                            .or_insert(next_dist);
+                    }
+                }
+            }
+        }
+    }
+
+    let max_dist = facility_max_dist.values().copied().max().unwrap_or(0);
+    // Upstream depth: 0 = furthest upstream (max_dist), higher = closer downstream
+    let mut facilities: Vec<(String, u32)> = facility_max_dist
+        .into_iter()
+        .map(|(fac, dist)| (fac, max_dist - dist))
+        .collect();
+
+    // Deterministic sort: upstream depth ascending (0 first), then facility name alphabetically
+    facilities.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+    Ok(facilities)
+}
+
+/// Which facilities participate in producing a priority `target` (including all raw material dependencies),
+/// ordered from furthest upstream (raw materials) to furthest downstream (final processing).
+pub fn target_facilities(exact: &ExactPlan, items: &[ProductionItem], target: &str) -> Vec<String> {
+    target_facility_depths(exact, items, target)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(fac, _)| fac)
+        .collect()
+}
+
 pub fn net_rates(exact: &ExactPlan, items: &[ProductionItem]) -> BTreeMap<String, f64> {
     let all: HashMap<&str, &ProductionItem> = items.iter().map(|i| (i.name.as_str(), i)).collect();
     let mut net: BTreeMap<String, f64> = BTreeMap::new();
@@ -1537,18 +1862,24 @@ pub fn net_rates(exact: &ExactPlan, items: &[ProductionItem]) -> BTreeMap<String
     for (name, &sold) in &exact.sold {
         *net.entry(name.clone()).or_default() -= sold;
     }
+    for (name, &eaten) in &exact.eaten {
+        *net.entry(name.clone()).or_default() -= eaten;
+    }
     net
 }
 
 /// The seed cost in each unit of every item a plan uses, and the plan's total seed cost, both in
-/// coins per second. A crop's seeds are shared by every unit of it that's sold or used, and what's
+/// coins per second. A crop's seeds are shared by every unit of it that's sold, eaten or used, and what's
 /// made from it carries its share on, so Rose Concentrate pays for the roses that go into it
 /// rather than the few roses sold raw.
 fn seed_costs_by_item<'a>(exact: &'a ExactPlan, all: &HashMap<&str, &'a ProductionItem>) -> (HashMap<&'a str, f64>, f64) {
-    // Units/sec of each item sold or used as an ingredient.
+    // Units/sec of each item sold, eaten, or used as an ingredient.
     let mut used: HashMap<&str, f64> = HashMap::new();
     for (name, &sold) in &exact.sold {
         *used.entry(name.as_str()).or_default() += sold;
+    }
+    for (name, &eaten) in &exact.eaten {
+        *used.entry(name.as_str()).or_default() += eaten;
     }
     let recipes: Vec<(&ProductionItem, f64)> =
         exact.recipe_rates.iter().filter_map(|(name, &rate)| Some((*all.get(name.as_str())?, rate))).collect();
@@ -1590,9 +1921,6 @@ fn seed_costs_by_item<'a>(exact: &'a ExactPlan, all: &HashMap<&str, &'a Producti
     (per_unit, total)
 }
 
-/// Turns an [`ExactPlan`] into the [`crate::models::ProductionPlan`] the rest of the app shows:
-/// one row per facility and recipe, what each is used for, income per item sold, byproducts, and
-/// environment building layouts.
 pub fn to_production_plan(
     exact: &ExactPlan,
     items: &[ProductionItem],
@@ -1618,15 +1946,33 @@ pub fn to_production_plan(
         uses.dedup();
         let base_made = crate::models::base_item_name(made);
         let sells = exact.sold.get(made).or_else(|| exact.sold.get(base_made)).is_some_and(|&s| s > 1e-9);
-        // Made, not sold, not all used up and not sellable: kept for the level-up.
+        let eats = exact.eaten.get(made).or_else(|| exact.eaten.get(base_made)).is_some_and(|&e| e > 1e-9);
+        // Made, not sold, not eaten, not all used up and not sellable: kept for the level-up.
         let sellable = find_item(made, &all).is_some_and(|item| item.sell_currency != "none" && item.sell_value > 0.0);
-        let kept = exact.pace.is_some() && !sells && !sellable && net.get(made).or_else(|| net.get(base_made)).is_some_and(|&n| n > 1e-9);
-        match (uses.is_empty(), sells || kept) {
-            (true, _) if kept => "For the level-up".to_string(),
-            (true, _) => "Sells directly".to_string(),
-            (false, false) => format!("Used for {}", uses.join(", ")),
-            (false, true) if kept => format!("Used for {}; the rest goes to the level-up", uses.join(", ")),
-            (false, true) => format!("Used for {}; the rest sells directly", uses.join(", ")),
+        let kept = exact.pace.is_some() && !sells && !eats && !sellable && net.get(made).or_else(|| net.get(base_made)).is_some_and(|&n| n > 1e-9);
+
+        if uses.is_empty() {
+            if eats && sells {
+                "Eaten by Aniimo; the rest sells directly".to_string()
+            } else if eats {
+                "Eaten by Aniimo".to_string()
+            } else if kept {
+                "For the level-up".to_string()
+            } else {
+                "Sells directly".to_string()
+            }
+        } else {
+            if eats && sells {
+                format!("Used for {}; the rest is eaten and sold", uses.join(", "))
+            } else if eats {
+                format!("Used for {}; the rest is eaten by Aniimo", uses.join(", "))
+            } else if kept {
+                format!("Used for {}; the rest goes to the level-up", uses.join(", "))
+            } else if sells {
+                format!("Used for {}; the rest sells directly", uses.join(", "))
+            } else {
+                format!("Used for {}", uses.join(", "))
+            }
         }
     };
 
