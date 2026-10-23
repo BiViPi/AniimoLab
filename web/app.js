@@ -511,7 +511,7 @@ function worksheetOverridesFromLines(lines) {
         if (line.mode === 'electric') counts.electric_count += line.facility_count;
         else if (line.mode === 'prismana' && (line.facility === 'Mine' || line.facility === 'Well' || RESIDENT_FACILITIES.has(line.facility) || FACILITIES.find(f => f.name === line.facility)?.hasWorker)) {
             counts.specialist_count += line.facility_count;
-        } else if (RESIDENT_FACILITIES.has(line.facility)) {
+        } else if (line.mode === 'manual' && (RESIDENT_FACILITIES.has(line.facility) || FACILITIES.find(f => f.name === line.facility)?.hasWorker)) {
             counts.manual_count += line.facility_count;
         }
     }
@@ -607,10 +607,12 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
             const prevPill = clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`);
             if (prevPill) prevPill.classList.add('active');
         }
-        showInvariantWarning(
-            baseFac,
-            `Vượt công suất tối đa của lưới điện: cần tổng ${projectedWatts}W (${maxWatts}W tối đa)!`
-        );
+        const isVi = window.i18n && window.i18n.getLang() === 'vi';
+        const msg = isVi
+            ? `Thao tác này đã vượt quá công suất cho phép của lưới điện! Cần tổng ${projectedWatts}W nhưng giới hạn an toàn hiện tại là ${maxWatts}W.`
+            : `This action exceeds the allowed power grid capacity! Required ${projectedWatts}W but safe limit is ${maxWatts}W.`;
+        window.alert(msg);
+        showInvariantWarning(baseFac, msg);
         return;
     }
 
@@ -623,22 +625,19 @@ window.onWorksheetModeClick = async function(facility, targetMode, stepCount, cu
     const resetBtn = document.getElementById('btn-reset-overrides');
     if (resetBtn) resetBtn.style.display = 'inline-flex';
 
-    // 8. Chạy lại bài toán tối ưu hoá với HiGHS solver
+    // Yêu cầu: Không cho solver tự giải lại kế hoạch, mà chỉ cập nhật công suất, workload và thu nhập trực tiếp!
     try {
-        isWorksheetReSolving = true;
-        document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.add('resolving'));
-        const solved = await runFastReSolve(true);
-        if (!solved) {
-            lastPlan = originalPlan;
-            lastEmodeCounts = originalEmodeCounts;
-            facilityOverrides = originalOverrides;
-            updatePowerGauge(lastEmodeCounts);
-            showSelectedPlan();
-            showInvariantWarning(baseFac, window.__lastFastResolveError || 'Không thể đổi mode mà vẫn giữ nguyên bố trí sản xuất hiện tại.');
+        // Cập nhật chu kỳ và trạng thái của step vừa đổi mode
+        if (step.is_emode) {
+            // Chế độ điện: tốc độ tăng theo power_grid_rate (mặc định 1.2x)
+            step.cycle_time = Math.round((step.cycle_time || 60) / 1.2 * 10) / 10;
+        } else if (prevMode === 'electric') {
+            // Chuyển từ điện về thường/prismana: hoàn lại tốc độ cơ sở
+            step.cycle_time = Math.round((step.cycle_time || 50) * 1.2 * 10) / 10;
         }
-    } finally {
-        isWorksheetReSolving = false;
-        document.querySelectorAll('.mode-selector-pills').forEach(p => p.classList.remove('resolving'));
+        showSelectedPlan();
+    } catch (e) {
+        console.warn('In-place worksheet update:', e);
     }
 };
 
@@ -1351,30 +1350,7 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         };
     }
 
-    if (homeLevel === 18 || homeLevel === 19) {
-        let requiredWatts = totalFixedWatts;
-        for (const fac of ['Chimney Kiln', 'Woodworking Bench']) {
-            const tiers = effectiveFacilities[fac] || [];
-            const topLevel = Math.max(0, ...tiers.map(t => t.level || 1));
-            if (!topLevel) continue;
-            const override = overrideForTier(fac, topLevel);
-            if (override && (override.electric_count || 0) === 0) {
-                return {
-                    validation_error: true,
-                    error: `RV${homeLevel}: override hiện tại khóa toàn bộ ${fac} Lv.${topLevel} ở mode không điện, nhưng cần ít nhất một máy cấp cao nhất chạy điện.`
-                };
-            }
-            if (!override || (override.electric_count || 0) < 1) {
-                requiredWatts += getFacilityUnitWatts(fac, topLevel, homeLevel);
-            }
-        }
-        if (requiredWatts > maxWatts) {
-            return {
-                validation_error: true,
-                error: `RV${homeLevel}: Lò Ống Khói + Bàn Gia Công Gỗ cấp cao nhất cần ít nhất ${requiredWatts}W, nhưng điện khả dụng là ${maxWatts}W. Giữ nguyên phân bổ hiện tại.`
-            };
-        }
-    }
+    // RV 18-20: Woodworking Bench & Chimney Kiln tham gia dùng điện linh hoạt khi còn dư tải (tối đa 2 cơ sở)
 
     const emodeCounts = {};
     const diagnostics = [];
@@ -1444,12 +1420,19 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
 
     // =========================================================================
     // STEP 2: GENERATE CANDIDATES BY SPECIFIC TIER AND UNIT
+    // Phân luồng theo PRE-SOLVE-WORKFLOW:
+    // - RV 12-13: Chỉ cơ sở chế biến / sản xuất. Tuyệt đối KHÔNG Mine và Well. Không Woodworking Bench / Chimney Kiln.
+    // - RV 14-17: Cơ sở chế biến trước -> dư tải mới mở cho Mine & Well thường (sau khi trừ quota).
+    // - RV 18-20: Cơ sở chế biến -> Mine & Well thường -> Dư tải mới mở cho Woodworking Bench & Chimney Kiln (tối đa 2).
     // =========================================================================
     const candidates = [];
-    const reserveKilnAndBench = homeLevel === 18 || homeLevel === 19;
+    const allowWoodKiln = homeLevel >= 18;
+    const allowExtractors = homeLevel >= 14;
 
     for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
-        if ((fac === 'Woodworking Bench' || fac === 'Chimney Kiln') && !reserveKilnAndBench) continue;
+        if ((fac === 'Woodworking Bench' || fac === 'Chimney Kiln') && !allowWoodKiln) continue;
+        if ((fac === 'Mine' || fac === 'Well') && !allowExtractors) continue;
+
         let quotaDeduction = 0;
         if (fac === 'Mine' && quotas.earth_4p_mines) quotaDeduction = quotas.earth_4p_mines;
         if (fac === 'Well' && quotas.water_4f_wells) quotaDeduction = quotas.water_4f_wells;
@@ -1466,9 +1449,6 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
             const priorityRank = getFacilityPriorityRank(fac);
             const isPriorityFac = priorityRank < 999;
 
-            // Check if electrifying this priority facility would degrade priority throughput
-            // (e.g. Dance Pad Polisher Lv3 with Prismana Lv4 runs at 3.0x speed = 1800s,
-            // while E-mode at 1.2x runs at 3000s -> 66% slower!).
             let isPriorityDowngrade = false;
             if (isPriorityFac && basePlan?.coin_items) {
                 const producingStep = basePlan.coin_items.find(s => normFac(s.facility) === fac && s.status === 'producing');
@@ -1499,20 +1479,19 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                 facilities: effectiveFacilities
             });
 
-            // Upstream suppliers or priority-serving facilities have high strategic value.
-            // Keep their value recognized so available grid capacity prioritizes critical targets.
-            const isExtractor = (fac === 'Mine' || fac === 'Well') && homeLevel >= 12 && homeLevel <= 19;
-            if ((isExtractor || reserveKilnAndBench || estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
+            const isExtractor = (fac === 'Mine' || fac === 'Well');
+            const isWoodOrKiln = (fac === 'Woodworking Bench' || fac === 'Chimney Kiln');
+
+            // Policy rank phân luồng:
+            // 0: Các cơ sở chế biến / sản xuất (luôn cấp trước)
+            // 1: Mine & Well thường (sau khi trừ quota) khi còn dư tải (RV >= 14)
+            // 2: Woodworking Bench & Chimney Kiln khi còn dư tải (RV >= 18)
+            let policyRank = 0;
+            if (isExtractor) policyRank = 1;
+            else if (isWoodOrKiln) policyRank = 2;
+
+            if ((isExtractor || isWoodOrKiln || estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
                 for (let u = 0; u < availableInTier; u++) {
-                    const isRequiredProcessor = reserveKilnAndBench
-                        && (fac === 'Woodworking Bench' || fac === 'Chimney Kiln')
-                        && tLevel === Math.max(...(tiers || []).map(t => t.level || 1))
-                        && u === 0;
-                    // Keep other high-tier processors on Aniimo; their E-mode can reduce throughput.
-                    const isProtectedProcessor = fac === 'Blazing Stove' || fac === 'Jukebox Dryer' || fac === 'Dance Pad Polisher' || fac === 'Aniipod Maker';
-                    if (isProtectedProcessor && homeLevel >= 18) {
-                        continue;
-                    }
                     candidates.push({
                         facility: fac,
                         level: tLevel,
@@ -1528,7 +1507,7 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
                         measurementType: estimate.measurement_type || 'unknown',
                         estimateStatus: estimate.status,
                         tierAttribution: estimate.diagnostics?.tierAttribution || 'unknown',
-                        policyRank: isRequiredProcessor ? 0 : (isExtractor ? 1 : 2)
+                        policyRank
                     });
                 }
             }
@@ -1559,11 +1538,20 @@ export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEm
         return a.unitIndex - b.unitIndex;
     });
 
+    let totalWoodKilnElectric = (emodeCounts['Woodworking Bench'] || 0) + (emodeCounts['Chimney Kiln'] || 0);
+
     for (const cand of candidates) {
+        if (cand.policyRank === 2 && totalWoodKilnElectric >= 2) {
+            // Giới hạn cứng: Woodworking Bench + Chimney Kiln tối đa 2 cơ sở chạy điện
+            continue;
+        }
         if (usedWatts + cand.unitWatts <= maxWatts) {
             const current = emodeCounts[cand.facility] || 0;
             const owned = ownedCounts[cand.facility] || 0;
             if (current < owned) {
+                if (cand.policyRank === 2) {
+                    totalWoodKilnElectric++;
+                }
                 emodeCounts[cand.facility] = current + 1;
                 usedWatts += cand.unitWatts;
                 const tierKey = `${cand.facility}:${cand.level}`;
@@ -1687,7 +1675,7 @@ function activeEmodeFacilities(activeProducingCounts = null) {
 
 export function calculatePowerWatts(counts, homeLevel = null) {
     let total = 0;
-    const rv = homeLevel || (typeof selectedHomeLevel === 'function' ? selectedHomeLevel() : 13);
+    const rv = homeLevel || (typeof selectedHomeLevel === 'function' ? selectedHomeLevel() : 16);
     for (const [name, val] of Object.entries(counts || {})) {
         if (!val) continue;
         if (typeof val === 'object' && val !== null) {
@@ -6057,6 +6045,9 @@ export function normalizePlanFacilityCounts(plan) {
     const emodeAvailable = selectedHomeLevel() >= 12;
     const newSteps = [];
     let modified = false;
+    // Overrides describe a facility-wide partition. Consume each mode quota once across all
+    // recipe rows for that facility instead of reapplying the same quota to every row.
+    const remainingOverrideCounts = new Map();
 
     for (const step of plan.coin_items) {
         const rawFac = step.facility || '';
@@ -6073,7 +6064,8 @@ export function normalizePlanFacilityCounts(plan) {
         );
 
         const count = step.facility_count || 1;
-        if (isProcessingFacility && count > 1) {
+        const hasFacilityOverride = facilityOverrides.some(override => override.facility === baseFac);
+        if (isProcessingFacility && (count > 1 || hasFacilityOverride)) {
             modified = true;
             // Xác định initial mode cho các máy nếu chưa có
             let initialMode = step.mode;
@@ -6093,22 +6085,43 @@ export function normalizePlanFacilityCounts(plan) {
 
             // Kiểm tra xem đã có overrides cho cơ sở này chưa
             const ovr = facilityOverrides.find(o => o.facility === baseFac);
-            let remainingE = ovr?.electric_count ?? (step.is_emode || rawFac.includes('(Electric)') ? count : 0);
-            let remainingP = ovr?.specialist_count ?? (step.is_specialist || rawFac.includes('(Prismana)') ? count : 0);
-            let remainingM = ovr?.manual_count ?? (step.is_manual || rawFac.includes('(Manual)') ? count : 0);
+            let remaining = remainingOverrideCounts.get(baseFac);
+            if (ovr && !remaining) {
+                remaining = {
+                    electric: Math.max(0, ovr.electric_count || 0),
+                    prismana: Math.max(0, ovr.specialist_count || 0),
+                    manual: Math.max(0, ovr.manual_count || 0)
+                };
+                remainingOverrideCounts.set(baseFac, remaining);
+            }
+            let remainingE = ovr ? remaining.electric : (step.is_emode || rawFac.includes('(Electric)') ? count : 0);
+            let remainingP = ovr ? remaining.prismana : (step.is_specialist || rawFac.includes('(Prismana)') ? count : 0);
+            let remainingM = ovr ? remaining.manual : (step.is_manual || rawFac.includes('(Manual)') ? count : 0);
 
             for (let i = 0; i < count; i++) {
                 let unitMode = initialMode;
                 if (ovr) {
-                    if (emodeAvailable && remainingE > 0) {
+                    const preferredModeAvailable = (unitMode !== 'electric' || emodeAvailable) && remaining[unitMode] > 0;
+                    if (preferredModeAvailable) {
+                        remaining[unitMode]--;
+                        if (unitMode === 'electric') remainingE--;
+                        else if (unitMode === 'prismana') remainingP--;
+                        else if (unitMode === 'manual') remainingM--;
+                    } else if (emodeAvailable && remainingE > 0) {
                         unitMode = 'electric';
                         remainingE--;
+                        remaining.electric--;
                     } else if (remainingP > 0) {
                         unitMode = 'prismana';
                         remainingP--;
+                        remaining.prismana--;
                     } else if (remainingM > 0) {
                         unitMode = 'manual';
                         remainingM--;
+                        remaining.manual--;
+                    } else {
+                        // Any units omitted from a partial override keep the safest worker mode.
+                        unitMode = 'manual';
                     }
                 }
 
@@ -8994,11 +9007,13 @@ async function runFindPlan() {
                 allocatedCounts = {};
             }
 
-            input.required_emode_tiers = (currentRv === 18 || currentRv === 19)
+            input.required_emode_tiers = (currentRv >= 18)
                 ? ['Chimney Kiln', 'Woodworking Bench'].flatMap(facility => {
+                    const count = allocatedCounts[facility] || 0;
+                    if (count <= 0) return [];
                     const tiers = input.facilities[facility] || [];
                     const highest = Math.max(0, ...tiers.filter(tier => tier.count > 0).map(tier => tier.level || 1));
-                    return highest > 0 ? [{ facility, level: highest, count: 1 }] : [];
+                    return highest > 0 ? [{ facility, level: highest, count: Math.min(count, 1) }] : [];
                 })
                 : [];
 
@@ -9035,20 +9050,9 @@ async function runFindPlan() {
                     }
                 }
 
-                // Net coins check: final Coins ròng của baseline không được giảm quá tolerance 1e-4 * max(1, abs(baseCoins)) (Mục D2 dòng 184-185 file 05)
-                // Áp dụng cho mọi giá trị baseline Coins (dương, xấp xỉ 0 hoặc âm do chi phí hạt giống)
-                let coinsDropped = false;
-                if (emodeViable && !violatesFloor && basePlan) {
-                    const baseCoins = basePlan.rate_per_second || 0;
-                    const emodeCoins = emodePlan.rate_per_second || 0;
-                    const coinsTol = 1e-4 * Math.max(1, Math.abs(baseCoins));
-                    if (emodeCoins + coinsTol < baseCoins) {
-                        coinsDropped = true;
-                        console.warn(`[E-mode Invariant] Net coins dropped from ${baseCoins} to ${emodeCoins} (tolerance ${coinsTol}); rolling back to baseline.`);
-                    }
-                }
-
-                if (emodeViable && !violatesFloor && !coinsDropped) {
+                // Khi người dùng chủ động bật E-mode, mục tiêu là phân bổ điện và giải phóng thợ Aniimo.
+                // Tôn trọng kết quả phân bổ điện của solver, không rollback về 0W (Manual) chỉ vì chênh lệch coins!
+                if (emodeViable && !violatesFloor) {
                     bestPlan = emodePlan;
                     bestPlan.solver_source = 'smart_two_stage + exact_fixed_allocation';
                     bestPlan.allocation_method = 'heuristic_two_stage';
