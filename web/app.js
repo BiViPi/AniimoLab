@@ -11,6 +11,126 @@ import {
 } from './facility-config.js?v=aniimolab_v53';
 import { renderAniimoWorkerCard, renderAniimoTasksCluster, renderRosterWorkerBadge, getWorkerForLevel, getFacilitySpecificWorker, ABILITY_THEMES } from './aniimo-data.js?v=aniimolab_v53';
 import { renderFacilityIcon, renderItemIcon, renderHomelandSvgFacility, getFacilityIconUrl, HOMELAND_ASSET_MANIFEST } from './asset-map.js?v=aniimolab_v53';
+import {
+    EMODE_PRIORITY,
+    actualEmodeCounts as countActualEmodeUnits,
+    allocateDynamicEmode as allocateDynamicEmodePolicy,
+    autoAllocateEmode as autoAllocateEmodePolicy,
+    calculatePowerWatts as sumPowerWatts,
+    estimateFacilityMarginalValue as estimateFacilityMarginalValuePolicy,
+    getTargetEmodeWatts as calculateTargetEmodeWatts,
+    isFacilityEligibleForEmode,
+    createWorksheetModeQuotaTracker,
+    getWorksheetStepMode as worksheetStepMode,
+    adjustFacilityPartitionCounts,
+    getFacilityPartitionCounts,
+} from './emode-policy.js?v=aniimolab_v63';
+import { createEmodeSettingsController, createPowerGaugeController, createWorksheetModeController, worksheetFixedPlanLines, worksheetOverridesFromLines as buildWorksheetOverridesFromLines } from './emode-controller.js?v=aniimolab_v65';
+import { createSolverClient } from './solver-client.js?v=aniimolab_v59';
+import { executePlanSolve } from './plan-solve-runner.js?v=aniimolab_v1';
+import { createFastResolveController } from './fast-resolve-controller.js?v=aniimolab_v1';
+import { createTimeToGoalController } from './time-to-goal-controller.js?v=aniimolab_v1';
+import { buildImprovementRankingMarkup } from './improvement-ranking-renderer.js?v=aniimolab_v1';
+import { createRecipeSearchController } from './recipe-search-controller.js?v=aniimolab_v1';
+import { createInsightsRenderer } from './insights-renderer.js?v=aniimolab_v1';
+import { tipAttrs, createTooltipController } from './tooltip-controller.js?v=aniimolab_v1';
+import { createFacilitiesModalController } from './facilities-modal-controller.js?v=aniimolab_v1';
+import { createFacilityPartitionDialogController } from './facility-partition-dialog.js?v=aniimolab_v1';
+import { createAniimoSummaryController } from './aniimo-summary-controller.js?v=aniimolab_v1';
+import { createAniimoSetupUIController } from './aniimo-setup-ui.js?v=aniimolab_v1';
+import { createStrategyUIController } from './strategy-ui-controller.js?v=aniimolab_v1';
+import { createSeasonPlotsAdvisoryController } from './season-plots-advisory.js?v=aniimolab_v1';
+import { createPlanSolveController } from './plan-solve-controller.js?v=aniimolab_v1';
+import { createPlanDisplayController } from './plan-display-controller.js?v=aniimolab_v1';
+import { createGoalDisplayController } from './goal-display-controller.js?v=aniimolab_v1';
+import { madeBy as calculateMadeBy, timeToMake as calculateTimeToMake } from './goal-production.js?v=aniimolab_v1';
+import { createRateDisplayController } from './rate-display-controller.js?v=aniimolab_v1';
+import { buildGoalAlsoViewModel } from './goal-also-renderer.js?v=aniimolab_v1';
+import { createAniimoSetupController } from './plan-controller.js?v=aniimolab_v53';
+import { runPlanPruning } from './plan-pruning.js?v=aniimolab_v2';
+import { solvePlanWithEmode } from './emode-solve-pipeline.js?v=aniimolab_v1';
+import { normalizePlanFacilityCounts as normalizePlanFacilityCountsModule } from './plan-normalization.js?v=aniimolab_v1';
+import { buildStrategyPlanInput as buildStrategyPlanInputModule } from './plan-strategy.js?v=aniimolab_v1';
+import { createPlanInputBuilder } from './plan-input.js?v=aniimolab_v1';
+import {
+    selectOptimalSeasonDishes as selectOptimalSeasonDishesPolicy,
+    getSeasonFacilityUsage as summarizeSeasonFacilityUsage,
+    calculateOptimalSeasonPlots as calculateOptimalSeasonPlotsPolicy,
+} from './season-planner.js?v=aniimolab_v1';
+import { integrateSeasonPlan as integrateSeasonPlanModule } from './season-plan-integration.js?v=aniimolab_v1';
+import { createSeasonController } from './season-controller.js?v=aniimolab_v1';
+import { createRecipeTableRenderer } from './recipe-table-renderer.js?v=aniimolab_v1';
+import { splitEnvironmentRowsByUnit as splitEnvironmentRowsByUnitPolicy } from './homeland-layout-view.js?v=aniimolab_v2';
+import { createHomelandUIController } from './homeland-ui-controller.js?v=aniimolab_v1';
+import { renderGoalTargetOptions } from './goal-details-renderer.js?v=aniimolab_v1';
+import { createProductionSummaryViewController } from './production-summary-view.js?v=aniimolab_v1';
+import { createEnvironmentRenderer } from './environment-renderer.js?v=aniimolab_v1';
+import { buildLevelUpViewModel } from './level-up-renderer.js?v=aniimolab_v1';
+import { buildSimpleSummaryViewModel } from './simple-summary-renderer.js?v=aniimolab_v1';
+import { createProgressController, trialCountToPercent, searchNote } from './progress-controller.js?v=aniimolab_v1';
+import { buildSolverResultViewModel } from './solver-result-renderer.js?v=aniimolab_v1';
+import { buildSpecialRecipeViewModel } from './special-recipe-renderer.js?v=aniimolab_v1';
+import { createFacilitySetupController } from './facility-setup-controller.js?v=aniimolab_v1';
+import { createRosterUIController } from './roster-ui-controller.js?v=aniimolab_v1';
+import { buildProfitInsight } from './profit-insight.js?v=aniimolab_v1';
+import { buildFarmSupplyInsight } from './farm-supply-insight.js?v=aniimolab_v1';
+import { buildWoodlandInsight } from './woodland-insight.js?v=aniimolab_v1';
+import { buildRejectedInsight } from './rejected-insight.js?v=aniimolab_v1';
+import { buildLogisticsInsight } from './logistics-insight.js?v=aniimolab_v1';
+import { STORAGE_KEY, applySavedFields, attachPersistedFieldAutosave, buildSavedConfig, persistSavedConfig, readSavedConfig, removeSavedConfig, restoreSavedState } from './config-storage.js?v=aniimolab_v1';
+import { createRecipeFilterController } from './recipe-filter-controller.js?v=aniimolab_v1';
+import { createPriorityController } from './priority-controller.js?v=aniimolab_v1';
+import { createStrategyFormController } from './strategy-form-controller.js?v=aniimolab_v1';
+import { createSpecialRecipeController } from './special-recipe-controller.js?v=aniimolab_v1';
+import { createHomeLevelController } from './home-level-controller.js?v=aniimolab_v1';
+import { buildPriorityListMarkup } from './priority-renderer.js?v=aniimolab_v1';
+import { buildLevelUpStrategyViewModel, getLevelUpStockAmount, getLevelUpStockNames } from './level-up-strategy-renderer.js?v=aniimolab_v1';
+import { createInfeasibleViewController } from './infeasible-view.js?v=aniimolab_v1';
+import { createFacilityPlanViewController } from './facility-plan-view.js?v=aniimolab_v1';
+import {
+    ITEM_NAMES,
+    numberOrDefault,
+    floatOrDefault,
+    formatNumber,
+    formatRate,
+    getFacilityDisplayName,
+    getModeDisplayName,
+    getModuleDisplayName,
+    getItemDisplayName,
+    prettyItem,
+    prettyReason,
+    goalName,
+} from './display-formatters.js?v=aniimolab_v1';
+import { createImprovementCandidateBuilder, createImprovementRankingController, calculateImprovementGain, buildImprovementRankingViewModel } from './improvement-ranking.js?v=aniimolab_v3';
+export { EMODE_PRIORITY };
+
+// Every Aniimo ability in the game's own order, with its in-game color and what it's for.
+// `dark` marks colors light enough to need dark text.
+const ABILITIES = [
+    { name: 'Fire', color: '#e5484d', about: 'Cooking, smelting and heat' },
+    { name: 'Grass', color: '#3fa36b', about: 'Planting seeds and gathering' },
+    { name: 'Water', color: '#2b8fe8', about: 'Brewing, fetching water and watering' },
+    { name: 'Earth', color: '#b39a74', about: 'Reclaiming land and mining' },
+    { name: 'Lightning', color: '#e6c317', about: 'Electricity', dark: true },
+    { name: 'Ice', color: '#45c4de', about: 'Cooling the homeland' },
+    { name: 'Wind', color: '#2fbfa5', about: 'Processing with wind' },
+    { name: 'Dark', color: '#7d4bb3', about: 'Harvesting, cutting, pickling and drying' },
+    { name: 'Light', color: '#f5a524', about: 'Lighting the homeland', dark: true },
+    { name: 'Hauling', color: '#5f7fd1', about: 'Carrying produce to storage' },
+    { name: 'Artisanship', color: '#5fb14f', about: 'Handcrafted goods' },
+    { name: 'Leisure', color: '#e8678a', about: 'Making things while playing' },
+    { name: 'Perfumery', color: '#b877d9', about: 'Perfumes and incense' },
+];
+const ABILITY_BY_NAME = new Map(ABILITIES.map(a => [a.name, a]));
+
+// The ability each environment building's Aniimo needs (confirmed in game).
+const ENVIRONMENT_BUILDING_ABILITY = {
+    'Heat Furnace': 'Fire',
+    'Cooling Unit': 'Ice',
+    'Sunlamp': 'Light',
+};
+
+const escapeText = text => String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let wasmReady = false;
 
@@ -18,62 +138,11 @@ let wasmReady = false;
 // can take long enough on a complex facility setup that running it here would freeze the page's
 // own rendering, which is what makes the browser offer to kill the tab. Every call site below
 // goes through `callWorker` instead of calling a wasm-bindgen function directly.
-let worker = null;
-let nextRequestId = 0;
-const pendingWorkerRequests = new Map();
-
 // Tags this page load's worker (and, through it, the wasm solver; see worker.js) so the browser
 // never runs a cached older solver next to newer page code.
 const WORKER_URL = `./worker.js?v=aniimolab_v57&load=${Date.now()}`;
-
-function initWorker() {
-    worker = new Worker(WORKER_URL, { type: 'module' });
-    worker.onmessage = (event) => {
-        const { id, type, ok, result, error, count } = event.data;
-        const pending = pendingWorkerRequests.get(id);
-        if (!pending) return;
-        // A `find_plan` request can receive several `type: 'progress'` messages (the solver's own
-        // real trial-solve count; see `find_plan`'s doc comment in wasm.rs) before its one final
-        // `{ ok, result }` response; only the latter resolves/removes the pending request.
-        if (type === 'progress') {
-            if (pending.onProgress) pending.onProgress(count);
-            return;
-        }
-        pendingWorkerRequests.delete(id);
-        if (ok) {
-            pending.resolve(result);
-        } else {
-            pending.reject(new Error(error));
-        }
-    };
-    worker.onerror = (event) => {
-        console.error('Worker error:', event.message || event);
-        pendingWorkerRequests.forEach(pending => pending.reject(new Error(event.message || 'The planner stopped')));
-        pendingWorkerRequests.clear();
-    };
-}
-
-// Throws away the worker and anything still running in it, e.g. a Minimum-setup solve from an
-// older Calculate click that would otherwise hold up the new one, and starts a fresh worker.
-function restartWorker() {
-    worker.terminate();
-    pendingWorkerRequests.forEach(pending => pending.reject(new Error('Cancelled by a newer calculation')));
-    pendingWorkerRequests.clear();
-    initWorker();
-}
-
-// Sends one request to the worker and resolves with its result (or rejects with its error);
-// `type` is one of worker.js's `HANDLER_NAMES` or `'find_plan'`, and `payload` that function's
-// own single string argument (omit for `get_version`/`get_all_items`, which take none).
-// `onProgress(count)`, if given, gets each progress message before the result: `find_plan`
-// sends every solve step and, from the backup planner, its trial count; see worker.js.
-function callWorker(type, payload, onProgress) {
-    return new Promise((resolve, reject) => {
-        const id = ++nextRequestId;
-        pendingWorkerRequests.set(id, { resolve, reject, onProgress });
-        worker.postMessage({ id, type, payload });
-    });
-}
+const solverClient = createSolverClient(WORKER_URL);
+const { initWorker, restartWorker, callWorker } = solverClient;
 
 // Converts the solver's real, running trial-solve count (from `find_plan`'s progress callback;
 // see worker.js) into a progress-bar fill percentage. The algorithm's exact total trial count
@@ -97,19 +166,6 @@ function callWorker(type, payload, onProgress) {
 // which is exactly the "gets exponentially slower towards the end" complaint this two-phase
 // version fixes: the SECOND phase gets its own, much larger halfway trial count, so the visual
 // progress keeps moving noticeably through that long tail instead of flatlining near the cap.
-const EARLY_PHASE_TRIALS = 15;
-const EARLY_PHASE_PERCENT = 25;
-const LATE_PHASE_HALFWAY_TRIALS = 120;
-function trialCountToPercent(count) {
-    if (count <= EARLY_PHASE_TRIALS) {
-        return Math.round((EARLY_PHASE_PERCENT * count) / EARLY_PHASE_TRIALS);
-    }
-    const trialsIntoLatePhase = count - EARLY_PHASE_TRIALS;
-    const latePhasePercentRange = 96 - EARLY_PHASE_PERCENT;
-    const latePhaseFraction = trialsIntoLatePhase / (trialsIntoLatePhase + LATE_PHASE_HALFWAY_TRIALS);
-    return Math.min(96, Math.round(EARLY_PHASE_PERCENT + latePhasePercentRange * latePhaseFraction));
-}
-
 // The most recently computed plan (the full JS object returned by find_plan, including
 // `success`/`error`); held in memory so changing the goal amount can call time_to_reach directly
 // without re-running the facility-allocation solve. Cleared whenever facilities/currency/modules
@@ -127,7 +183,7 @@ let planRunId = 0;
 function selectedAniimoSetup() {
     const tab = selectedSetupTab();
     if (tab === 'minimum') return 'minimum';
-    if (tab === 'custom') return `roster:${JSON.stringify(roster.map(({ name, ...aniimo }) => aniimo))}`;
+    if (tab === 'custom') return `roster:${JSON.stringify(rosterUIController.getRoster().map(({ name, ...aniimo }) => aniimo))}`;
     return bestAniimoSetup();
 }
 
@@ -139,44 +195,28 @@ function bestAniimoSetup() {
 // player filling the form in again.
 let lastPlanInput = null;
 
-// Solves for `setup` if it isn't already worked out, and shows it when it lands if that's still
-// what's selected. It runs in a worker of its own, which a newer pick stops, so quick roster
-// edits don't queue a solve each. A run id guards against a newer Find the best plan click.
-let setupSolve = null;
+const aniimoSetupController = createAniimoSetupController({
+    WorkerImpl: Worker,
+    workerUrl: WORKER_URL,
+    getPlans: () => plansBySetup,
+    getLastPlanInput: () => lastPlanInput,
+    getRunId: () => planRunId,
+    getSelectedSetup: selectedAniimoSetup,
+    getAniimoInput: aniimoInput,
+    normalizePlan: normalizePlanFacilityCounts,
+    showSelectedPlan,
+});
+
 function ensurePlanFor(setup) {
-    if (plansBySetup[setup] || !lastPlanInput || setupSolve?.setup === setup) return;
-    stopSetupSolve();
-    const runId = planRunId;
-    const solver = new Worker(WORKER_URL, { type: 'module' });
-    setupSolve = { setup, worker: solver };
-    const done = (plan) => {
-        solver.terminate();
-        if (setupSolve?.worker === solver) setupSolve = null;
-        if (runId !== planRunId) return;
-        normalizePlanFacilityCounts(plan);
-        plansBySetup[setup] = plan;
-        if (selectedAniimoSetup() === setup) showSelectedPlan();
-    };
-    solver.onmessage = (event) => {
-        const { type, ok, result, error } = event.data;
-        if (type === 'progress') return;
-        done(ok ? JSON.parse(result) : { success: false, error });
-    };
-    solver.onerror = (event) => done({ success: false, error: event.message || 'The planner stopped' });
-    // The levels are read afresh: the player may have changed which abilities they have since
-    // the plan this input came from.
-    solver.postMessage({ id: 1, type: 'find_plan', payload: JSON.stringify({ ...lastPlanInput, ...aniimoInput(setup) }) });
+    aniimoSetupController.ensurePlanFor(setup);
 }
 
 function stopSetupSolve() {
-    setupSolve?.worker.terminate();
-    setupSolve = null;
+    aniimoSetupController.stopSetupSolve();
 }
 
-// Shows the selected setup, and works it out first if this is the first time it's been asked for.
 function switchAniimoSetup() {
-    showSelectedPlan();
-    ensurePlanFor(selectedAniimoSetup());
+    aniimoSetupController.switchAniimoSetup();
 }
 
 // Shows the plan for the selected Aniimo setup, or a "still working" note if it isn't ready.
@@ -241,25 +281,6 @@ const RATE_UNIT_SECONDS = {
 let facilityTiers = {};
 let emodeFacilities = new Set();
 
-export const EMODE_PRIORITY = [
-    'Jukebox Dryer',
-    'Simmering Pot',
-    'Claw Game Cooker',
-    'Carousel Mill',
-    'Crafting Table',
-    'Blazing Stove',
-    'Joy Wheel Loom',
-    'Pickling Jar',
-    'Bouncy Brew Keg',
-    'Phonolfactory Table',
-    'Well',
-    'Chimney Kiln',
-    'Woodworking Bench',
-    'Dance Pad Polisher',
-    'Aniipod Maker',
-    'Mine'
-];
-
 export function getProductionAniimoCap() {
     const el = document.getElementById('production-aniimo-cap');
     if (!el) return 26;
@@ -321,18 +342,7 @@ export function getGeneratorCapacity() {
 }
 
 export function getTargetEmodeWatts(generatorCapacity = getGeneratorCapacity(), powerRate = getPowerGridRate()) {
-    if (powerRate >= 1.15) {
-        // At 120% supply rate, total electrified load must be <= generator capacity / 1.2
-        return Math.floor(generatorCapacity / 1.2);
-    }
-    // At 100% supply rate, total electrified load can reach 100% of generator capacity
-    return generatorCapacity;
-}
-
-// Only level-5+ Mines have a known E-mode (150W). From RV 15 (1600W), load is available.
-function emodeMineUnits(homeLevel, tiers) {
-    if (homeLevel < 15) return 0;
-    return (tiers || []).filter(t => t.level >= 5).reduce((sum, t) => sum + t.count, 0);
+    return calculateTargetEmodeWatts(generatorCapacity, powerRate);
 }
 
 // Canonical power pole count: reads from canonical power profile according to RV / module
@@ -405,12 +415,7 @@ window.resetWorksheetOverrides = function() {
 };
 
 export function getSpecialistQuotas() {
-    const earthEl = document.getElementById('quota-earth-4p');
-    const waterEl = document.getElementById('quota-water-4f');
-    return {
-        earth_4p_mines: earthEl ? Math.max(0, parseInt(earthEl.value, 10) || 0) : 3,
-        water_4f_wells: waterEl ? Math.max(0, parseInt(waterEl.value, 10) || 0) : 0,
-    };
+    return emodeSettingsController.getSpecialistQuotas();
 }
 
 export function validateInvariants(facility, targetMode, stepCount) {
@@ -481,241 +486,85 @@ export function calculateWorkerSpeed(workerLevel, reqLevel = 1, isGathering = fa
     return baseSpeed;
 }
 
-function worksheetStepMode(step) {
-    if (step?.mode === 'electric' || step?.is_emode) return 'electric';
-    if (step?.mode === 'prismana' || step?.mode === 'specialist' || step?.is_specialist) return 'prismana';
-    if (step?.mode === 'manual' || step?.is_manual) return 'manual';
-    return 'manual';
-}
-
-function worksheetFixedPlanLines(plan) {
-    return (plan?.coin_items || [])
-        .filter(step => step.status === 'producing' && step.item_name && (step.facility_count || 0) > 0)
-        .map(step => ({
-            facility: (step.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim(),
-            item_name: step.item_name.replace(/__(manual|specialist)$/, ''),
-            mode: worksheetStepMode(step),
-            facility_count: step.facility_count,
-            crew: Number.isInteger(step.crew) ? step.crew : null
-        }));
-}
+const worksheetModeController = createWorksheetModeController({
+    facilities: FACILITIES,
+    residentFacilities: { has: name => RESIDENT_FACILITIES.has(name) },
+    getPlan: () => lastPlan,
+    setPlan: value => {
+        lastPlan = value;
+        const setup = selectedAniimoSetup();
+        if (plansBySetup[setup]) plansBySetup[setup] = value;
+    },
+    getEmodeCounts: () => lastEmodeCounts,
+    setEmodeCounts: value => { lastEmodeCounts = value; },
+    getOverrides: () => facilityOverrides,
+    setOverrides: value => { facilityOverrides = value; },
+    getHomeLevel: selectedHomeLevel,
+    getGeneratorCapacity,
+    getPowerGridRate,
+    getTargetEmodeWatts,
+    getSpecialistQuotas,
+    getFacilityLevel,
+    calculatePowerWatts,
+    updatePowerGauge,
+    showSelectedPlan,
+    showInvariantWarning,
+    setButtonMode: (button, mode) => {
+        if (!button?.parentElement) return;
+        button.parentElement.querySelectorAll('.mode-pill').forEach(pill => pill.classList.remove('active'));
+        const selector = mode === 'prismana' || mode === 'specialist' ? '.pill-specialist'
+            : (mode === 'electric' ? '.pill-electric' : '.pill-manual');
+        const target = button.parentElement.querySelector(selector);
+        if (target) target.classList.add('active');
+    },
+    setResetButtonVisible: visible => {
+        const button = document.getElementById('btn-reset-overrides');
+        if (button) button.style.display = visible ? 'inline-flex' : 'none';
+    },
+    isVietnamese: () => window.i18n && window.i18n.getLang() === 'vi',
+    alert: message => window.alert(message),
+    logError: (...args) => console.warn(...args),
+});
+window.onWorksheetModeClick = worksheetModeController.onWorksheetModeClick;
 
 function worksheetOverridesFromLines(lines) {
-    const byFacility = new Map();
-    for (const line of lines) {
-        let counts = byFacility.get(line.facility);
-        if (!counts) {
-            counts = { electric_count: 0, specialist_count: 0, manual_count: 0 };
-            byFacility.set(line.facility, counts);
-        }
-        if (line.mode === 'electric') counts.electric_count += line.facility_count;
-        else if (line.mode === 'prismana' && (line.facility === 'Mine' || line.facility === 'Well' || RESIDENT_FACILITIES.has(line.facility) || FACILITIES.find(f => f.name === line.facility)?.hasWorker)) {
-            counts.specialist_count += line.facility_count;
-        } else if (line.mode === 'manual' && (RESIDENT_FACILITIES.has(line.facility) || FACILITIES.find(f => f.name === line.facility)?.hasWorker)) {
-            counts.manual_count += line.facility_count;
-        }
-    }
-    return [...byFacility.entries()]
-        .filter(([facility]) => {
-            const def = FACILITIES.find(f => f.name === facility);
-            return facility === 'Mine' || facility === 'Well' || def?.hasWorker || RESIDENT_FACILITIES.has(facility);
-        })
-        .map(([facility, counts]) => ({
-            facility,
-            level: getFacilityLevel(facility),
-            target_mode: counts.electric_count > 0 ? 'electric' : (counts.specialist_count > 0 ? 'prismana' : 'manual'),
-            ...counts
-        }));
+    return buildWorksheetOverridesFromLines(lines, {
+        facilities: FACILITIES,
+        residentFacilities: RESIDENT_FACILITIES,
+        getFacilityLevel
+    });
 }
 
-let isWorksheetReSolving = false;
-window.onWorksheetModeClick = async function(facility, targetMode, stepCount, currentModeParam, clickedBtn, stepIndex) {
-    if (!lastPlan || !lastPlan.success || isWorksheetReSolving) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    // 1. Chuẩn hóa targetMode
-    if (targetMode === 'specialist') targetMode = 'prismana';
-    if (targetMode === 'electric' && selectedHomeLevel() < 12) return;
-
-    const rawFac = facility || '';
-    const baseFac = rawFac.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
-    const generatorCapacity = getGeneratorCapacity();
-    const chosenRate = getPowerGridRate();
-    const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
-
-    // Phản hồi giao diện tức thời (Instant Visual Feedback)
-    if (clickedBtn && clickedBtn.parentElement) {
-        clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-        clickedBtn.classList.add('active');
-    }
-
-    // 2. Snapshot the current plan, then change only the selected production row.
-    const originalPlan = JSON.parse(JSON.stringify(lastPlan));
-    const originalEmodeCounts = { ...(lastEmodeCounts || {}) };
-    const originalOverrides = facilityOverrides.map(override => ({ ...override }));
-    const step = (lastPlan.coin_items && typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < lastPlan.coin_items.length)
-        ? lastPlan.coin_items[stepIndex]
-        : (lastPlan.coin_items || []).find(s => (s.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() === baseFac && s.status === 'producing');
-    if (!step) return;
-
-    const prevMode = step ? worksheetStepMode(step) : (currentModeParam || 'manual');
-    if (step) {
-        step.mode = targetMode;
-        step.is_emode = (targetMode === 'electric');
-        step.is_specialist = (targetMode === 'prismana');
-        step.is_manual = (targetMode === 'manual');
-    }
-
-    const fixedLines = worksheetFixedPlanLines(lastPlan);
-    if (selectedHomeLevel() >= 18 && selectedHomeLevel() <= 19
-        && ['Chimney Kiln', 'Woodworking Bench'].includes(baseFac)
-        && targetMode !== 'electric'
-        && !fixedLines.some(line => line.facility === baseFac && line.mode === 'electric')) {
-        lastPlan = originalPlan;
-        if (clickedBtn?.parentElement) {
-            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-            clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`)?.classList.add('active');
-        }
-        showInvariantWarning(baseFac, 'Ở RV18–19 cần giữ ít nhất một Lò Ống Khói và một Bàn Gia Công Gỗ chạy điện.');
-        return;
-    }
-    const quotas = getSpecialistQuotas() || {};
-    const lockedSpecialists = fixedLines.filter(line => line.facility === baseFac && line.mode === 'prismana')
-        .reduce((sum, line) => sum + line.facility_count, 0);
-    const requiredSpecialists = baseFac === 'Mine' ? (quotas.earth_4p_mines || 0)
-        : (baseFac === 'Well' ? (quotas.water_4f_wells || 0) : 0);
-    if (lockedSpecialists < requiredSpecialists) {
-        lastPlan = originalPlan;
-        if (clickedBtn?.parentElement) {
-            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-            clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`)?.classList.add('active');
-        }
-        showInvariantWarning(baseFac, `Không thể giảm quota Prismana đã chọn: cần giữ ${requiredSpecialists} máy, hiện chỉ còn ${lockedSpecialists}.`);
-        return;
-    }
-
-    const projectedCounts = {};
-    for (const line of fixedLines.filter(line => line.mode === 'electric')) {
-        projectedCounts[line.facility] = (projectedCounts[line.facility] || 0) + line.facility_count;
-    }
-    const projectedWatts = calculatePowerWatts(projectedCounts);
-    if (targetMode === 'electric' && projectedWatts > maxWatts) {
-        // Rollback giao diện & state
-        lastPlan = originalPlan;
-        if (clickedBtn && clickedBtn.parentElement) {
-            clickedBtn.parentElement.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-            const prevPill = clickedBtn.parentElement.querySelector(`.pill-${prevMode === 'prismana' ? 'specialist' : prevMode}`);
-            if (prevPill) prevPill.classList.add('active');
-        }
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        const msg = isVi
-            ? `Thao tác này đã vượt quá công suất cho phép của lưới điện! Cần tổng ${projectedWatts}W nhưng giới hạn an toàn hiện tại là ${maxWatts}W.`
-            : `This action exceeds the allowed power grid capacity! Required ${projectedWatts}W but safe limit is ${maxWatts}W.`;
-        window.alert(msg);
-        showInvariantWarning(baseFac, msg);
-        return;
-    }
-
-    // 3. Rebuild mode counts and per-facility overrides from the selected rows.
-    lastEmodeCounts = projectedCounts;
-    updatePowerGauge(lastEmodeCounts);
-    facilityOverrides = worksheetOverridesFromLines(fixedLines);
-
-    // Hiển thị nút Reset Overrides
-    const resetBtn = document.getElementById('btn-reset-overrides');
-    if (resetBtn) resetBtn.style.display = 'inline-flex';
-
-    // Yêu cầu: Không cho solver tự giải lại kế hoạch, mà chỉ cập nhật công suất, workload và thu nhập trực tiếp!
-    try {
-        // Cập nhật chu kỳ và trạng thái của step vừa đổi mode
-        if (step.is_emode) {
-            // Chế độ điện: tốc độ tăng theo power_grid_rate (mặc định 1.2x)
-            step.cycle_time = Math.round((step.cycle_time || 60) / 1.2 * 10) / 10;
-        } else if (prevMode === 'electric') {
-            // Chuyển từ điện về thường/prismana: hoàn lại tốc độ cơ sở
-            step.cycle_time = Math.round((step.cycle_time || 50) * 1.2 * 10) / 10;
-        }
-        showSelectedPlan();
-    } catch (e) {
-        console.warn('In-place worksheet update:', e);
-    }
-};
+const fastResolveController = createFastResolveController({
+    buildInput: buildStrategyPlanInput,
+    getLastPlanInput: () => lastPlanInput,
+    getEmodeCounts: () => lastEmodeCounts,
+    getLastPlan: () => lastPlan,
+    getFacilityOverrides,
+    getSelectedSetup: selectedAniimoSetup,
+    getBestSetup: bestAniimoSetup,
+    getWorksheetLines: worksheetFixedPlanLines,
+    buildWorksheetOverrides: worksheetOverridesFromLines,
+    getFacilityLevel,
+    getAniimoInput: aniimoInput,
+    solveWorker: callWorker,
+    now: () => performance.now(),
+    integrateSeasonPlan,
+    normalizePlanFacilityCounts,
+    setPlanForSetup: (setup, plan) => { plansBySetup[setup] = plan; },
+    setLastPlan: plan => { lastPlan = plan; },
+    setEmodeCounts: counts => { lastEmodeCounts = counts; },
+    actualEmodeCounts,
+    showSelectedPlan,
+    updatePowerGauge,
+    document,
+    setLastError: error => { window.__lastFastResolveError = error; },
+    warn: (...args) => console.warn(...args),
+    logError: (...args) => console.error(...args),
+});
 
 export async function runFastReSolve(fixedLayout = false) {
-    try {
-        const input = buildStrategyPlanInput();
-        // Bảo toàn các exclusions đã lọc ở Step 4 để không bị trôi dạt vào nguyên liệu thô phụ <= 2%
-        if (lastPlanInput?.exclude && lastPlanInput.exclude.length > 0) {
-            input.exclude = [...new Set([...(input.exclude || []), ...lastPlanInput.exclude])];
-        }
-        input.emode_facilities = Object.keys(lastEmodeCounts).filter(f => (lastEmodeCounts[f] || 0) > 0);
-        input.emode_facility_counts = { ...(lastEmodeCounts || {}) };
-        input.facility_overrides = fixedLayout ? worksheetOverridesFromLines(worksheetFixedPlanLines(lastPlan)) : getFacilityOverrides();
-        if (fixedLayout) input.fixed_plan_lines = worksheetFixedPlanLines(lastPlan);
-        input.emode_tier_counts = Object.entries(lastEmodeCounts)
-            .filter(([_, cnt]) => (cnt || 0) > 0)
-            .map(([fac, cnt]) => ({
-                facility: fac,
-                level: getFacilityLevel(fac),
-                count: cnt
-            }));
-
-        const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
-        const payload = JSON.stringify({ ...input, ...aniimoInput(bestSetup) });
-
-        const t0 = performance.now();
-        // Gọi find_plan để đảm bảo đầy đủ các tầng ràng buộc và tối ưu hóa toán học chuẩn xác
-        const json = await callWorker('find_plan', payload);
-        let plan = JSON.parse(json);
-
-        if (plan && plan.success) {
-            const elapsed = Math.round(performance.now() - t0);
-            plan.solver_source = 'fast_resolve_exact';
-            plan.guard_eligibility = 'unverified';
-            plan.elapsed_ms = elapsed;
-            // Tích hợp đầy đủ các cơ sở chế biến và món ăn sự kiện
-            plan = integrateSeasonPlan(plan);
-            normalizePlanFacilityCounts(plan);
-            if (fixedLayout) {
-                const lineTotals = (lines) => {
-                    const totals = new Map();
-                    for (const line of lines) {
-                        const key = `${line.facility}|${line.item_name}|${line.mode}`;
-                        totals.set(key, (totals.get(key) || 0) + line.facility_count);
-                    }
-                    return totals;
-                };
-                const expected = lineTotals(worksheetFixedPlanLines(lastPlan));
-                const actual = lineTotals(worksheetFixedPlanLines(plan));
-                const unchanged = expected.size === actual.size
-                    && [...expected].every(([key, count]) => actual.get(key) === count);
-                if (!unchanged) {
-                    window.__lastFastResolveError = 'The constrained mode solve changed a facility/product assignment; the previous layout was kept.';
-                    return false;
-                }
-            }
-            plansBySetup[bestSetup] = plan;
-            lastPlan = plan;
-            lastEmodeCounts = actualEmodeCounts(plan);
-            showSelectedPlan();
-            updatePowerGauge(lastEmodeCounts);
-
-            const badge = document.getElementById('fast-resolve-benchmark-badge');
-            if (badge) {
-                badge.style.display = 'inline-flex';
-                badge.innerHTML = `⚡ ${elapsed}ms`;
-            }
-            return true;
-        } else {
-            window.__lastFastResolveError = plan?.error || 'Plan unfeasible';
-            console.warn('Fast re-solve returned unsuccessful plan:', plan?.error);
-            return false;
-        }
-    } catch (err) {
-        window.__lastFastResolveError = err?.message || String(err);
-        console.error('runFastReSolve error:', err);
-        return false;
-    }
+    return fastResolveController.runFastReSolve(fixedLayout);
 }
 
 function showInvariantWarning(facility, reason) {
@@ -740,1463 +589,236 @@ function showInvariantWarning(facility, reason) {
 }
 
 // --- Facility Partitioning Modal Logic ---
-let currentPartitionFacility = null;
-
-window.openFacilityPartitionModal = function(baseFac) {
-    if (!lastPlan || !lastPlan.success) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    currentPartitionFacility = baseFac;
-
-    const ownedCounts = getOwnedFacilityCounts();
-    const totalOwned = ownedCounts[baseFac] || 1;
-    const facDef = FACILITIES.find(f => f.name === baseFac);
-    const emodeAvailable = selectedHomeLevel() >= 12;
-    const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
-    const wattsPerUnit = supportsEmode ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
-
-    // Lấy phân bổ hiện tại
-    const existingOvr = facilityOverrides.find(o => o.facility === baseFac);
-    let curE = 0, curP = 0, curM = 0;
-
-    if (existingOvr) {
-        curE = existingOvr.electric_count || 0;
-        curP = existingOvr.specialist_count || 0;
-        curM = existingOvr.manual_count || 0;
-    } else {
-        (lastPlan.coin_items || []).forEach(s => {
-            const facName = (s.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-            if (facName === baseFac) {
-                const m = s.mode || (s.is_emode ? 'electric' : (s.is_specialist ? 'prismana' : (s.is_manual ? 'manual' : 'prismana')));
-                if (m === 'electric') curE += s.facility_count || 0;
-                else if (m === 'prismana') curP += s.facility_count || 0;
-                else if (m === 'manual') curM += s.facility_count || 0;
-            }
-        });
-        if (curE === 0 && curP === 0 && curM === 0) {
-            curE = lastEmodeCounts[baseFac] || 0;
-            if (baseFac === 'Mine') {
-                curP = Math.min(totalOwned - curE, getSpecialistQuotas().earth_4p_mines ?? 3);
-                curM = Math.max(0, totalOwned - curE - curP);
-            } else if (baseFac === 'Well') {
-                curP = Math.min(totalOwned - curE, getSpecialistQuotas().water_4f_wells ?? 0);
-                curM = Math.max(0, totalOwned - curE - curP);
-            } else {
-                curM = Math.max(0, totalOwned - curE);
-            }
-        }
-    }
-
-    const titleEl = document.getElementById('partition-modal-title');
-    if (titleEl) {
-        titleEl.innerHTML = `⚙️ ${isVi ? 'Phân bổ cơ sở: ' : 'Partition: '} <span style="color: var(--color-primary-light);">${getFacilityDisplayName(baseFac)}</span>`;
-    }
-    const subTitleEl = document.getElementById('partition-modal-subtitle');
-    if (subTitleEl) {
-        subTitleEl.textContent = isVi
-            ? `Tổng sở hữu: ${totalOwned} cơ sở. Hãy thiết lập số lượng cụ thể cho từng chế độ vận hành.`
-            : `Total owned: ${totalOwned}. Configure the exact count for each operating mode.`;
-    }
-
-    const bodyEl = document.getElementById('partition-modal-body');
-    if (!bodyEl) return;
-
-    let electricRowHtml = '';
-    if (supportsEmode) {
-        electricRowHtml = `
-            <div class="partition-ctrl-row">
-                <div class="partition-ctrl-label">
-                    <span class="ctrl-icon">⚡</span>
-                    <div>
-                        <div class="ctrl-title">${isVi ? 'Chế độ điện' : 'Electric Mode'}</div>
-                        <div class="ctrl-desc">${wattsPerUnit}W / ${isVi ? 'cơ sở' : 'unit'} &bull; ${isVi ? 'Tự động hóa' : 'Automated'}</div>
-                    </div>
-                </div>
-                <div class="partition-stepper">
-                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', -1)" aria-label="Decrease Electric">−</button>
-                    <input type="text" inputmode="numeric" id="part-val-electric" class="part-input" value="${curE}" readonly>
-                    <button type="button" class="part-btn" onclick="window.stepPartition('electric', 1)" aria-label="Increase Electric">+</button>
-                </div>
-            </div>
-        `;
-    }
-
-    let prismanaRowHtml = `
-        <div class="partition-ctrl-row">
-            <div class="partition-ctrl-label">
-                <span class="ctrl-icon">🌟</span>
-                <div>
-                    <div class="ctrl-title">${isVi ? 'Chuyên gia Prismana' : 'Prismana Specialist'}</div>
-                    <div class="ctrl-desc">${isVi ? 'Cấp 4 + Tính cách tối ưu (0W, tốc độ cao nhất)' : 'Level 4 + Personality (0W, fastest)'}</div>
-                </div>
-            </div>
-            <div class="partition-stepper">
-                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', -1)" aria-label="Decrease Prismana">−</button>
-                <input type="text" inputmode="numeric" id="part-val-prismana" class="part-input" value="${curP}" readonly>
-                <button type="button" class="part-btn" onclick="window.stepPartition('prismana', 1)" aria-label="Increase Prismana">+</button>
-            </div>
-        </div>
-    `;
-
-    let manualRowHtml = `
-        <div class="partition-ctrl-row">
-            <div class="partition-ctrl-label">
-                <span class="ctrl-icon">👤</span>
-                <div>
-                    <div class="ctrl-title">${isVi ? 'Thủ công thường' : 'Standard Manual'}</div>
-                    <div class="ctrl-desc">${isVi ? 'Aniimo Cấp 3 (0W)' : 'Level 3 Aniimo (0W)'}</div>
-                </div>
-            </div>
-            <div class="partition-stepper">
-                <button type="button" class="part-btn" onclick="window.stepPartition('manual', -1)" aria-label="Decrease Manual">−</button>
-                <input type="text" inputmode="numeric" id="part-val-manual" class="part-input" value="${curM}" readonly>
-                <button type="button" class="part-btn" onclick="window.stepPartition('manual', 1)" aria-label="Increase Manual">+</button>
-            </div>
-        </div>
-    `;
-
-    bodyEl.innerHTML = `
-        <div class="partition-dialog-container" data-total-owned="${totalOwned}">
-            ${electricRowHtml}
-            ${prismanaRowHtml}
-            ${manualRowHtml}
-            <div class="partition-summary-bar">
-                <div class="summary-item">
-                    <span>${isVi ? 'Đã phân bổ:' : 'Allocated:'}</span>
-                    <strong id="part-summary-total">${curE + curP + curM}</strong> / ${totalOwned}
-                </div>
-                ${supportsEmode ? `
-                <div class="summary-item">
-                    <span>${isVi ? 'Công suất cơ sở:' : 'Facility Power:'}</span>
-                    <strong id="part-summary-watts">${curE * wattsPerUnit}W</strong>
-                </div>` : ''}
-            </div>
-            <div id="part-dialog-warning" class="part-dialog-warning" style="display: none;"></div>
-        </div>
-    `;
-
-    const modal = document.getElementById('facilityPartitionModal');
-    if (modal) modal.classList.add('show');
-};
-
-window.stepPartition = function(type, delta) {
-    if (!currentPartitionFacility) return;
-    const container = document.querySelector('.partition-dialog-container');
-    if (!container) return;
-    const totalOwned = parseInt(container.dataset.totalOwned, 10) || 1;
-
-    const elE = document.getElementById('part-val-electric');
-    const elP = document.getElementById('part-val-prismana');
-    const elM = document.getElementById('part-val-manual');
-
-    let curE = elE ? parseInt(elE.value, 10) || 0 : 0;
-    let curP = elP ? parseInt(elP.value, 10) || 0 : 0;
-    let curM = elM ? parseInt(elM.value, 10) || 0 : 0;
-
-    if (type === 'electric') {
-        const next = Math.max(0, Math.min(totalOwned, curE + delta));
-        const diff = next - curE;
-        if (diff > 0) {
-            // Tăng điện: ưu tiên trừ từ manual, sau đó prismana
-            if (curM >= diff) { curM -= diff; curE = next; }
-            else if (curM + curP >= diff) { const rem = diff - curM; curM = 0; curP -= rem; curE = next; }
-        } else if (diff < 0) {
-            // Giảm điện: chuyển sang manual
-            curE = next; curM += (-diff);
-        }
-    } else if (type === 'prismana') {
-        const next = Math.max(0, Math.min(totalOwned, curP + delta));
-        const diff = next - curP;
-        if (diff > 0) {
-            // Tăng prismana: ưu tiên trừ từ manual, sau đó electric
-            if (curM >= diff) { curM -= diff; curP = next; }
-            else if (curM + curE >= diff) { const rem = diff - curM; curM = 0; curE -= rem; curP = next; }
-        } else if (diff < 0) {
-            // Giảm prismana: chuyển sang manual
-            curP = next; curM += (-diff);
-        }
-    } else if (type === 'manual') {
-        const next = Math.max(0, Math.min(totalOwned, curM + delta));
-        const diff = next - curM;
-        if (diff > 0) {
-            // Tăng manual: ưu tiên trừ từ electric, sau đó prismana
-            if (curE >= diff) { curE -= diff; curM = next; }
-            else if (curE + curP >= diff) { const rem = diff - curE; curE = 0; curP -= rem; curM = next; }
-        } else if (diff < 0) {
-            // Giảm manual: nếu có hỗ trợ điện thì chuyển sang electric, không thì prismana
-            if (elE) { curM = next; curE += (-diff); }
-            else { curM = next; curP += (-diff); }
-        }
-    }
-
-    if (elE) elE.value = curE;
-    if (elP) elP.value = curP;
-    if (elM) elM.value = curM;
-
-    const sumEl = document.getElementById('part-summary-total');
-    if (sumEl) sumEl.textContent = curE + curP + curM;
-
-    const facDef = FACILITIES.find(f => f.name === currentPartitionFacility);
-    const wattsPerUnit = (selectedHomeLevel() >= 12 && facDef?.supportsEmode) ? (FACILITY_POWER_WATTS[currentPartitionFacility] || 0) : 0;
-    const wattsEl = document.getElementById('part-summary-watts');
-    if (wattsEl) wattsEl.textContent = `${curE * wattsPerUnit}W`;
-};
-
-window.applyFacilityPartition = async function() {
-    if (!currentPartitionFacility) return;
-    const baseFac = currentPartitionFacility;
-    const elE = document.getElementById('part-val-electric');
-    const elP = document.getElementById('part-val-prismana');
-    const elM = document.getElementById('part-val-manual');
-
-    const curE = elE ? parseInt(elE.value, 10) || 0 : 0;
-    const curP = elP ? parseInt(elP.value, 10) || 0 : 0;
-    const curM = elM ? parseInt(elM.value, 10) || 0 : 0;
-
-    // Kiểm tra công suất điện
-    const generatorCapacity = getGeneratorCapacity();
-    const chosenRate = getPowerGridRate();
-    const maxWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
-    const currentCounts = { ...(Object.keys(lastEmodeCounts).length > 0 ? lastEmodeCounts : actualEmodeCounts(lastPlan)), [baseFac]: curE };
-    const projectedWatts = calculatePowerWatts(currentCounts);
-
-    if (projectedWatts > maxWatts) {
-        const warnEl = document.getElementById('part-dialog-warning');
-        if (warnEl) {
-            warnEl.textContent = `⚠ Vượt công suất tối đa của lưới điện: cần tổng ${projectedWatts}W (${maxWatts}W tối đa)!`;
-            warnEl.style.display = 'block';
-        }
-        return;
-    }
-
-    // Cập nhật state
-    lastEmodeCounts[baseFac] = curE;
-    const facLevel = getFacilityLevel(baseFac);
-    const newOverride = {
-        facility: baseFac,
-        level: facLevel,
-        electric_count: curE,
-        specialist_count: curP,
-        manual_count: curM
-    };
-
-    const exIdx = facilityOverrides.findIndex(o => o.facility === baseFac);
-    if (exIdx >= 0) {
-        facilityOverrides[exIdx] = newOverride;
-    } else {
-        facilityOverrides.push(newOverride);
-    }
-
-    window.closeFacilityPartitionModal();
-
-    // Hiển thị nút Reset Overrides
-    const resetBtn = document.getElementById('btn-reset-overrides');
-    if (resetBtn) resetBtn.style.display = 'inline-flex';
-
-    // Cập nhật thanh điện ngay lập tức
-    updatePowerGauge(lastEmodeCounts);
-
-    // Re-solve bài toán qua find_plan LP solver
-    await runFastReSolve();
-};
-
-window.closeFacilityPartitionModal = function() {
-    const modal = document.getElementById('facilityPartitionModal');
-    if (modal) modal.classList.remove('show');
-    currentPartitionFacility = null;
-};
-
-window.closeFacilityPartitionOnBackdrop = function(event) {
-    if (event.target.id === 'facilityPartitionModal') {
-        window.closeFacilityPartitionModal();
-    }
-};
+const facilityPartitionDialogController = createFacilityPartitionDialogController({
+    document,
+    window,
+    getPlan: () => lastPlan,
+    getEmodeCounts: () => lastEmodeCounts,
+    getOverrides: () => facilityOverrides,
+    setEmodeCounts: counts => { lastEmodeCounts = counts; },
+    setOverrides: overrides => { facilityOverrides = overrides; },
+    getOwnedFacilityCounts,
+    getSpecialistQuotas,
+    selectedHomeLevel,
+    getFacilityDisplayName,
+    getFacilityLevel,
+    getGeneratorCapacity,
+    getPowerGridRate,
+    getTargetEmodeWatts,
+    calculatePowerWatts,
+    actualEmodeCounts,
+    updatePowerGauge,
+    runFastReSolve,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+    facilities: FACILITIES,
+    facilityPowerWatts: FACILITY_POWER_WATTS,
+});
+facilityPartitionDialogController.attachGlobal();
 
 export function updateSpecialistQuotasLimits(homeLevel = selectedHomeLevel()) {
-    const { facilities } = simpleSetup(homeLevel);
-    const maxMines = facilities['Mine']?.[0]?.count || 0;
-    const maxWells = facilities['Well']?.[0]?.count || 0;
-
-    const earthInput = document.getElementById('quota-earth-4p');
-    if (earthInput) {
-        earthInput.max = String(maxMines);
-        const curVal = parseInt(earthInput.value, 10) || 0;
-        if (curVal > maxMines) earthInput.value = String(maxMines);
-        const stepBtns = document.querySelectorAll('.stepper-btn[data-step-specialist="earth_4p"]');
-        stepBtns.forEach(b => b.disabled = (maxMines === 0));
-        earthInput.disabled = (maxMines === 0);
-    }
-
-    const waterInput = document.getElementById('quota-water-4f');
-    if (waterInput) {
-        waterInput.max = String(maxWells);
-        const curVal = parseInt(waterInput.value, 10) || 0;
-        if (curVal > maxWells) waterInput.value = String(maxWells);
-        const stepBtns = document.querySelectorAll('.stepper-btn[data-step-specialist="water_4f"]');
-        stepBtns.forEach(b => b.disabled = (maxWells === 0));
-        waterInput.disabled = (maxWells === 0);
-    }
+    return emodeSettingsController.updateSpecialistQuotasLimits(homeLevel);
 }
 
 function attachSpecialistQuotaHandlers() {
-    document.querySelectorAll('.stepper-btn[data-step-specialist]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const key = btn.dataset.stepSpecialist;
-            const dir = parseInt(btn.dataset.stepDir, 10) || 0;
-            const inputId = key === 'earth_4p' ? 'quota-earth-4p' : 'quota-water-4f';
-            const input = document.getElementById(inputId);
-            if (input && !input.disabled) {
-                const min = parseInt(input.min, 10) || 0;
-                const max = parseInt(input.max, 10) || 8;
-                let val = (parseInt(input.value, 10) || 0) + dir;
-                val = Math.max(min, Math.min(max, val));
-                input.value = val;
-                saveInputsToStorage();
-            }
-        });
-    });
-    ['quota-earth-4p', 'quota-water-4f'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => {
-            const input = document.getElementById(id);
-            if (input && !input.disabled) {
-                const min = parseInt(input.min, 10) || 0;
-                const max = parseInt(input.max, 10) || 8;
-                let val = parseInt(input.value, 10) || 0;
-                input.value = Math.max(min, Math.min(max, val));
-                saveInputsToStorage();
-            }
-        });
-    });
+    return emodeSettingsController.attachSpecialistQuotaHandlers();
 }
 
-/**
- * Estimates the marginal economic value (coins/hr per watt) of powering one unit
- * of a facility at a specific tier (level), based strictly on basePlan metrics.
- * Separated from orchestration for independent testability and audit compliance.
- */
 export function estimateFacilityMarginalValue(facility, level, basePlan, options = {}) {
-    const homeLevel = options.homeLevel || 15;
-    const powerGridRate = options.powerGridRate || (typeof getPowerGridRate === 'function' ? getPowerGridRate() : 1.2) || 1.2;
-    const unitWatts = getFacilityUnitWatts(facility, level, homeLevel);
-
-    if (unitWatts <= 0) {
-        return {
-            facility,
-            level,
-            unitWatts: 0,
-            marginalRevenuePerHr: 0,
-            workforceReliefPerHr: 0,
-            totalScore: 0,
-            scorePerWatt: 0,
-            reason: 'unpowered_facility',
-            status: 'unpowered',
-            diagnostics: {
-                metricSource: 'power_rules',
-                reason: 'Facility does not require electric power'
-            }
-        };
-    }
-
-    // Helper chuẩn hóa suffix Manual/Electric/Prismana
-    const normFac = (name) => (name || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
-
-    // 1. Phân tích doanh thu trực tiếp từ basePlan.income_streams (schema canonical của Rust WASM)
-    // Mỗi entry trong income_streams: { item_name, facility, rate_per_second, sell_value, units_per_second }
-    // rate_per_second đã là coins/sec. Tuyệt đối không nhân lại sell_value và không lấy 1.0 làm fallback.
-    let activeRevenuePerSec = 0;
-    const matchedStreams = [];
-    const seenItems = new Set();
-
-
-    if (basePlan && Array.isArray(basePlan.income_streams)) {
-        for (const stream of basePlan.income_streams) {
-            if (normFac(stream.facility) === facility) {
-                // Tránh cộng lặp nếu cùng một item xuất hiện nhiều lần
-                if (seenItems.has(stream.item_name)) continue;
-                seenItems.add(stream.item_name);
-
-                const streamRate = typeof stream.rate_per_second === 'number' ? stream.rate_per_second : 0;
-                if (streamRate > 0) {
-                    activeRevenuePerSec += streamRate;
-                    matchedStreams.push({
-                        item_name: stream.item_name,
-                        facility: stream.facility,
-                        rate_per_second: streamRate,
-                        sell_value: stream.sell_value,
-                        units_per_second: stream.units_per_second
-                    });
-                }
-            }
-        }
-    }
-
-    // Xác định số unit sở hữu thực tế của facility để giới hạn mẫu số vật lý
-    let ownedUnits = null;
-    if (options.facilities) {
-        if (typeof options.facilities[facility] === 'number') {
-            ownedUnits = options.facilities[facility];
-        } else if (Array.isArray(options.facilities[facility])) {
-            ownedUnits = options.facilities[facility].reduce((sum, t) => sum + (t.count || 0), 0);
-        }
-    } else if (typeof facilityTiers === 'object' && facilityTiers && facilityTiers[facility]) {
-        ownedUnits = facilityTiers[facility].reduce((sum, t) => sum + (t.count || 0), 0);
-    }
-
-    // PlanStep is one row per product. Dedicated rows represent disjoint capacity,
-    // while time-share rows have facility_count: 0 for secondary rows.
-    let rawActiveUnits = 0;
-    if (basePlan && Array.isArray(basePlan.coin_items)) {
-        rawActiveUnits = basePlan.coin_items
-            .filter(step => normFac(step.facility) === facility && step.status === 'producing')
-            .reduce((sum, step) => sum + (step.facility_count || 0), 0);
-    }
-    const effectiveOwned = (typeof ownedUnits === 'number' && ownedUnits > 0)
-        ? ownedUnits
-        : (rawActiveUnits > 0 ? rawActiveUnits : 1);
-    const activeFacilityUnits = rawActiveUnits > 0 ? Math.min(effectiveOwned, rawActiveUnits) : effectiveOwned;
-
-    // Helper kiểm tra xem cơ sở có đang tham gia chuỗi sản xuất thượng nguồn (upstream supplier) không
-    const isUpstreamSupplier = (() => {
-        if (!basePlan) return false;
-        if (facility === 'Woodworking Bench' || facility === 'Chimney Kiln') return false;
-        if (Array.isArray(basePlan.coin_items) && basePlan.coin_items.some(item => normFac(item.facility) === facility && item.status === 'producing' && (item.facility_count || 0) > 0)) {
-            return true;
-        }
-        return false;
-    })();
-
-    // Nếu không có income stream nào khớp hoặc doanh thu = 0:
-    // Nếu là upstream supplier, phân bổ tỷ lệ đóng góp từ tổng doanh thu nông trại hạ nguồn thay vì coi là 0.
-    if (activeRevenuePerSec <= 0 || matchedStreams.length === 0) {
-        if (isUpstreamSupplier) {
-            const totalFarmRevenuePerSec = (basePlan.income_streams || []).reduce((sum, s) => sum + (s.rate_per_second || 0), 0);
-            const totalActiveFarmUnits = Math.max(1, (basePlan.coin_items || [])
-                .filter(step => step.status === 'producing')
-                .reduce((sum, step) => sum + (step.facility_count || 0), 0));
-            const unitBaseRevenuePerSec = totalFarmRevenuePerSec / totalActiveFarmUnits;
-            const speedupFactor = Math.max(1.0, powerGridRate);
-            const marginalRevenuePerSec = unitBaseRevenuePerSec * (speedupFactor - 1.0);
-            const marginalRevenuePerHr = Math.round(marginalRevenuePerSec * 3600 * 100) / 100;
-            const totalScore = marginalRevenuePerHr;
-            const scorePerWatt = unitWatts > 0 ? totalScore / unitWatts : 0;
-
-            return {
-                facility,
-                level,
-                primaryItem: null,
-                unitWatts,
-                marginalRevenuePerHr,
-                workforceReliefPerHr: 0,
-                totalScore,
-                scorePerWatt,
-                measurement_type: 'imputed_upstream_contribution',
-                reason: 'upstream_supplier_intermediate_inputs',
-                status: 'upstream_supplier',
-                diagnostics: {
-                    metricSource: 'basePlan.income_streams_imputed',
-                    matchedStreamsCount: 0,
-                    activeFacilityUnits,
-                    ownedUnits,
-                    activeRevenuePerSec: unitBaseRevenuePerSec * activeFacilityUnits,
-                    isUpstreamSupplier: true,
-                    reason: 'Facility active as upstream supplier; marginal score imputed proportionally from downstream farm revenue'
-                }
-            };
-        }
-
-        return {
-            facility,
-            level,
-            primaryItem: null,
-            unitWatts,
-            marginalRevenuePerHr: 0,
-            workforceReliefPerHr: 0,
-            totalScore: 0,
-            scorePerWatt: 0,
-            measurement_type: 'direct_sold_output',
-            reason: 'no_matching_income_stream_or_zero_revenue',
-            status: 'unknown',
-            diagnostics: {
-                metricSource: 'basePlan.income_streams',
-                matchedStreamsCount: matchedStreams.length,
-                activeFacilityUnits,
-                ownedUnits,
-                activeRevenuePerSec: 0,
-                isUpstreamSupplier: false,
-                reason: 'Facility produces 0 revenue or has no valid income stream in base plan'
-            }
-        };
-    }
-
-    const unitBaseRevenuePerSec = activeRevenuePerSec / activeFacilityUnits;
-    const speedupFactor = Math.max(1.0, powerGridRate);
-    const marginalRevenuePerSec = unitBaseRevenuePerSec * (speedupFactor - 1.0);
-    const marginalRevenuePerHr = Math.round(marginalRevenuePerSec * 3600 * 100) / 100;
-
-    // Yêu cầu File 19 & 20: Loại bỏ workforceReliefPerHr khỏi totalScore chính
-    // (score phản ánh đúng direct marginal revenue thực tế đo đạc được từ base plan)
-    const totalScore = marginalRevenuePerHr;
-    const scorePerWatt = unitWatts > 0 ? totalScore / unitWatts : 0;
-
-    return {
-        facility,
-        level,
-        primaryItem: matchedStreams[0]?.item_name || null,
-        unitWatts,
-        marginalRevenuePerHr,
-        workforceReliefPerHr: 0,
-        totalScore,
-        scorePerWatt,
-        measurement_type: 'direct_sold_output',
-        reason: 'empirical_base_plan_income_stream',
-        status: 'measured',
-        diagnostics: {
-            metricSource: 'basePlan.income_streams',
-            matchedStreams,
-            activeFacilityUnits,
-            ownedUnits,
-            activeRevenuePerSec,
-            unitBaseRevenuePerSec,
-            speedupFactor,
-            marginalRevenuePerHr,
-            scorePerWatt,
-                tierAttribution: 'PlanStep has no facility-level field; facility-wide average is applied to each tier',
-            isUpstreamSupplier: false,
-            workforceReliefNote: 'Excluded from score per Audit 19 requirement'
-        }
-    };
+    return estimateFacilityMarginalValuePolicy(facility, level, basePlan, {
+        ...options,
+        powerGridRate: options.powerGridRate ?? getPowerGridRate(),
+        facilities: options.facilities || facilityTiers,
+    });
 }
 
 export function allocateDynamicEmode(basePlan, homeLevel, maxWatts = getTargetEmodeWatts(), options = {}) {
-    if (homeLevel < 12) return {};
-
-    const normFac = (name) => (name || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
-    const powerRate = options.powerGridRate || (typeof getPowerGridRate === 'function' ? getPowerGridRate() : 1.2) || 1.2;
-
-    // 1. Resolve owned counts properly per tier
-    const effectiveFacilities = options.facilities || (
-        (typeof isSimpleMode === 'function' && isSimpleMode())
+    const facilities = options.facilities || (
+        isSimpleMode()
             ? simpleSetup(homeLevel).facilities
-            : (typeof facilityTiers === 'object' && facilityTiers && Object.keys(facilityTiers).length > 0
-                ? facilityTiers
-                : simpleSetup(homeLevel).facilities)
+            : (Object.keys(facilityTiers).length > 0 ? facilityTiers : simpleSetup(homeLevel).facilities)
     );
-
-    const ownedCounts = {};
-    for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
-        ownedCounts[fac] = (tiers || []).reduce((sum, t) => sum + (t.count || 0), 0);
-    }
-    const quotas = options.specialist_quotas || (typeof getSpecialistQuotas === 'function' ? getSpecialistQuotas() : null) || (homeLevel >= 20 ? { earth_4p_mines: 3, water_4f_wells: 1 } : {});
-    ownedCounts['Mine'] = emodeMineUnits(homeLevel, effectiveFacilities['Mine']);
-    if (quotas.water_4f_wells && ownedCounts['Well']) {
-        ownedCounts['Well'] = Math.max(0, ownedCounts['Well'] - quotas.water_4f_wells);
-    }
-
-    const currentOverrides = options.overrides || (typeof facilityOverrides !== 'undefined' ? facilityOverrides : []) || [];
-    const overrideLevel = (ovr) => {
-        if (ovr.level > 0) return ovr.level;
-        const tiers = effectiveFacilities[ovr.facility] || [];
-        return tiers.length ? Math.max(...tiers.map(t => t.level || 1)) : 1;
-    };
-    const overrideForTier = (fac, level) => currentOverrides.find(ovr =>
-        ovr.facility === fac && overrideLevel(ovr) === level);
-
-    // =========================================================================
-    // STEP 0: STRICT VALIDATION OF USER OVERRIDES (TIER-AWARE, NO SILENT CLAMPING!)
-    // =========================================================================
-    let totalFixedWatts = 0;
-    const seenOverrideTiers = new Set();
-    for (const ovr of currentOverrides) {
-        const fac = ovr.facility;
-        const eCount = ovr.electric_count || 0;
-        const mCount = ovr.manual_count || 0;
-        const sCount = ovr.specialist_count || 0;
-        const totalLocked = eCount + mCount + sCount;
-
-        const facTiers = effectiveFacilities[fac] || [];
-        const level = overrideLevel(ovr);
-        const overrideKey = `${fac}:${level}`;
-        if (seenOverrideTiers.has(overrideKey)) {
-            return { validation_error: true, error: `Có nhiều fixed override cho ${fac} Lv.${level}; hãy gộp thành một dòng.` };
-        }
-        seenOverrideTiers.add(overrideKey);
-        const tierObj = facTiers.find(t => (t.level || 1) === level);
-        const ownedAtLevel = tierObj ? (tierObj.count || 0) : 0;
-        if (ownedAtLevel === 0) {
-            return {
-                validation_error: true,
-                error: `Facility ${fac}: Cấp độ ${level} không có đơn vị nào được sở hữu!`
-            };
-        }
-        if (![eCount, mCount, sCount].every(n => Number.isInteger(n) && n >= 0)) {
-            return { validation_error: true, error: `Facility ${fac} Lv.${level}: số lượng override phải là số nguyên không âm.` };
-        }
-        if (totalLocked > ownedAtLevel) {
-            return {
-                validation_error: true,
-                error: `Facility ${fac} Lv.${level}: Tổng số lượng gán (${totalLocked}) vượt quá số lượng sở hữu tại cấp này (${ownedAtLevel})!`
-            };
-        }
-
-        if (eCount > 0) {
-            const w = getFacilityUnitWatts(fac, level, homeLevel);
-            totalFixedWatts += eCount * w;
-        }
-    }
-
-    if (totalFixedWatts > maxWatts) {
-        return {
-            validation_error: true,
-            error: `Các cơ sở khóa điện cố định vượt quá công suất lưới (${totalFixedWatts}W > ${maxWatts}W)!`
-        };
-    }
-
-    // RV 18-20: Woodworking Bench & Chimney Kiln tham gia dùng điện linh hoạt khi còn dư tải (tối đa 2 cơ sở)
-
-    const emodeCounts = {};
-    const diagnostics = [];
-    let usedWatts = 0;
-
-    function isLockedManual(fac, level) {
-        const ovr = overrideForTier(fac, level);
-        if (!ovr) return false;
-        if (ovr.electric_count === 0 && (ovr.manual_count > 0 || ovr.specialist_count > 0)) return true;
-        if (ovr.electric_count === 0 && ovr.manual_count === 0 && ovr.specialist_count === 0) return true;
-        return false;
-    }
-
-    function fixedElectricCount(fac, level) {
-        const ovr = overrideForTier(fac, level);
-        if (!ovr) return null;
-        if (typeof ovr.electric_count === 'number' && ovr.electric_count > 0) {
-            return ovr.electric_count;
-        }
-        return null;
-    }
-
-    const tierCountMap = new Map();
-
-    // =========================================================================
-    // STEP 1: INITIALIZE FIXED OVERRIDES (HONOR EXACT USER SELECTIONS)
-    // =========================================================================
-    for (const ovr of currentOverrides) {
-        const fac = ovr.facility;
-        const count = ovr.electric_count || 0;
-        if (count > 0) {
-            const lvl = overrideLevel(ovr);
-            const w = getFacilityUnitWatts(fac, lvl, homeLevel);
-            emodeCounts[fac] = (emodeCounts[fac] || 0) + count;
-            usedWatts += count * w;
-            const tierKey = `${fac}:${lvl}`;
-            if (!tierCountMap.has(tierKey)) {
-                tierCountMap.set(tierKey, { facility: fac, level: lvl, count: 0 });
-            }
-            tierCountMap.get(tierKey).count += count;
-
-            diagnostics.push({
-                facility: fac,
-                level: lvl,
-                units: count,
-                unitWatts: w,
-                scorePerWatt: 99999.0,
-                marginalRevenuePerHr: 0,
-                reason: 'user_fixed_override'
-            });
-        }
-    }
-
-    // Helper xác định priority rank của cơ sở từ basePlan.priorities:
-    // Rank 0: Phục vụ Priority #1, Rank 1: Phục vụ Priority #2, ...
-    // Rank 999: Phục vụ Coins hoặc khác
-    const getFacilityPriorityRank = (facilityName) => {
-        const priorities = basePlan?.priorities || [];
-        for (let idx = 0; idx < priorities.length; idx++) {
-            const p = priorities[idx];
-            if (p.facilities && Array.isArray(p.facilities) && p.facilities.includes(facilityName)) {
-                return idx;
-            }
-        }
-        return 999;
-    };
-
-    // =========================================================================
-    // STEP 2: GENERATE CANDIDATES BY SPECIFIC TIER AND UNIT
-    // Phân luồng theo PRE-SOLVE-WORKFLOW:
-    // - RV 12-13: Chỉ cơ sở chế biến / sản xuất. Tuyệt đối KHÔNG Mine và Well. Không Woodworking Bench / Chimney Kiln.
-    // - RV 14-17: Cơ sở chế biến trước -> dư tải mới mở cho Mine & Well thường (sau khi trừ quota).
-    // - RV 18-20: Cơ sở chế biến -> Mine & Well thường -> Dư tải mới mở cho Woodworking Bench & Chimney Kiln (tối đa 2).
-    // =========================================================================
-    const candidates = [];
-    const allowWoodKiln = homeLevel >= 18;
-    const allowExtractors = homeLevel >= 14;
-
-    for (const [fac, tiers] of Object.entries(effectiveFacilities)) {
-        if ((fac === 'Woodworking Bench' || fac === 'Chimney Kiln') && !allowWoodKiln) continue;
-        if ((fac === 'Mine' || fac === 'Well') && !allowExtractors) continue;
-
-        let quotaDeduction = 0;
-        if (fac === 'Mine' && quotas.earth_4p_mines) quotaDeduction = quotas.earth_4p_mines;
-        if (fac === 'Well' && quotas.water_4f_wells) quotaDeduction = quotas.water_4f_wells;
-
-        for (const tier of (tiers || [])) {
-            const tLevel = tier.level || 1;
-            const tCount = tier.count || 0;
-            const availableInTier = Math.max(0, tCount - quotaDeduction);
-            quotaDeduction = Math.max(0, quotaDeduction - tCount);
-
-            if (availableInTier <= 0) continue;
-            if (isLockedManual(fac, tLevel) || fixedElectricCount(fac, tLevel) !== null) continue;
-
-            const priorityRank = getFacilityPriorityRank(fac);
-            const isPriorityFac = priorityRank < 999;
-
-            let isPriorityDowngrade = false;
-            if (isPriorityFac && basePlan?.coin_items) {
-                const producingStep = basePlan.coin_items.find(s => normFac(s.facility) === fac && s.status === 'producing');
-                if (producingStep) {
-                    if (fac === 'Dance Pad Polisher' || fac === 'Aniipod Maker') {
-                        isPriorityDowngrade = true;
-                    }
-                }
-            }
-            if (isPriorityDowngrade) continue;
-
-            let upstreamDepth = 999;
-            const prio = isPriorityFac ? (basePlan?.priorities || [])[priorityRank] : null;
-            if (prio && prio.depth_status !== 'cycle_detected' && prio.depth_status !== 'depth_truncated') {
-                if (Array.isArray(prio.facility_depths)) {
-                    const found = prio.facility_depths.find(([name]) => name === fac);
-                    if (found) upstreamDepth = found[1];
-                } else if (Array.isArray(prio.facilities)) {
-                    const idx = prio.facilities.indexOf(fac);
-                    if (idx !== -1) upstreamDepth = idx;
-                }
-            }
-
-            const estimate = estimateFacilityMarginalValue(fac, tLevel, basePlan, {
-                homeLevel,
-                powerGridRate: powerRate,
-                productionAniimoCap: options.productionAniimoCap,
-                facilities: effectiveFacilities
-            });
-
-            const isExtractor = (fac === 'Mine' || fac === 'Well');
-            const isWoodOrKiln = (fac === 'Woodworking Bench' || fac === 'Chimney Kiln');
-
-            // Policy rank phân luồng:
-            // 0: Các cơ sở chế biến / sản xuất (luôn cấp trước)
-            // 1: Mine & Well thường (sau khi trừ quota) khi còn dư tải (RV >= 14)
-            // 2: Woodworking Bench & Chimney Kiln khi còn dư tải (RV >= 18)
-            let policyRank = 0;
-            if (isExtractor) policyRank = 1;
-            else if (isWoodOrKiln) policyRank = 2;
-
-            if ((isExtractor || isWoodOrKiln || estimate.scorePerWatt > 0 || estimate.status === 'upstream_supplier' || isPriorityFac) && estimate.unitWatts > 0) {
-                for (let u = 0; u < availableInTier; u++) {
-                    candidates.push({
-                        facility: fac,
-                        level: tLevel,
-                        unitIndex: u,
-                        unitWatts: estimate.unitWatts,
-                        marginalRevenuePerHr: estimate.marginalRevenuePerHr,
-                        workforceReliefPerHr: estimate.workforceReliefPerHr,
-                        score: estimate.totalScore,
-                        scorePerWatt: isPriorityFac ? Math.max(estimate.scorePerWatt, 1000 - priorityRank) : estimate.scorePerWatt,
-                        priorityRank: priorityRank,
-                        upstreamDepth: upstreamDepth,
-                        item: estimate.primaryItem,
-                        measurementType: estimate.measurement_type || 'unknown',
-                        estimateStatus: estimate.status,
-                        tierAttribution: estimate.diagnostics?.tierAttribution || 'unknown',
-                        policyRank
-                    });
-                }
-            }
-        }
-    }
-
-    // =========================================================================
-    // STEP 3: DETERMINISTIC SORTING & KNAPSACK ALLOCATION
-    // =========================================================================
-    candidates.sort((a, b) => {
-        if (a.policyRank !== b.policyRank) return a.policyRank - b.policyRank;
-        if (a.priorityRank !== b.priorityRank) {
-            return a.priorityRank - b.priorityRank;
-        }
-        // Trong cùng một priority: ưu tiên cơ sở thượng nguồn (upstream) trước cơ sở hạ nguồn (downstream)
-        if (a.upstreamDepth !== b.upstreamDepth) {
-            return a.upstreamDepth - b.upstreamDepth;
-        }
-        if (Math.abs(b.scorePerWatt - a.scorePerWatt) > 1e-6) {
-            return b.scorePerWatt - a.scorePerWatt;
-        }
-        if (Math.abs(b.score - a.score) > 1e-6) {
-            return b.score - a.score;
-        }
-        const cmp = a.facility.localeCompare(b.facility);
-        if (cmp !== 0) return cmp;
-        if (b.level !== a.level) return b.level - a.level;
-        return a.unitIndex - b.unitIndex;
+    return allocateDynamicEmodePolicy(basePlan, homeLevel, maxWatts, {
+        ...options,
+        facilities,
+        overrides: options.overrides ?? facilityOverrides,
+        specialist_quotas: options.specialist_quotas ?? getSpecialistQuotas(),
+        powerGridRate: options.powerGridRate ?? getPowerGridRate(),
     });
-
-    let totalWoodKilnElectric = (emodeCounts['Woodworking Bench'] || 0) + (emodeCounts['Chimney Kiln'] || 0);
-
-    for (const cand of candidates) {
-        if (cand.policyRank === 2 && totalWoodKilnElectric >= 2) {
-            // Giới hạn cứng: Woodworking Bench + Chimney Kiln tối đa 2 cơ sở chạy điện
-            continue;
-        }
-        if (usedWatts + cand.unitWatts <= maxWatts) {
-            const current = emodeCounts[cand.facility] || 0;
-            const owned = ownedCounts[cand.facility] || 0;
-            if (current < owned) {
-                if (cand.policyRank === 2) {
-                    totalWoodKilnElectric++;
-                }
-                emodeCounts[cand.facility] = current + 1;
-                usedWatts += cand.unitWatts;
-                const tierKey = `${cand.facility}:${cand.level}`;
-                if (!tierCountMap.has(tierKey)) {
-                    tierCountMap.set(tierKey, { facility: cand.facility, level: cand.level, count: 0 });
-                }
-                tierCountMap.get(tierKey).count += 1;
-
-                diagnostics.push({
-                    facility: cand.facility,
-                    level: cand.level,
-                    item: cand.item,
-                    units: 1,
-                    unitWatts: cand.unitWatts,
-                    scorePerWatt: Math.round(cand.scorePerWatt * 10) / 10,
-                    marginalRevenuePerHr: Math.round(cand.marginalRevenuePerHr),
-                    workforceReliefPerHr: Math.round(cand.workforceReliefPerHr),
-                    reason: cand.priorityRank < 999
-                        ? `priority_${cand.priorityRank + 1}_upstream_depth_${cand.upstreamDepth}`
-                        : (cand.estimateStatus === 'upstream_supplier'
-                            ? 'upstream_supplier_unknown_value_grid_remainder'
-                            : 'smart_marginal_score'),
-                    measurement_type: cand.measurementType,
-                    estimate_status: cand.estimateStatus,
-                    tier_attribution: cand.tierAttribution
-                });
-            }
-        }
-    }
-
-    const emodeTierCounts = Array.from(tierCountMap.values()).filter(t => t.count > 0);
-    Object.defineProperty(emodeCounts, '_tier_counts', {
-        value: emodeTierCounts,
-        enumerable: false,
-        writable: true
-    });
-
-    Object.defineProperty(emodeCounts, '_diagnostics', {
-        value: diagnostics,
-        enumerable: false,
-        writable: true
-    });
-
-    return emodeCounts;
 }
 
 export function autoAllocateEmode(homeLevel, maxWatts = getTargetEmodeWatts(), activeProducingCounts = null) {
-    if (homeLevel < 12) return {};
-    const { facilities } = simpleSetup(homeLevel);
-    let remainingWatts = maxWatts;
-    const allocated = {};
-
-    if (homeLevel === 18 || homeLevel === 19) {
-        for (const name of ['Chimney Kiln', 'Woodworking Bench']) {
-            const tiers = facilities[name] || [];
-            const top = tiers.reduce((best, tier) => !best || tier.level > best.level ? tier : best, null);
-            if (!top || top.count <= 0) continue;
-            const watts = getFacilityUnitWatts(name, top.level, homeLevel);
-            if (remainingWatts < watts) continue;
-            allocated[name] = 1;
-            remainingWatts -= watts;
-        }
-    }
-
-    // During RV12-19 LevelUp, Mine and Well use spare wattage before optional
-    // processors: at 1.2x their 25-minute electric cycle matches ordinary Lv.3.
-    // RV20 keeps its own existing end-game order.
-    const allocationOrder = homeLevel >= 12 && homeLevel <= 19
-        ? ['Well', 'Mine', ...EMODE_PRIORITY.filter(name => name !== 'Well' && name !== 'Mine')]
-        : EMODE_PRIORITY;
-    for (const name of allocationOrder) {
-        if (name === 'Woodworking Bench' || name === 'Chimney Kiln') continue;
-        const fac = FACILITIES.find(f => f.name === name);
-        if (!fac || !fac.supportsEmode) continue;
-        const wattsPerUnit = getFacilityUnitWatts(name, null, homeLevel);
-        if (wattsPerUnit <= 0) continue;
-
-        let availableUnits = name === 'Mine'
-            ? emodeMineUnits(homeLevel, facilities[name])
-            : (facilities[name] || []).reduce((sum, t) => sum + t.count, 0);
-        if (homeLevel >= 12 && homeLevel <= 19 && name === 'Mine') {
-            availableUnits = Math.max(0, availableUnits - ((getSpecialistQuotas()?.earth_4p_mines) || 0));
-        } else if (homeLevel >= 12 && homeLevel <= 19 && name === 'Well') {
-            availableUnits = Math.max(0, availableUnits - ((getSpecialistQuotas()?.water_4f_wells) || 0));
-        }
-        if (activeProducingCounts && typeof activeProducingCounts[name] === 'number') {
-            availableUnits = Math.min(availableUnits, activeProducingCounts[name]);
-        }
-        if (availableUnits <= 0) continue;
-
-        let countForFac = 0;
-        for (let u = 0; u < availableUnits; u++) {
-            if (remainingWatts >= wattsPerUnit) {
-                countForFac++;
-                remainingWatts -= wattsPerUnit;
-            } else {
-                break;
-            }
-        }
-        if (countForFac > 0) {
-            allocated[name] = countForFac;
-        }
-    }
-    return allocated;
+    return autoAllocateEmodePolicy(homeLevel, maxWatts, activeProducingCounts, {
+        facilities: simpleSetup(homeLevel).facilities,
+        specialist_quotas: getSpecialistQuotas(),
+    });
 }
 
 let lastEmodeCounts = {};
 
 function activeEmodeFacilityCounts(activeProducingCounts = null) {
-    if (Object.keys(lastEmodeCounts).length > 0) return lastEmodeCounts;
-    const targetWatts = getTargetEmodeWatts();
-    const homeLevel = selectedHomeLevel();
-    const emodeOn = document.getElementById('emode-simple-on')?.checked ?? true;
-    if (!emodeOn || homeLevel < 12) return {};
-    return autoAllocateEmode(homeLevel, targetWatts, activeProducingCounts);
+    return emodeSettingsController.getActiveEmodeFacilityCounts(activeProducingCounts);
 }
 
 function activeEmodeFacilities(activeProducingCounts = null) {
-    return Object.keys(activeEmodeFacilityCounts(activeProducingCounts));
+    return emodeSettingsController.getActiveEmodeFacilities(activeProducingCounts);
 }
 
 export function calculatePowerWatts(counts, homeLevel = null) {
-    let total = 0;
     const rv = homeLevel || (typeof selectedHomeLevel === 'function' ? selectedHomeLevel() : 16);
-    for (const [name, val] of Object.entries(counts || {})) {
-        if (!val) continue;
-        if (typeof val === 'object' && val !== null) {
-            const count = val.count || 0;
-            const level = val.level || null;
-            const w = getFacilityUnitWatts(name, level, rv);
-            total += w * count;
-        } else {
-            const count = typeof val === 'number' ? val : 0;
-            const w = getFacilityUnitWatts(name, null, rv);
-            total += w * count;
-        }
-    }
-    return total;
+    return sumPowerWatts(counts, rv, getFacilityUnitWatts);
 }
 
 // The allocator may reserve watts for owned machines the final plan never runs in E-mode
 // (leftover-budget loop, pruning, or the re-solve keeping them manual). The gauge must show
 // only machines the final plan actually shows as E-mode.
 export function actualEmodeCounts(plan) {
-    if (selectedHomeLevel() < 12) return {};
-    const counts = {};
-    for (const step of (plan && plan.coin_items) || []) {
-        if (step.status !== 'producing' || !step.facility) continue;
-        const isSpecialist = step.mode === 'prismana' || step.mode === 'specialist' || step.is_specialist || step.facility.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'));
-        const isManual = step.mode === 'manual' || step.is_manual || step.facility.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'));
-        const isElectric = !isSpecialist && !isManual && (step.mode === 'electric' || step.is_emode || step.facility.includes('(Electric)'));
-        if (!isElectric) continue;
-        const fac = step.facility.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        counts[fac] = (counts[fac] || 0) + (step.facility_count || 1);
-    }
-    return counts;
+    return countActualEmodeUnits(plan, selectedHomeLevel());
 }
 
+const powerGaugeController = createPowerGaugeController({
+    document,
+    facilityPowerWatts: FACILITY_POWER_WATTS,
+    getGeneratorCapacity,
+    getTargetEmodeWatts,
+    calculatePowerWatts,
+});
+
 function updatePowerGauge(customCounts = null) {
-    const maxWatts = getGeneratorCapacity();
-    const rate = getPowerGridRate();
-    const targetWatts = getTargetEmodeWatts(maxWatts, rate);
-    const counts = customCounts !== null ? customCounts : lastEmodeCounts;
-    const totalWatts = calculatePowerWatts(counts);
-    const pct = Math.min(100, Math.round((totalWatts / maxWatts) * 100));
-
-    // Simple gauge
-    const simpleVal = document.getElementById('simple-power-gauge-value');
-    const simpleFill = document.getElementById('simple-power-gauge-fill');
-    if (simpleVal && simpleFill) {
-        const targetLabel = rate >= 1.15 ? ` (120% cap: ${targetWatts}W)` : '';
-        simpleVal.textContent = `${totalWatts}W / ${maxWatts}W (${pct}%)${targetLabel}`;
-        simpleFill.style.width = `${Math.min(100, (totalWatts / maxWatts) * 100)}%`;
-        simpleFill.classList.toggle('overload', totalWatts > targetWatts);
-    }
-
-    // Per-facility breakdown so the total can be checked at a glance.
-    const breakdown = document.getElementById('power-breakdown');
-    if (breakdown) {
-        const rows = Object.entries(counts || {})
-            .filter(([name, count]) => count > 0 && FACILITY_POWER_WATTS[name])
-            .map(([name, count]) => ({ name, count, w: FACILITY_POWER_WATTS[name] }))
-            .sort((a, b) => b.count * b.w - a.count * a.w);
-        if (rows.length === 0) {
-            breakdown.innerHTML = '';
-        } else {
-            breakdown.innerHTML = rows.map(r =>
-                `<div class="power-breakdown-row"><span>${r.name}</span><span>${r.count} × ${r.w}W</span><strong>${r.count * r.w}W</strong></div>`
-            ).join('') + `<div class="power-breakdown-row power-breakdown-total"><span>${rows.map(r => r.count * r.w).join(' + ')}</span><span></span><strong>= ${totalWatts}W</strong></div>`;
-        }
-    }
+    return powerGaugeController.updatePowerGauge(customCounts, lastEmodeCounts);
 }
 
 export function getPowerGridRate() {
-    const el = document.getElementById('simple-power-grid-rate');
-    const val = el ? parseFloat(el.value) : 100;
-    return val >= 115 ? 1.2 : 1.0;
+    return powerGaugeController.getPowerGridRate();
 }
+
+const facilitySetupController = createFacilitySetupController({
+    document,
+    window,
+    facilities: FACILITIES,
+    categories: FACILITY_CATEGORIES,
+    emodeFacilities,
+    getFacilityTiers: () => facilityTiers,
+    setFacilityTiers: val => { facilityTiers = val; },
+    getFacilityDisplayName,
+    saveInputsToStorage,
+    runFindPlan,
+    numberOrDefault,
+});
 
 function defaultFacilityTiers() {
-    const tiers = {};
-    FACILITIES.forEach(f => {
-        tiers[f.name] = [{ count: f.defaultCount, level: 1 }];
-    });
-    return tiers;
+    return facilitySetupController.defaultFacilityTiers();
 }
 
-// Renders one facility's tier rows (Count + Level inputs, a remove button once there's more than
-// one tier, and, only for facilities that level up, an "Add level" button) into its
-// `.facility-tiers` container. Called on initial render and again, for just that one facility,
-// whenever a tier is added or removed, so editing one facility never disturbs another's inputs.
 function renderTierRows(name) {
-    const f = FACILITIES.find(fac => fac.name === name);
-    const container = document.querySelector(`.facility-tiers[data-facility="${name}"]`);
-    if (!f || !container) return;
-    const tiers = facilityTiers[name];
-    const showRemove = tiers.length > 1;
-    container.innerHTML = tiers.map((tier, i) => `
-        <div class="facility-inputs tier-row" data-tier-index="${i}">
-            <div class="input-field">
-                <label>Count</label>
-                <input type="number" class="tier-count" value="${tier.count}" min="0" max="999">
-            </div>
-            ${f.hasLevels === false ? '' : `
-            <div class="input-field">
-                <label>Level</label>
-                <input type="number" class="tier-level" value="${tier.level}" min="1" max="10">
-            </div>
-            `}
-            ${showRemove ? '<button type="button" class="tier-remove-btn" title="Remove this level">&times;</button>' : ''}
-        </div>
-    `).join('');
+    return facilitySetupController.renderTierRows(name);
 }
 
-// Build the facility-card inputs, grouped into a labeled section per category. Runs before other
-// DOM setup. Tier-row inputs and buttons are handled via event delegation (see
-// `attachFacilityTierHandlers`) rather than per-element listeners, since rows are added/removed
-// dynamically after this initial render.
 function renderFacilityCards() {
-    const grid = document.getElementById('facilities-grid');
-    if (!grid) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const VI_CATEGORIES = {
-        'Materials': 'Nguyên Liệu',
-        'Environment': 'Môi Trường',
-        'Aniimo Materials': 'Nguyên Liệu Aniimo',
-        'Wood & Ore Processing': 'Gia Công Gỗ & Quặng',
-        'Materials Processing': 'Chế Biến Nguyên Liệu'
-    };
-    grid.innerHTML = FACILITY_CATEGORIES.map(category => {
-        const catName = window.i18n ? window.i18n.getCategoryDisplayName(category) : (isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category);
-        const cards = FACILITIES.filter(f => f.category === category).map(f => `
-            <div class="facility-card">
-                <h4>${getFacilityDisplayName(f.name)} <span class="info-icon" data-tooltip="${f.tooltip}">?</span></h4>
-                <div class="facility-tiers" data-facility="${f.name}"></div>
-                ${f.hasLevels === false ? '' : '<button type="button" class="add-tier-btn" data-facility="' + f.name + '">' + (isVi ? '+ Thêm cấp' : '+ Add level') + '</button>'}
-                ${f.supportsEmode ? `<label class="facility-emode-toggle" title="${isVi ? 'Chạy ở Chế độ điện (tự động, không cần nhân công Aniimo)' : 'Run in Electric Mode (automatic, no Aniimo worker needed)'}"><input type="checkbox" class="facility-emode-checkbox" data-facility="${f.name}" ${emodeFacilities.has(f.name) ? 'checked' : ''}> ${isVi ? '⚡ Chế độ điện' : '⚡ E-mode'}</label>` : ''}
-            </div>
-        `).join('');
-        return `
-            <div class="facility-category">
-                <h4 class="facility-category-title">${catName}</h4>
-                <div class="facilities-grid">${cards}</div>
-            </div>
-        `;
-    }).join('');
-    FACILITIES.forEach(f => renderTierRows(f.name));
+    return facilitySetupController.renderFacilityCards();
 }
+
+function initFacilityTiers(data) {
+    return facilitySetupController.initFacilityTiers(data);
+}
+
+function attachFacilityTierHandlers() {
+    return facilitySetupController.attachFacilityTierHandlers();
+}
+
+const emodeSettingsController = createEmodeSettingsController({
+    document,
+    facilities: FACILITIES,
+    priority: EMODE_PRIORITY,
+    facilityPowerWatts: FACILITY_POWER_WATTS,
+    getFacilityTiers: () => facilityTiers,
+    emodeFacilities,
+    getTargetEmodeWatts,
+    updatePowerGauge,
+    saveInputsToStorage,
+    getHomeLevel: selectedHomeLevel,
+    getDefaultGeneratorWatts: level => GENERATOR_WATTS_BY_HOME_LEVEL[level] || DEFAULT_GENERATOR_WATTS,
+    getEmodeCounts: () => lastEmodeCounts,
+    setEmodeCounts: value => { lastEmodeCounts = value; },
+    getFacilityOverrides: () => facilityOverrides,
+    setFacilityOverrides: value => { facilityOverrides = value; },
+    getSimpleSetup: simpleSetup,
+    autoAllocateEmode,
+});
 
 function attachEmodeHandlers() {
-    const grid = document.getElementById('facilities-grid');
-    if (grid) {
-        grid.addEventListener('change', (e) => {
-            if (e.target.classList.contains('facility-emode-checkbox')) {
-                const fac = e.target.dataset.facility;
-                if (e.target.checked) {
-                    emodeFacilities.add(fac);
-                } else {
-                    emodeFacilities.delete(fac);
-                }
-                updatePowerGauge();
-                saveInputsToStorage();
-            }
-        });
-    }
-
-    const autoBtn = document.getElementById('emode-auto-btn');
-    if (autoBtn) {
-        autoBtn.addEventListener('click', () => {
-            let remainingWatts = getTargetEmodeWatts();
-            emodeFacilities.clear();
-            for (const name of EMODE_PRIORITY) {
-                const fac = FACILITIES.find(f => f.name === name);
-                if (!fac || !fac.supportsEmode) continue;
-                const w = FACILITY_POWER_WATTS[name] || 0;
-                const owned = (facilityTiers[name] || []).reduce((sum, t) => sum + t.count, 0);
-                if (owned > 0 && remainingWatts >= w * owned) {
-                    emodeFacilities.add(name);
-                    remainingWatts -= w * owned;
-                }
-            }
-            document.querySelectorAll('.facility-emode-checkbox').forEach(cb => {
-                cb.checked = emodeFacilities.has(cb.dataset.facility);
-            });
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const allBtn = document.getElementById('emode-all-btn');
-    if (allBtn) {
-        allBtn.addEventListener('click', () => {
-            FACILITIES.filter(f => f.supportsEmode).forEach(f => emodeFacilities.add(f.name));
-            document.querySelectorAll('.facility-emode-checkbox').forEach(cb => cb.checked = true);
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const noneBtn = document.getElementById('emode-none-btn');
-    if (noneBtn) {
-        noneBtn.addEventListener('click', () => {
-            emodeFacilities.clear();
-            document.querySelectorAll('.facility-emode-checkbox').forEach(cb => cb.checked = false);
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const rateSelect = document.getElementById('power-grid-rate');
-    const simpleRate = document.getElementById('simple-power-grid-rate');
-    if (rateSelect) {
-        rateSelect.addEventListener('change', () => {
-            if (simpleRate) simpleRate.value = rateSelect.value;
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-    if (simpleRate) {
-        simpleRate.addEventListener('change', () => {
-            if (rateSelect) rateSelect.value = simpleRate.value;
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const genSelect = document.getElementById('generator-capacity');
-    const simpleGen = document.getElementById('simple-generator-capacity');
-    if (genSelect) {
-        genSelect.addEventListener('change', () => {
-            if (simpleGen) simpleGen.value = genSelect.value;
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-    if (simpleGen) {
-        simpleGen.addEventListener('change', () => {
-            if (genSelect) genSelect.value = simpleGen.value;
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const simpleToggle = document.getElementById('emode-simple-on');
-    if (simpleToggle) {
-        simpleToggle.addEventListener('change', () => {
-            updatePowerGauge();
-            saveInputsToStorage();
-        });
-    }
-
-    const homeSelect = document.getElementById('home-level');
-    if (homeSelect) {
-        homeSelect.addEventListener('change', () => {
-            updateSimpleEmodeState();
-        });
-    }
+    emodeSettingsController.attachEmodeHandlers();
 }
 
 function updateSimpleEmodeState() {
-    const homeLevel = selectedHomeLevel();
-    const emodeSection = document.getElementById('emode-simple-section');
-    const navPill = document.querySelector('.nav-pill.pill-emode');
-    const hint = document.getElementById('emode-simple-hint');
-    const toggle = document.getElementById('emode-simple-on');
-    const rateField = document.getElementById('emode-simple-rate-field');
-    const genField = document.getElementById('emode-simple-generator-field');
-    const gauge = document.getElementById('simple-power-gauge-container');
-
-    if (navPill) {
-        navPill.style.display = (homeLevel < 12) ? 'none' : '';
-    }
-
-    const defaultWatts = GENERATOR_WATTS_BY_HOME_LEVEL[homeLevel] || DEFAULT_GENERATOR_WATTS;
-    const simpleGen = document.getElementById('simple-generator-capacity');
-    const genSelect = document.getElementById('generator-capacity');
-    if (simpleGen) simpleGen.value = String(defaultWatts);
-    if (genSelect) genSelect.value = String(defaultWatts);
-
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (homeLevel < 12) {
-        if (emodeSection) emodeSection.style.display = 'none';
-        if (toggle) toggle.disabled = true;
-        if (rateField) rateField.style.opacity = '0.5';
-        if (genField) genField.style.opacity = '0.5';
-        if (gauge) gauge.style.opacity = '0.5';
-        if (hint) { hint.style.display = 'none'; hint.innerHTML = ''; }
-        lastEmodeCounts = {};
-        if (typeof facilityOverrides !== 'undefined' && Array.isArray(facilityOverrides)) {
-            facilityOverrides = facilityOverrides.filter(o => !o.electric_count || o.electric_count === 0);
-        }
-    } else {
-        if (emodeSection) emodeSection.style.display = '';
-        if (toggle) toggle.disabled = false;
-        if (rateField) rateField.style.opacity = '1';
-        if (genField) genField.style.opacity = '1';
-        if (gauge) gauge.style.opacity = '1';
-        if (hint) { hint.style.display = 'none'; hint.innerHTML = ''; }
-    }
-    updatePowerGauge();
-}
-
-// Delegated handlers for the facility grid, covering tier rows added/removed after initial
-// render: editing a Count/Level input updates `facilityTiers` and persists it; "+ Add level"
-// appends a new tier (guessing the next level up from the highest owned, capped at 10); "×"
-// removes a tier. Attach once, on the grid container, rather than per-row.
-function attachFacilityTierHandlers() {
-    const grid = document.getElementById('facilities-grid');
-    if (!grid) return;
-
-    grid.addEventListener('input', (e) => {
-        const row = e.target.closest('.tier-row');
-        if (!row) return;
-        const container = e.target.closest('.facility-tiers');
-        const name = container.dataset.facility;
-        const idx = parseInt(row.dataset.tierIndex, 10);
-        const tier = facilityTiers[name][idx];
-        if (e.target.classList.contains('tier-count')) {
-            tier.count = numberOrDefault(e.target.value, 0);
-        } else if (e.target.classList.contains('tier-level')) {
-            tier.level = numberOrDefault(e.target.value, 1);
-        }
-        saveInputsToStorage();
-    });
-
-    grid.addEventListener('click', (e) => {
-        const addBtn = e.target.closest('.add-tier-btn');
-        if (addBtn) {
-            const name = addBtn.dataset.facility;
-            const tiers = facilityTiers[name];
-            const nextLevel = Math.min(10, Math.max(...tiers.map(t => t.level)) + 1);
-            tiers.push({ count: 1, level: nextLevel });
-            renderTierRows(name);
-            saveInputsToStorage();
-            return;
-        }
-        const removeBtn = e.target.closest('.tier-remove-btn');
-        if (removeBtn) {
-            const row = removeBtn.closest('.tier-row');
-            const container = removeBtn.closest('.facility-tiers');
-            const name = container.dataset.facility;
-            const idx = parseInt(row.dataset.tierIndex, 10);
-            facilityTiers[name].splice(idx, 1);
-            renderTierRows(name);
-            saveInputsToStorage();
-        }
-    });
-
-    // Enter key inside a tier input triggers a full plan recalculation, same as every other
-    // input; delegated (rather than the per-input listener loop used for static inputs) since
-    // tier inputs come and go as levels are added/removed.
-    grid.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.matches('input')) {
-            runFindPlan();
-        }
-    });
+    emodeSettingsController.updateSimpleEmodeState();
 }
 
 // --- Local persistence -----------------------------------------------------------------
 // Saves/restores form inputs via localStorage so values survive a page reload. Purely
 // client-side (no account, no server); works identically on localhost and once this is
 // hosted on GitHub Pages, since localStorage is scoped to the page's own origin.
-const _LEGACY_STORAGE_KEY = 'aniimax-config-v1';
-const STORAGE_KEY = 'aniimolab-config-v1';
-
 // True once the player has picked a rate unit themselves this visit. Until then a fresh plan
 // picks the unit it reads best at; after it, their choice stands.
 let rateUnitChosen = false;
 
-// Every plain input ID whose value should be persisted (facility tiers are saved separately;
-// see `facilityTiers`/`initFacilityTiers`, since they're a dynamic list rather than one fixed
-// element per facility).
-function getPersistedFieldIds() {
-    return [
-        'target-amount', 'current-amount',
-        'strategy-level-up', 'strategy-priorities', 'level-up-target',
-        'mode-simple', 'mode-advanced', 'home-level',
-        'ecological-module-level', 'kitchen-module-level',
-        'resource-detector-level', 'crafting-module-level',
-        'rate-unit', 'season-on', 'layout-sim-on', 'power-grid-rate',
-        'emode-simple-on', 'simple-power-grid-rate',
-        'generator-capacity', 'simple-generator-capacity',
-        'season-radish-plots', 'season-pepper-plots'
-    ];
-}
-
-// Reads and parses the saved config blob, or `null` if there isn't one / it's corrupt.
 function readStorage() {
-    try {
-        const raw = (localStorage.getItem(STORAGE_KEY) || localStorage.getItem(_LEGACY_STORAGE_KEY));
-        return raw ? migrateSavedConfig(JSON.parse(raw)) : null;
-    } catch (e) {
-        console.warn('Could not load saved inputs from localStorage:', e);
-        return null;
-    }
-}
-
-// Carries a save made under an older name forward to its current one, so a returning user keeps
-// their inputs across a rename instead of silently falling back to defaults. The full release
-// renamed Mineral Pile to Mine and the Mineral Detector module to Resource Detector.
-function migrateSavedConfig(data) {
-    if (!data || typeof data !== 'object') return data;
-    // Saves from before simple mode existed hold a hand-entered setup; keep showing it.
-    if (data['mode-simple'] === undefined && data.facilityTiers) {
-        data['mode-simple'] = false;
-        data['mode-advanced'] = true;
-    }
-    const tiers = data.facilityTiers;
-    if (tiers && tiers['Mine'] === undefined && tiers['Mineral Pile'] !== undefined) {
-        tiers['Mine'] = tiers['Mineral Pile'];
-    }
-    if (data['resource-detector-level'] === undefined && data['mineral-detector-level'] !== undefined) {
-        data['resource-detector-level'] = data['mineral-detector-level'];
-    }
-    return data;
-}
-
-// Populates the module-level `facilityTiers` from a saved config blob (see `readStorage`),
-// falling back to defaults for any facility missing from it; covers both a fresh page load
-// (no save yet) and a facility newly added to `FACILITIES` since the user's last save.
-function initFacilityTiers(data) {
-    const defaults = defaultFacilityTiers();
-    const saved = (data && data.facilityTiers) || {};
-    facilityTiers = {};
-    FACILITIES.forEach(f => {
-        const tiers = saved[f.name];
-        facilityTiers[f.name] = Array.isArray(tiers) && tiers.length > 0
-            ? tiers.map(t => ({
-                count: numberOrDefault(t.count, 0),
-                level: f.hasLevels === false ? 1 : numberOrDefault(t.level, 1)
-            }))
-            : defaults[f.name];
+    return readSavedConfig({
+        storage: localStorage,
+        onError: error => console.warn('Could not load saved inputs from localStorage:', error),
     });
-
 }
 
 function saveInputsToStorage() {
-    const data = {
+    const state = {
         facilityTiers,
         levelUpStock,
-        skippedRecipes: [...skippedRecipes],
+        skippedRecipes: [...recipeFilterController.getSkippedRecipes()],
         unlockedSpecial: [...unlockedSpecial],
         priorities: priorityOrder,
-        aniimoLevels,
-        roster,
+        aniimoLevels: aniimoSetupUIController.getAniimoLevels(),
+        roster: rosterUIController.getRoster(),
         emodeFacilities: [...emodeFacilities],
         seasonRadishPlots,
         seasonPepperPlots,
         selectedSeasonDishes: [...selectedSeasonDishes],
     };
-    getPersistedFieldIds().forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        data[id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+    const data = buildSavedConfig(state, { document, seasonExpired: isSeasonExpired() });
+    persistSavedConfig({
+        storage: localStorage,
+        key: STORAGE_KEY,
+        data,
+        onError: error => console.warn('Could not save inputs to localStorage:', error),
     });
-    if (isSeasonExpired()) {
-        data['season-on'] = false;
-    }
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-        console.warn('Could not save inputs to localStorage:', e);
-    }
 }
 
 function loadInputsFromStorage(data) {
     if (!data) return;
-    if (typeof data.seasonRadishPlots === 'number') seasonRadishPlots = data.seasonRadishPlots;
-    if (typeof data.seasonPepperPlots === 'number') seasonPepperPlots = data.seasonPepperPlots;
-    if (Array.isArray(data.selectedSeasonDishes)) {
-        selectedSeasonDishes = new Set(data.selectedSeasonDishes.filter(n => typeof n === 'string'));
-    }
-    if (Array.isArray(data.emodeFacilities)) {
-        emodeFacilities = new Set(data.emodeFacilities);
+    const restored = restoreSavedState(data, {
+        abilityNames: ABILITY_BY_NAME,
+        priorityTargets: RV20_PRIORITY_TARGETS,
+        personalityPairs: PERSONALITY_PAIRS,
+    });
+    if ('seasonRadishPlots' in restored) seasonRadishPlots = restored.seasonRadishPlots;
+    if ('seasonPepperPlots' in restored) seasonPepperPlots = restored.seasonPepperPlots;
+    if ('selectedSeasonDishes' in restored) selectedSeasonDishes = new Set(restored.selectedSeasonDishes);
+    if ('emodeFacilities' in restored) {
+        emodeFacilities = new Set(restored.emodeFacilities);
         document.querySelectorAll('.facility-emode-checkbox').forEach(cb => {
             cb.checked = emodeFacilities.has(cb.dataset.facility);
         });
     }
-    if (data.levelUpStock && typeof data.levelUpStock === 'object') levelUpStock = { ...data.levelUpStock };
-    if (Array.isArray(data.skippedRecipes)) skippedRecipes = new Set(data.skippedRecipes.filter(n => typeof n === 'string'));
-    if (Array.isArray(data.unlockedSpecial)) unlockedSpecial = new Set(data.unlockedSpecial.filter(n => typeof n === 'string'));
+    if ('levelUpStock' in restored) levelUpStock = restored.levelUpStock;
+    if ('skippedRecipes' in restored) recipeFilterController.setSkippedRecipes(restored.skippedRecipes);
+    if ('unlockedSpecial' in restored) unlockedSpecial = new Set(restored.unlockedSpecial);
     if (isSeasonExpired()) {
-        if (data) data['season-on'] = false;
+        data['season-on'] = false;
         const seasonToggle = document.getElementById('season-on');
         if (seasonToggle) seasonToggle.checked = false;
     }
-    if (Array.isArray(data.priorities)) {
-        const validIds = RV20_PRIORITY_TARGETS.map(t => t.id);
-        const saved = data.priorities.filter(p => validIds.includes(p?.target));
-        const missing = RV20_PRIORITY_TARGETS.filter(t => !saved.some(p => p.target === t.id)).map(t => ({ target: t.id, on: false }));
-        if (saved.length === 0) {
-            priorityOrder = RV20_PRIORITY_TARGETS.map(t => ({ target: t.id, on: false }));
-        } else {
-            priorityOrder = [...saved.map(p => ({ target: p.target, on: !!p.on })), ...missing];
-        }
-    } else {
-        priorityOrder = RV20_PRIORITY_TARGETS.map(t => ({ target: t.id, on: false }));
-    }
-    if (data.aniimoLevels && typeof data.aniimoLevels === 'object') {
-        aniimoLevels = Object.fromEntries(Object.entries(data.aniimoLevels)
-            .filter(([ability, level]) => ABILITY_BY_NAME.has(ability) && Number.isInteger(Number(level)) && level >= 1 && level <= 4)
-            .map(([ability, level]) => [ability, Number(level)]));
-    }
-    if (Array.isArray(data.roster)) {
-        roster = data.roster
-            .filter(a => a && typeof a === 'object' && a.abilities && typeof a.abilities === 'object')
-            .map(a => ({
-                name: typeof a.name === 'string' ? a.name : '',
-                count: Math.max(1, Math.round(Number(a.count)) || 1),
-                abilities: Object.fromEntries(Object.entries(a.abilities)
-                    .filter(([ability, level]) => ABILITY_BY_NAME.has(ability) && Number.isInteger(Number(level)) && level >= 1 && level <= 4)
-                    .map(([ability, level]) => [ability, Number(level)])),
-                personalities: PERSONALITY_PAIRS.map((pair, p) => pair.names.includes(a.personalities?.[p]) ? a.personalities[p] : pair.names[0]),
-            }));
-    }
-    getPersistedFieldIds().forEach(id => {
-        if (!(id in data)) return;
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (el.type === 'checkbox' || el.type === 'radio') {
-            el.checked = !!data[id];
-        } else {
-            el.value = data[id];
-        }
-    });
+    priorityOrder = restored.priorities;
+    if ('aniimoLevels' in restored) aniimoSetupUIController.setAniimoLevels(restored.aniimoLevels);
+    if ('roster' in restored) rosterUIController.setRoster(restored.roster);
+    applySavedFields(data, { document });
     if (isSeasonExpired()) {
         const seasonToggle = document.getElementById('season-on');
         if (seasonToggle) seasonToggle.checked = false;
@@ -2204,26 +826,20 @@ function loadInputsFromStorage(data) {
     levelUpTargetChosen = 'level-up-target' in data;
     updatePowerGauge();
 }
-
 // Auto-save on every change to a persisted static field (facility tier inputs save themselves;
 // see `attachFacilityTierHandlers`).
 function attachAutoSave() {
-    getPersistedFieldIds().forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const eventName = (el.type === 'checkbox' || el.type === 'radio' || el.tagName === 'SELECT') ? 'change' : 'input';
-        el.addEventListener(eventName, saveInputsToStorage);
-    });
+    attachPersistedFieldAutosave({ document, save: saveInputsToStorage });
 }
 
 function clearSavedInputs() {
     const confirmMsg = window.i18n ? window.i18n.t('clear_saved_confirm') : 'Are you sure you want to reset all saved inputs to default?';
     if (!confirm(confirmMsg)) return;
-    try {
-        localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-        console.warn('Could not clear saved inputs from localStorage:', e);
-    }
+    removeSavedConfig({
+        storage: localStorage,
+        key: STORAGE_KEY,
+        onError: error => console.warn('Could not clear saved inputs from localStorage:', error),
+    });
     window.location.reload();
 }
 
@@ -2279,44 +895,26 @@ function renderSimpleSummary() {
     const homeLevel = selectedHomeLevel();
     const { facilities, modules } = simpleSetup(homeLevel);
     const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const moduleUnlocks = {
+    const view = buildSimpleSummaryViewModel({
+        facilityDefinitions: FACILITIES,
+        facilities,
+        modules,
+        moduleUnlocks: {
         power_module: [12, 14, 16, 18, 20],
         plant_research_module: [6, 9, 12, 15],
         incubation_reaction_module: [9],
         signal_emitter: [6, 11, 16],
-    };
-    const chip = (count, name, level, title = '') => `
-        <div class="chip"${title ? ` title="${title}"` : ''}><span><span class="chip-count">${count}</span> ${name}</span>${level ? `<span class="chip-level">${level}</span>` : ''}</div>`;
-    const built = FACILITIES
-        .map(f => ({ name: f.name, tier: facilities[f.name][0], hasLevels: f.hasLevels !== false }))
-        .filter(({ tier }) => tier.count > 0)
-        .map(({ name, tier, hasLevels }) => chip(`${tier.count}×`, getFacilityDisplayName(name), hasLevels ? `Lv.${tier.level}` : ''))
-        .join('');
-    const moduleChips = [
-        ['Ecological Module', modules.ecological_module],
-        ['Kitchen Module', modules.kitchen_module],
-        ['Resource Detector', modules.resource_detector],
-        ['Crafting Module', modules.crafting_module],
-        ['power_module', modules.power_module],
-        ['plant_research_module', modules.plant_research_module],
-        ['incubation_reaction_module', modules.incubation_reaction_module],
-        ['signal_emitter', modules.signal_emitter],
-    ].map(([name, level]) => {
-        const unlocks = moduleUnlocks[name];
-        const title = unlocks ? (isVi ? `Mở khóa: ${unlocks.map((rv, i) => `Lv.${i + 1} tại RV ${rv}`).join(', ')}` : `Unlocks: ${unlocks.map((rv, i) => `Lv.${i + 1} at RV ${rv}`).join(', ')}`) : '';
-        return chip('', getModuleDisplayName(name), level > 0 ? `Lv.${level}` : (isVi ? 'chưa mở' : 'not yet'), title);
-    }).join('');
-    const kinds = FACILITIES.filter(f => facilities[f.name][0].count > 0).length;
+        },
+        moduleNames: ['Ecological Module', 'Kitchen Module', 'Resource Detector', 'Crafting Module', 'power_module', 'plant_research_module', 'incubation_reaction_module', 'signal_emitter'],
+        homeLevel,
+        isVietnamese: isVi,
+        getFacilityDisplayName,
+        getModuleDisplayName,
+    });
     const titleEl = document.getElementById('simple-summary-title');
-    if (titleEl) titleEl.textContent = isVi
-        ? `${kinds} cơ sở và 8 mô-đun tại RV ${homeLevel}`
-        : `${kinds} facilities and 8 modules at RV ${homeLevel}`;
+    if (titleEl) titleEl.textContent = view.title;
     const sumEl = document.getElementById('simple-summary');
-    if (sumEl) sumEl.innerHTML = `
-        <p class="assume-title">${isVi ? 'Cơ sở' : 'Facilities'}</p>
-        <div class="chip-grid">${built}</div>
-        <p class="assume-title">${isVi ? 'Mô-đun' : 'Modules'}</p>
-        <div class="chip-grid">${moduleChips}</div>`;
+    if (sumEl) sumEl.innerHTML = view.html;
 }
 
 // Whether the player has picked Advanced mode's level-up target; until then it follows the RV
@@ -2335,22 +933,19 @@ function applyConfigMode() {
 }
 
 function attachModeHandlers() {
-    const homeSelect = document.getElementById('home-level');
-    if (homeSelect) {
-        homeSelect.addEventListener('change', () => {
-            const level = selectedHomeLevel();
-            renderSimpleSummary();
-            renderStrategy();
-            updateProductionAniimoCap();
-            updateSimpleEmodeState();
-            updateSpecialistQuotasLimits(level);
-            renderSpecialRecipes();
-            updatePowerGauge();
-            if (lastPlan && lastPlan.success) {
-                displayPlan(lastPlan);
-            }
-        });
-    }
+    createHomeLevelController({
+        document,
+        getHomeLevel: selectedHomeLevel,
+        renderSimpleSummary,
+        renderStrategy,
+        updateProductionAniimoCap,
+        updateSimpleEmodeState,
+        updateSpecialistQuotasLimits,
+        renderSpecialRecipes,
+        updatePowerGauge,
+        getLastPlan: () => lastPlan,
+        displayPlan,
+    }).attach();
 }
 
 // --- Special recipes -------------------------------------------------------------------
@@ -2362,62 +957,31 @@ const SPECIAL_NAMES = new Set(SPECIAL_RECIPES.map(r => r.name));
 function renderSpecialRecipes() {
     const grid = document.getElementById('special-grid');
     if (!grid) return;
-    const currentRv = selectedHomeLevel();
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    grid.innerHTML = SPECIAL_RECIPES.map(r => {
-        const unlockRv = r.unlockRV || 1;
-        const isLocked = currentRv < unlockRv;
-        if (isLocked && unlockedSpecial.has(r.name)) {
-            unlockedSpecial.delete(r.name);
-        }
-        const checked = unlockedSpecial.has(r.name);
-        const activeInPlan = new Set(lastPlan?.selected_special_recipes || []);
-        const rvBadgeText = isVi
-            ? (isLocked ? `🔒 Mở khóa tại RV ${unlockRv}` : `Mở khóa tại RV ${unlockRv}`)
-            : (isLocked ? `🔒 Unlocks at RV ${unlockRv}` : `Unlocks at RV ${unlockRv}`);
-        
-        let statusBadge = '';
-        if (checked && !isLocked) {
-            if (activeInPlan.has(r.name)) {
-                statusBadge = `<span class="special-status-badge in-plan" title="${isVi ? 'Đang chạy trong kế hoạch' : 'Active in production plan'}">✓ ${isVi ? 'Đã dùng' : 'In Plan'}</span>`;
-            } else if (lastPlan && lastPlan.success) {
-                statusBadge = `<span class="special-status-badge not-used" title="${isVi ? 'Ứng viên được chọn nhưng solver không phân bổ công suất' : 'Checked candidate but not selected by solver'}">${isVi ? '(Không chọn)' : '(Not selected)'}</span>`;
-            }
-        }
-
-        return `
-        <label class="special-recipe-card ${checked ? 'active' : ''} ${isLocked ? 'locked' : ''}">
-            <input type="checkbox" class="special-card-checkbox" data-special="${r.name}"${checked ? ' checked' : ''}${isLocked ? ' disabled' : ''}>
-            <div class="special-card-thumb">
-                ${renderItemIcon(r.name)}
-            </div>
-            <div class="special-card-info">
-                <span class="special-card-name">${getItemDisplayName(r.name)}</span>
-                <span class="special-card-facility">
-                    ${renderFacilityIcon(r.facility)}
-                    <span>${getFacilityDisplayName(r.facility)}</span>
-                </span>
-                <div class="special-card-badges">
-                    <span class="special-rv-badge ${isLocked ? 'rv-future' : ''}">${rvBadgeText}</span>
-                    ${statusBadge}
-                </div>
-            </div>
-        </label>`;
-    }).join('');
+    const options = {
+        recipes: SPECIAL_RECIPES,
+        selectedNames: unlockedSpecial,
+        currentRv: selectedHomeLevel(),
+        selectedPlanNames: lastPlan?.selected_special_recipes || [],
+        planSucceeded: Boolean(lastPlan && lastPlan.success),
+        isVietnamese: window.i18n && window.i18n.getLang() === 'vi',
+        getItemDisplayName,
+        getFacilityDisplayName,
+        renderItemIcon,
+        renderFacilityIcon,
+    };
+    const view = buildSpecialRecipeViewModel(options);
+    for (const name of view.lockedSelections) unlockedSpecial.delete(name);
+    grid.innerHTML = view.lockedSelections.length ? buildSpecialRecipeViewModel(options).html : view.html;
     renderRecipeCount();
 }
 
 function attachSpecialHandlers() {
-    const grid = document.getElementById('special-grid');
-    if (!grid) return;
-    grid.addEventListener('change', (e) => {
-        const name = e.target.dataset.special;
-        if (!name) return;
-        if (e.target.checked) unlockedSpecial.add(name); else unlockedSpecial.delete(name);
-        e.target.closest('.special-recipe-card')?.classList.toggle('active', e.target.checked);
-        renderRecipeCount();
-        saveInputsToStorage();
-    });
+    createSpecialRecipeController({
+        grid: document.getElementById('special-grid'),
+        selectedNames: unlockedSpecial,
+        renderRecipeCount,
+        save: saveInputsToStorage,
+    }).attach();
 }
 
 // --- Opportunities ---------------------------------------------------------------------
@@ -2428,8 +992,6 @@ function attachSpecialHandlers() {
 // solved in full in a worker of its own (see `rankImprovements` in worker.js), so planning never
 // waits on it, and it's measured by what the plan leads with (see `rankMeasure`).
 
-let rankWorkers = [];
-let rankRunId = 0;
 // Finished rankings by Aniimo setup, for the plan they were worked out from.
 let rankingsBySetup = {};
 // The ranking on screen: `{ setup, measure, homeLevel, candidates, base, results, done }`.
@@ -2443,14 +1005,17 @@ const MODULE_NAMES = {
 };
 
 function stopRanking() {
-    rankRunId++;
-    rankWorkers.forEach(worker => worker.terminate());
-    rankWorkers = [];
+    rankingWorkerController.stop();
 }
 
 // How many workers share the ranking: up to six, leaving cores for the page, the plan's own worker
 // and the layout's.
 const RANK_WORKERS = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 2) - 3));
+const rankingWorkerController = createImprovementRankingController({
+    WorkerImpl: Worker,
+    workerUrl: WORKER_URL,
+    workerCount: RANK_WORKERS,
+});
 
 // What a change is measured by: level-up time for a level-up plan that can be worked toward,
 // else the first ranked priority, else Home Coins.
@@ -2465,140 +1030,23 @@ const tierLevel = tiers => Math.max(0, ...(tiers || []).filter(t => t.count > 0)
 
 // The lowest RV level whose facilities and modules cover everything in `input`, for Advanced
 // mode, where the player enters what they have rather than their RV level.
-function homeLevelCovering(input) {
-    for (let level = 1; level <= MAX_HOME_LEVEL; level++) {
-        const allowed = simpleSetup(level);
-        const facilitiesFit = FACILITIES.every(f => {
-            const have = input.facilities[f.name];
-            if (tierCount(have) === 0) return true;
-            const cap = allowed.facilities[f.name];
-            return tierCount(have) <= tierCount(cap) && (f.hasLevels === false || tierLevel(have) <= tierLevel(cap));
-        });
-        const modulesFit = Object.entries(input.modules).every(([name, level_]) => level_ <= (allowed.modules[name] ?? 0));
-        if (facilitiesFit && modulesFit) return level;
-    }
-    return MAX_HOME_LEVEL;
-}
-
-// Every change within reach of `base` (a plan input), as `{ label, input, group }`. Changes
-// sharing a `group` are one thing taken further and further (a module at each level up to what
-// the RV level allows), listed least first; the card shows the least one that gets the most.
-function improvementCandidates(base, setup) {
-    const candidates = [];
-    const owns = name => tierCount(base.facilities[name]) > 0;
-
-    // Recipes the player hasn't unlocked, at a facility they have.
-    const skipped = new Set(planContext?.skipped ?? skippedRecipes);
-    const locked = [
-        ...SPECIAL_RECIPES.map(r => ({ ...r, note: false })),
-        ...(base.season ? SEASON.recipeNotes.map(r => ({ ...r, note: true })) : []),
-    ];
-    for (const recipe of locked) {
-        if (!base.exclude.includes(recipe.name) || skipped.has(recipe.name)) continue;
-        if (recipe.facility && !owns(recipe.facility)) continue;
-        candidates.push({
-            kind: 'Recipes',
-            label: recipe.note ? `Recipe Note: ${prettyItem(recipe.name)}` : `Unlock ${prettyItem(recipe.name)}`,
-            input: { ...base, exclude: base.exclude.filter(name => name !== recipe.name) },
-        });
-    }
-    // Recipes the player skipped: they may have a reason, but they should know what it costs.
-    for (const name of [...skipped].sort((a, b) => prettyItem(a).localeCompare(prettyItem(b)))) {
-        if (!base.exclude.includes(name)) continue;
-        candidates.push({
-            kind: 'Recipes',
-            label: `Unskip ${prettyItem(name)}`,
-            input: { ...base, exclude: base.exclude.filter(n => n !== name) },
-        });
-    }
-
-    // Every level above the one given is tried, here and below, since one level can gain nothing
-    // while the next gains a lot.
-    const levelsAbove = (from, to) => Array.from({ length: Math.max(0, to - from) }, (_, i) => from + 1 + i);
-
-    // An Aniimo at a higher level, up to the highest the game is known to have.
-    const abilities = new Set(FACILITIES.filter(f => f.ability && owns(f.name)).map(f => f.ability));
-    if (setup.startsWith('roster') && base.roster) {
-        // One of the player's own Aniimo at a higher level, in each ability it has that matters
-        // here. Of several alike, just one is trained up, on a card of its own.
-        base.roster.members.forEach((member, i) => {
-            const who = roster[i]?.name.trim() ? escapeText(roster[i].name.trim()) : `${rosterLabel(roster[i] || member, i)} Aniimo`;
-            for (const [ability, level] of Object.entries(member.abilities).filter(([a]) => abilities.has(a))) {
-                for (const next of levelsAbove(level, defaultLevelFor(ability))) {
-                    const trained = { ...member, count: 1, abilities: { ...member.abilities, [ability]: next } };
-                    const members = member.count > 1
-                        ? [...base.roster.members.map((m, k) => (k === i ? { ...m, count: m.count - 1 } : m)), trained]
-                        : base.roster.members.map((m, k) => (k === i ? trained : m));
-                    const family = `${member.count > 1 ? 'One ' : ''}${who}: ${ability}`;
-                    candidates.push({
-                        kind: 'Aniimo', group: `roster:${i}:${ability}`, family, level: next,
-                        label: `${family} Lv.${next}`,
-                        input: { ...base, roster: { ...base.roster, members } },
-                    });
-                }
-            }
-        });
-    }
-    if (setup.startsWith('best')) {
-        for (const ability of levelledAbilities().filter(a => abilities.has(a))) {
-            const level = base.aniimo_levels[ability] ?? defaultLevelFor(ability);
-            for (const next of levelsAbove(level, defaultLevelFor(ability))) {
-                candidates.push({
-                    kind: 'Aniimo', group: `aniimo:${ability}`, family: `${ability} Aniimo`, level: next,
-                    label: `${ability} Aniimo Lv.${next}`,
-                    input: { ...base, aniimo_levels: { ...base.aniimo_levels, [ability]: next } },
-                });
-            }
-        }
-    }
-
-    // Advanced mode: a module at a higher level, one more facility, or one facility at a higher
-    // level, within what the RV level covering the rest allows.
-    if (planContext && !planContext.simple) {
-        const allowed = simpleSetup(homeLevelCovering(base));
-        for (const [module, level] of Object.entries(base.modules)) {
-            for (const next of levelsAbove(level, allowed.modules[module] ?? 0)) {
-                candidates.push({
-                    kind: 'Modules', group: `module:${module}`, family: MODULE_NAMES[module] || module, level: next,
-                    label: `${MODULE_NAMES[module] || module} Lv.${next}`,
-                    input: { ...base, modules: { ...base.modules, [module]: next } },
-                });
-            }
-        }
-        for (const f of FACILITIES) {
-            const tiers = (base.facilities[f.name] || []).filter(t => t.count > 0);
-            const cap = allowed.facilities[f.name];
-            const capLevel = f.hasLevels === false ? 1 : tierLevel(cap);
-            if (tierCount(tiers) < tierCount(cap)) {
-                for (const level of levelsAbove(0, capLevel)) {
-                    candidates.push({
-                        kind: 'Facilities', group: `another:${f.name}`, family: `+1 ${f.name}`,
-                        level: f.hasLevels === false || capLevel === 1 ? null : level,
-                        label: f.hasLevels === false || capLevel === 1 ? `+1 ${f.name}` : `+1 ${f.name} (Lv.${level})`,
-                        input: { ...base, facilities: { ...base.facilities, [f.name]: [...tiers, { count: 1, level }] } },
-                    });
-                }
-            }
-            if (f.hasLevels === false || tiers.length === 0) continue;
-            const lowest = tiers.reduce((a, b) => (b.level < a.level ? b : a));
-            for (const level of levelsAbove(lowest.level, capLevel)) {
-                const raised = tiers
-                    .map(t => (t === lowest ? { ...t, count: t.count - 1 } : t))
-                    .filter(t => t.count > 0)
-                    .concat({ count: 1, level });
-                candidates.push({
-                    kind: 'Facilities', group: `upgrade:${f.name}`, level,
-                    family: tierCount(tiers) > 1 ? `1 ${f.name} to` : `${f.name} to`,
-                    label: tierCount(tiers) > 1 ? `1 ${f.name} to Lv.${level}` : `${f.name} to Lv.${level}`,
-                    input: { ...base, facilities: { ...base.facilities, [f.name]: raised } },
-                });
-            }
-        }
-    }
-    return candidates;
-}
-
-// Starts ranking what could improve the plan on screen, unless it's already been worked out.
+const improvementCandidateBuilder = createImprovementCandidateBuilder({
+    maxHomeLevel: MAX_HOME_LEVEL,
+    facilities: FACILITIES,
+    specialRecipes: SPECIAL_RECIPES,
+    seasonRecipeNotes: SEASON.recipeNotes,
+    moduleNames: MODULE_NAMES,
+    simpleSetup,
+    getPlanContext: () => planContext,
+    getSkippedRecipes: () => recipeFilterController.getSkippedRecipes(),
+    getRoster: () => rosterUIController.getRoster(),
+    getRosterLabel: (...args) => rosterLabel(...args),
+    getLevelledAbilities: levelledAbilities,
+    defaultLevelFor: ability => defaultLevelFor(ability),
+    prettyItem,
+    escapeText: value => escapeText(value),
+});
+const { homeLevelCovering, improvementCandidates } = improvementCandidateBuilder;
 function rankImprovementsFor(setup) {
     stopRanking();
     if (!document.getElementById('improve-card')) return;
@@ -2625,54 +1073,25 @@ function rankImprovementsFor(setup) {
         setStep('improve', 'done', 'nothing to check');
         return;
     }
-    const runId = rankRunId;
     const current = ranking;
-    // The candidates dealt out across the workers, each keeping their place in the list.
-    const shares = Array.from({ length: Math.min(RANK_WORKERS, candidates.length) }, () => []);
-    candidates.forEach((candidate, i) => shares[i % shares.length].push(i));
-    let running = shares.length;
-    let failed = false;
-    rankWorkers = shares.map(indices => {
-        const worker = new Worker(WORKER_URL, { type: 'module' });
-        worker.onmessage = (event) => {
-            if (runId !== rankRunId) return;
-            const { type, count: result, ok } = event.data;
-            if (type === 'progress') {
-                if (result.index === -1) current.base ||= result;
-                else current.results[indices[result.index]] = result;
-                setStep('improve', 'start', `${current.results.filter(Boolean).length} of ${candidates.length}`);
-            } else {
-                if (!ok) console.warn('Ranking changes failed:', event.data.error);
-                finish(!ok);
-            }
+    rankingWorkerController.start({
+        measure,
+        base,
+        candidates,
+        baseTop: plansBySetup[setup]?.measure_top,
+        onProgress: (result, candidateIndex) => {
+            if (candidateIndex == null) current.base ||= result;
+            else current.results[candidateIndex] = result;
+            setStep('improve', 'start', `${current.results.filter(Boolean).length} of ${candidates.length}`);
             if (ranking === current) renderImprovements();
-        };
-        let finished = false;
-        const finish = (fail) => {
-            if (finished) return;
-            finished = true;
-            failed ||= fail;
-            worker.terminate();
-            if (--running === 0) {
-                current.done = true;
-                if (!failed) rankingsBySetup[setup] = current;
-                setStep('improve', failed ? 'fail' : 'done', `${candidates.length} changes`);
-                rankWorkers = [];
-            }
-        };
-        worker.onerror = (event) => {
-            if (runId !== rankRunId) return;
-            console.warn('Ranking changes failed:', event.message || event);
-            finish(true);
+        },
+        onError: error => console.warn('Ranking changes failed:', typeof error === 'string' ? error : error?.message || error),
+        onComplete: failed => {
+            current.done = true;
+            if (!failed) rankingsBySetup[setup] = current;
+            setStep('improve', failed ? 'fail' : 'done', `${candidates.length} changes`);
             if (ranking === current) renderImprovements();
-        };
-        worker.postMessage({
-            id: 1,
-            type: 'rank_improvements',
-            // The plan's own first solve is the plan as it stands, so no worker solves it again.
-            payload: JSON.stringify({ measure, base, candidates: indices.map(i => candidates[i].input), baseTop: plansBySetup[setup]?.measure_top }),
-        });
-        return worker;
+        },
     });
 }
 
@@ -2682,37 +1101,16 @@ const RANK_MIN_GAIN = 1e-3;
 // How a change compares with the plan, or null if it doesn't help: `{ score, text }`, with
 // `score` ordering changes that move the measure ahead of those that only earn more Home Coins.
 function improvementGain(result) {
-    const base = ranking.base;
-    if (!result || result.top == null || !base || base.top == null) return null;
-    const about = result.proven === false || base.proven === false ? '~' : '';
-    const { multiplier, suffix } = RATE_UNIT_SECONDS[document.getElementById('rate-unit').value] || RATE_UNIT_SECONDS.second;
-    if (result.top > base.top * (1 + RANK_MIN_GAIN) + 1e-12) {
-        if (ranking.measure === 'level_up') {
-            const before = base.top > 0 ? PACE_UNIT_SECONDS / base.top : null;
-            const after = PACE_UNIT_SECONDS / result.top;
-            return {
-                score: 1 + (before ? (before - after) / before : 1),
-                text: before
-                    ? `${about}−${formatDuration(before - after)} level-up (${formatDuration(after)})`
-                    : `Level-up in ${about}${formatDuration(after)}`,
-            };
-        }
-        const label = ranking.measure === 'coins' ? 'Home Coins' : priorityLabel(ranking.measure, planContext?.aniipod);
-        const added = `+${formatRate((result.top - base.top) * multiplier)}${suffix}`;
-        return {
-            score: 1 + (base.top > 0 ? (result.top - base.top) / base.top : 1),
-            text: base.top > 0 ? `${about}+${formatPercent((result.top - base.top) / base.top)} ${label} (${added})` : `${about}${added} ${label}`,
-        };
-    }
-    const coins = result.coins;
-    if (coins && coins.base > 0 && coins.value > coins.base * (1 + RANK_MIN_GAIN)) {
-        const gain = (coins.value - coins.base) / coins.base;
-        return {
-            score: gain,
-            text: `${about}+${formatPercent(gain)} Home Coins (+${formatRate((coins.value - coins.base) * multiplier)}${suffix})`,
-        };
-    }
-    return null;
+    return calculateImprovementGain({
+        result,
+        base: ranking?.base,
+        measure: ranking?.measure,
+        aniipod: planContext?.aniipod,
+        unit: RATE_UNIT_SECONDS[document.getElementById('rate-unit').value] || RATE_UNIT_SECONDS.second,
+        rankMinGain: RANK_MIN_GAIN,
+        paceUnitSeconds: PACE_UNIT_SECONDS,
+        formatters: { formatDuration, formatRate, formatPercent, priorityLabel },
+    });
 }
 
 const PACE_UNIT_SECONDS = 86400;
@@ -2730,1291 +1128,108 @@ function renderImprovements() {
         return;
     }
     card.style.display = 'block';
-    const checked = ranking.results.filter(Boolean).length;
-    const total = ranking.candidates.length;
-    const within = ranking.homeLevel ? ` Within RV ${ranking.homeLevel} limits.` : '';
-    const by = ranking.measure === 'level_up' ? 'level-up time, then Home Coins'
-        : ranking.measure === 'coins' ? 'Home Coins' : `${priorityLabel(ranking.measure, planContext?.aniipod)}, then Home Coins`;
-    // One row per change, or per group: the least of it that gets the most it can (see
-    // `improvementCandidates`).
-    const best = new Map();
-    ranking.candidates.forEach((candidate, i) => {
-        const gain = improvementGain(ranking.results[i]);
-        if (!gain) return;
-        const key = candidate.group || `#${i}`;
-        const held = best.get(key);
-        if (!held || gain.score > held.gain.score * (1 + RANK_MIN_GAIN)) best.set(key, { candidate, gain });
+    const model = buildImprovementRankingViewModel({
+        ranking,
+        getGain: improvementGain,
+        rankMinGain: RANK_MIN_GAIN,
+        priorityLabel: measure => priorityLabel(measure, planContext?.aniipod),
     });
-    const rows = [...best.values()].sort((a, b) => b.gain.score - a.gain.score);
-    const options = new Set(ranking.candidates.map((c, i) => c.group || `#${i}`)).size;
-    const status = total === 0 ? `Nothing left to unlock or upgrade.${within}`
-        : !ranking.done ? `Checking ${checked} of ${total}…${within}`
-            : rows.length === 0 ? `No improvements found (${options} checked).${within}`
-                : `Ranked by ${by}. ${rows.length} of ${options} help.${within}`;
-    // The status line opens what was checked. The card is rebuilt as each result comes in; keep
-    // the list open if the player opened it.
     const open = !!document.querySelector('#improve-list .improve-checked')?.open;
-    document.getElementById('improve-list').innerHTML = improvementsChecked(best, status, open) + (rows.length
-        ? `<ol class="improve-list">${rows.map(r => `<li><span class="improve-name">${r.candidate.label}</span><span class="improve-gain">${r.gain.text}</span></li>`).join('')}</ol>`
-        : '');
+    document.getElementById('improve-list').innerHTML = buildImprovementRankingMarkup({ model, open });
 }
-
-// Everything the ranking tries, by kind, each with how it came out: the gain, "no gain", or
-// still to check, behind `status`. A change tried at several levels is one line, e.g. "Earth
-// Aniimo Lv.2–4".
-function improvementsChecked(best, status, open) {
-    if (!ranking.candidates.length) return `<p class="hint">${status}</p>`;
-    const groups = new Map();
-    ranking.candidates.forEach((candidate, i) => {
-        const key = candidate.group || `#${i}`;
-        if (!groups.has(key)) groups.set(key, { kind: candidate.kind, candidates: [], indices: [] });
-        groups.get(key).candidates.push(candidate);
-        groups.get(key).indices.push(i);
-    });
-    const kinds = new Map();
-    for (const [key, group] of groups) {
-        const first = group.candidates[0];
-        const levels = group.candidates.map(c => c.level).filter(l => l != null);
-        const name = first.family
-            ? `${first.family}${levels.length ? ` Lv.${levels.length > 1 ? `${levels[0]}–${levels[levels.length - 1]}` : levels[0]}` : ''}`
-            : first.label;
-        const done = group.indices.every(i => ranking.results[i]);
-        const found = best.get(key);
-        const outcome = found
-            ? `<span class="improve-gain">${found.candidate.level != null && levels.length > 1 ? `Lv.${found.candidate.level}: ` : ''}${found.gain.text}</span>`
-            : `<span class="improve-none">${done ? 'no gain' : 'checking…'}</span>`;
-        if (!kinds.has(group.kind)) kinds.set(group.kind, []);
-        kinds.get(group.kind).push(`<li><span>${name}</span>${outcome}</li>`);
-    }
-    return `<details class="explain improve-checked"${open ? ' open' : ''}><summary>${status}</summary>${[...kinds]
-        .map(([kind, items]) => `<p class="assume-title">${kind}</p><ul class="improve-checked-list">${items.join('')}</ul>`)
-        .join('')}</details>`;
-}
-
-// --- Homeland layout -------------------------------------------------------------------
-// The whole homeland around one Storage Unit (see layout.js): each finished batch is carried
-// there, so the busiest facilities sit closest. Environment buildings keep the plots they cover
-// exactly as planned, moving as one block. Facilities with no known size are left out and named.
-
-// Trips per hour for each unit of a plan row: one per finished batch.
-function tripsPerUnit(step) {
-    if (step.status !== 'producing' || !step.cycle_time || !step.facility_count) return 0;
-    const busy = step.busy_units ?? step.facility_count;
-    return (busy / step.cycle_time / step.facility_count) * 3600;
-}
-
-// Whether a crop needs a growing environment: grown without one, a building's temperature
-// would change it. Crops that need none grow the same anywhere.
-const needsEnvironment = item => !!recipeIndex.find(r => r.name === item)?.environment;
-
-// The plan as pieces for `layOut`: environment blocks, then one piece per other facility unit,
-// then whatever the player owns that the plan doesn't use.
-function homelandPieces(plan, input) {
-    const pieces = [];
-    const placed = {};
-    const count = (facility, n = 1) => { placed[facility] = (placed[facility] || 0) + n; };
-    const unplaced = new Set();
-    const steps = (plan.coin_items || []).filter(s => s.facility && s.status === 'producing' && Boolean(s.item_name));
-    const envSteps = steps.filter(s => s.environment);
-    const assignments = plan.environment_assignments || [];
-
-    // Environment blocks, grouped as the plan's own maps are (see `renderFacilityPlan`).
-    const units = [];
-    ENVIRONMENT_MODE_ORDER.forEach(mode => {
-        const rows = envSteps.filter(s => s.environment === mode);
-        if (!rows.length) return;
-        let modeUnits = splitByEnvironmentUnit(rows, assignments.filter(a => a.mode === mode));
-        modeUnits.forEach(unit => units.push({ mode, unit }));
-    });
-    const blocks = new Map();
-    units.forEach(({ mode, unit }, i) => {
-        const key = unit.partner ? `${unit.building}|${unit.partner.join(',')}|${i}` : `#${i}`;
-        // A pair's zones are one place: gather them under the first zone that names the pair.
-        const pairKey = unit.partner ? [...blocks.keys()].find(k => k.startsWith(`${unit.building}|${unit.partner.join(',')}|`) && !blocks.get(k).parts.some(part => part.zone === unit.zone)) : null;
-        const block = blocks.get(pairKey) || { mode, unit, parts: [] };
-        block.parts.push({ zone: unit.zone ?? 0, layout: unit.layout, rows: unit.rows });
-        blocks.set(pairKey || key, block);
-    });
-    const placedInBlocks = {};
-    // Each is a cluster for `layOut`: its buildings, and the plots they cover, which may go
-    // anywhere in their zone.
-    blocks.forEach(({ mode, unit, parts }) => {
-        const size = environmentBuildingSize(unit.building);
-        const buildings = [{ x: 0, y: 0, w: size, h: size, facility: unit.building, mode: unit.pairModes ? unit.pairModes[0] : mode, building: true }];
-        count(unit.building);
-        if (unit.partner) {
-            const partnerSize = environmentBuildingSize(unit.partner[0]);
-            buildings.push({ x: unit.partner[1], y: unit.partner[2], w: partnerSize, h: partnerSize, facility: unit.partner[0], mode: unit.pairModes ? unit.pairModes[1] : mode, building: true });
-            count(unit.partner[0]);
-        }
-        const plots = [];
-        const planned = [];
-        parts.forEach(({ zone, layout, rows }) => {
-            // Farmland layout optimization for Cooling Unit:
-            // Shift the 2 right columns outward to x = 3.25 and x = 5.25 so their outer edge/corner
-            // overlaps the 9x9 climate boundary (at x = 5.5) by >= 0.25 tiles, exactly matching the woodland layout.
-            // This frees up internal grid space (at x = 1.25 and x = -1.25) to accommodate up to 32 Farmlands
-            // in a single Cooling Unit cluster, eliminating the need for an extra Cooling Unit.
-            if (unit.building === 'Cooling Unit' && rows.some(r => r.facility === 'Farmland')) {
-                const shPlot = layout.find(p => p.facility === 'Starfall Hammock');
-                const yCols = [-5.25, -3.25, -1.25, 0.75, 2.75, 4.75];
-                const shiftedFarmlandSlots = [];
-                for (const x of [-5.25, -3.25]) {
-                    for (const y of yCols) shiftedFarmlandSlots.push({ x, y, size: 2, facility: 'Farmland' });
-                }
-                for (const y of [-5.25, -3.25, 2.75, 4.75]) shiftedFarmlandSlots.push({ x: -1.25, y, size: 2, facility: 'Farmland' });
-                for (const y of [-5.25, -3.25, 2.75, 4.75]) shiftedFarmlandSlots.push({ x: 1.25, y, size: 2, facility: 'Farmland' });
-                for (const x of [3.25, 5.25]) {
-                    for (const y of yCols) shiftedFarmlandSlots.push({ x, y, size: 2, facility: 'Farmland' });
-                }
-                const validSlots = shiftedFarmlandSlots.filter(s => {
-                    if (!shPlot) return true;
-                    return !(s.x < shPlot.x + (shPlot.size || 5) && shPlot.x < s.x + s.size && s.y < shPlot.y + (shPlot.size || 5) && shPlot.y < s.y + s.size);
-                }).sort((a, b) => a.y - b.y || a.x - b.x);
-
-                layout = shPlot ? [{ ...shPlot }, ...validSlots] : validSlots;
-            }
-
-            // Each plot in this zone gets one of the crops planned for its facility here.
-            const crops = {};
-            rows.forEach(r => {
-                for (let n = 0; n < r.facility_count; n++) (crops[r.facility] ||= []).push({ crop: r.item_name, trips: tripsPerUnit(r), cycle: r.cycle_time });
-            });
-            layout.forEach(p => {
-                const crop = (crops[p.facility] || []).shift();
-                if (!crop) return;
-                plots.push({ w: p.size, h: p.size, weight: crop.trips, cycle: crop.cycle, zone: unit.partner ? zone : 0, facility: p.facility, crop: crop.crop });
-                planned.push({ x: p.x, y: p.y });
-                count(p.facility);
-                placedInBlocks[`${p.facility}|${crop.crop}`] = (placedInBlocks[`${p.facility}|${crop.crop}`] || 0) + 1;
-            });
-            // If there are still crops in rows not accommodated by layout slots (e.g. merged Ginseng plots):
-            Object.entries(crops).forEach(([facility, remainingCrops]) => {
-                while (remainingCrops.length > 0) {
-                    const crop = remainingCrops.shift();
-                    const size = facility === 'Woodland' ? 4 : 2;
-                    // Candidate slots on the right flank / perimeter (as indicated in user reference image 2)
-                    const extraSlots = [
-                        { x: 3.25, y: -5.25 }, { x: 3.25, y: 4.75 }, { x: 5.25, y: -3.25 }, { x: 5.25, y: 2.75 },
-                        { x: -5.25, y: -5.25 }, { x: -5.25, y: 4.75 }, { x: 1.25, y: 4.75 }, { x: -1.25, y: 4.75 }
-                    ];
-                    const slot = extraSlots[planned.length % extraSlots.length];
-                    plots.push({ w: size, h: size, weight: crop.trips, cycle: crop.cycle, zone: unit.partner ? zone : 0, facility, crop: crop.crop });
-                    planned.push(slot);
-                    count(facility);
-                    placedInBlocks[`${facility}|${crop.crop}`] = (placedInBlocks[`${facility}|${crop.crop}`] || 0) + 1;
-                }
-            });
-        });
-        pieces.push({ cluster: true, buildings, plots, planned });
-    });
-
-    // Helper: comprehensive electric mode detection (strictly per row)
-    const checkIsElectric = (stepOrRow, facName) => {
-        if (!stepOrRow) return false;
-        if (stepOrRow.mode === 'electric' || stepOrRow.is_emode) return true;
-        const fac = stepOrRow.facility || facName || '';
-        if (typeof fac === 'string' && fac.includes('(Electric)')) return true;
-        const baseFac = fac.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
-        const item = stepOrRow.item_name || '';
-        if (typeof item === 'string') {
-            if (item.includes('__electric') || item.includes('Siêu Tốc') || item.includes('Chế độ điện')) return true;
-            // Quick fresh water on Well is electric instant craft in E-mode
-            if (baseFac === 'Well' && (item.startsWith('quick_') || item.includes('Nước Sạch'))) return true;
-            // Ginseng Porridge on Simmering Pot when RV >= 12
-            if (baseFac === 'Simmering Pot' && (item.includes('ginseng_porridge') || item.includes('Cháo Nhân Sâm'))) {
-                const curRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
-                if (curRv >= 12) return true;
-            }
-            // Carousel Mill on milled rice when RV >= 12
-            if (baseFac === 'Carousel Mill' && (item.includes('milled_rice') || item.includes('Gạo Xay'))) {
-                const curRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
-                if (curRv >= 12) return true;
-            }
-        }
-        // If step has an assigned Aniimo (like Waleetle, Cornet, Inferlupa, Turbo, Glacy, Ignitis), it is non-electric!
-        if (stepOrRow.aniimo && stepOrRow.aniimo !== 'Chế độ điện' && stepOrRow.aniimo !== 'Electric') return false;
-        if (stepOrRow.mode === 'manual' || stepOrRow.mode === 'prismana') return false;
-        return false;
-    };
-
-    // Recipes taking turns on the same units (the Bench's and Kiln's tiers) share them: as many
-    // units as their busy time together needs, each running every tier in turn at its share.
-    const takesTurns = step => step.status === 'producing' && !!recipeIndex.find(r => r.name === step.item_name)?.turns;
-    const turnGroups = new Map();
-    steps.filter(takesTurns).forEach(step => turnGroups.set(step.facility, [...(turnGroups.get(step.facility) || []), step]));
-    turnGroups.forEach((rows, facility) => {
-        const footprint = FACILITY_FOOTPRINTS[facility];
-        if (!footprint) {
-            unplaced.add(facility);
-            return;
-        }
-        const busy = rows.reduce((sum, r) => sum + (r.busy_units ?? r.facility_count ?? 1), 0);
-        const explicitCount = rows.reduce((sum, r) => sum + (r.facility_count || 1), 0);
-        const baseFac = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
-        const ownedList = simpleSetup(selectedHomeLevel()).facilities[baseFac];
-        const ownedMax = Array.isArray(ownedList) ? ownedList.reduce((s, t) => s + (t.count || 0), 0) : 0;
-        const rawN = Math.max(explicitCount, Math.ceil(busy - 1e-6));
-        const n = ownedMax > 0 ? Math.min(ownedMax, rawN) : rawN;
-        const jobs = rows.filter(r => r.cycle_time > 0).map(r => ({ item: r.item_name, cycle: r.cycle_time, rate: (r.busy_units ?? r.facility_count) / r.cycle_time / n }));
-        const weight = jobs.reduce((sum, j) => sum + j.rate * 3600, 0);
-        const isElectric = rows.some(r => checkIsElectric(r, facility));
-        const powerWatts = isElectric ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
-        for (let i = 0; i < n; i++) {
-            pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight, jobs, cycle: jobs[0]?.cycle, facility, crop: jobs[0]?.item ?? null, sensitive: false, isElectric, powerWatts }] });
-        }
-        count(facility, n);
-    });
-
-    // Pack outdoor farmlands and woodlands into neat grid field blocks (row/column-major)
-    const outdoorFarmlands = [];
-    const outdoorWoodlands = [];
-
-    // Everything else, one unit at a time; environment crops no map took count here too.
-    steps.filter(step => !takesTurns(step)).forEach(step => {
-        let n = step.facility_count;
-        if (step.environment && step.status === 'producing') {
-            const key = `${step.facility}|${step.item_name}`;
-            const taken = Math.min(n, placedInBlocks[key] || 0);
-            placedInBlocks[key] = (placedInBlocks[key] || 0) - taken;
-            n -= taken;
-        }
-        const footprint = FACILITY_FOOTPRINTS[step.facility];
-        if (!footprint) {
-            if (n > 0) unplaced.add(step.facility);
-            return;
-        }
-
-        const baseFac = step.facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
-        const isElectric = checkIsElectric(step, step.facility);
-        const powerWatts = isElectric ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
-        const growing = step.status === 'producing';
-
-        if (baseFac === 'Farmland') {
-            for (let i = 0; i < n; i++) {
-                outdoorFarmlands.push({
-                    weight: tripsPerUnit(step),
-                    cycle: step.cycle_time,
-                    facility: step.facility,
-                    crop: growing ? step.item_name : null,
-                    sensitive: false,
-                    isElectric: false,
-                    powerWatts: 0
-                });
-            }
-            count(step.facility, n);
-            return;
-        }
-
-        if (baseFac === 'Woodland') {
-            for (let i = 0; i < n; i++) {
-                outdoorWoodlands.push({
-                    weight: tripsPerUnit(step),
-                    cycle: step.cycle_time,
-                    facility: step.facility,
-                    crop: growing ? step.item_name : null,
-                    sensitive: false,
-                    isElectric: false,
-                    powerWatts: 0
-                });
-            }
-            count(step.facility, n);
-            return;
-        }
-
-        for (let i = 0; i < n; i++) {
-            pieces.push({
-                members: [{
-                    x: 0, y: 0, w: footprint[0], h: footprint[1],
-                    weight: tripsPerUnit(step),
-                    cycle: step.cycle_time,
-                    facility: step.facility,
-                    crop: growing ? step.item_name : null,
-                    sensitive: growing && needsEnvironment(step.item_name),
-                    isElectric,
-                    powerWatts
-                }]
-            });
-        }
-        count(step.facility, n);
-    });
-
-    // Helper: Pack array of plots into neat rectangular grid field blocks
-    function packFieldChunk(items, slotW, slotH, maxChunkSize = 32) {
-        if (!items.length) return;
-        items.sort((a, b) => (b.crop || '').localeCompare(a.crop || '') || (b.weight || 0) - (a.weight || 0));
-
-        for (let start = 0; start < items.length; start += maxChunkSize) {
-            const chunk = items.slice(start, start + maxChunkSize);
-            const total = chunk.length;
-            let cols = 2;
-            if (total <= 2) cols = total;
-            else if (total <= 4) cols = 2;
-            else if (total === 5 || total === 6) cols = 3;
-            else if (total === 7 || total === 8) cols = 4;
-            else if (total === 9) cols = 3;
-            else if (total === 10) cols = 5;
-            else if (total >= 11 && total <= 16) cols = 4;
-            else cols = Math.min(6, Math.ceil(Math.sqrt(total)));
-
-            const members = chunk.map((m, idx) => {
-                const c = idx % cols;
-                const r = Math.floor(idx / cols);
-                return {
-                    ...m,
-                    x: c * slotW,
-                    y: r * slotH,
-                    w: slotW,
-                    h: slotH,
-                };
-            });
-            pieces.push({ members, isFieldBlock: true, facility: items[0].facility });
-        }
-    }
-
-    // Pack outdoor farmlands (2x2 each) and woodlands (4x4 each)
-    // Keep in unified rectangular field blocks without splitting into small fragments
-    packFieldChunk(outdoorFarmlands, 2, 2, 32);
-    packFieldChunk(outdoorWoodlands, 4, 4, 8);
-
-    // Add Crackle Generator (2x2) and Crackle Power Poles (1.5x1.5) when Electric Mode is active
-    const isEmodeActive = (document.getElementById('emode-simple-on')?.checked ?? true) || !!document.getElementById('emode-on')?.checked;
-    const hasElectricFacilities = (plan.coin_items || []).some(s => s.facility?.includes('(Electric)')) ||
-        (input.emode_facility_counts && Object.values(input.emode_facility_counts).some(c => c > 0)) ||
-        pieces.some(p => p.members?.some(m => m.isElectric));
-    const currentRv = isSimpleMode() ? selectedHomeLevel() : (input.home_level || 14);
-
-    if ((isEmodeActive || currentRv >= 12) && hasElectricFacilities) {
-        // At RV 16+, 2 Crackle Generators (2000W); at RV 18+, 3 Crackle Generators (3600W / 4500W)
-        const genCount = currentRv >= 18 ? 3 : (currentRv >= 16 ? 2 : 1);
-        const poleCount = currentRv >= 12 ? getPowerPoleCount(currentRv) : 0;
-        for (let g = 0; g < genCount; g++) {
-            pieces.push({
-                members: [{
-                    x: 0, y: 0, w: 2, h: 2,
-                    weight: 0,
-                    facility: 'Crackle Generator',
-                    generator: true,
-                    genIndex: g,
-                    sensitive: false,
-                    isElectric: false,
-                    powerWatts: 0
-                }]
-            });
-        }
-        for (let p = 0; p < poleCount; p++) {
-            pieces.push({
-                members: [{
-                    x: 0, y: 0, w: 1.5, h: 1.5,
-                    weight: 0,
-                    facility: 'Crackle Power Pole',
-                    powerPole: true,
-                    poleIndex: p,
-                    sensitive: false,
-                    isElectric: false,
-                    powerWatts: 0
-                }]
-            });
-        }
-    }
-
-    return { pieces, unplaced: [...unplaced] };
-}
-
-// Colors for the layout: crops and Aniimo materials as in the environment maps, the rest by
-// category.
-const LAYOUT_CATEGORY_COLORS = {
-    'Materials': '#8d8f5a',
-    'Aniimo Materials': '#5c9bd6',
-    'Wood & Ore Processing': '#c28a52',
-    'Materials Processing': '#8a7fc4',
-    'Environment': '#9aa0a8',
+// --- Homeland layout & Environment constants -----------------------------------------
+const ENVIRONMENT_FACILITY_COLORS = {
+    'Farmland': '#8b5e34',
+    'Woodland': '#4caf50',
+    'Starfall Hammock': '#42a5f5',
+    'Tidewhisper Sandcastle': '#26c6da',
+    'Floral Windmill': '#ab47bc',
+    'Dewy House': '#ef8a80',
 };
-const layoutColor = m => {
-    if (m.generator || m.facility === 'Generator' || m.facility === 'Crackle Generator') return '#06b6d4';
-    if (m.powerPole || m.facility === 'Crackle Power Pole' || m.facility === 'Power Pole') return '#eab308';
-    return m.building
-        ? (ENVIRONMENT_MODE_COLORS[m.mode] || '#9aa0a8')
-        : ENVIRONMENT_FACILITY_COLORS[m.facility] || LAYOUT_CATEGORY_COLORS[FACILITY_CATEGORY_BY_NAME.get(m.facility)] || '#888888';
+const ENVIRONMENT_BUILDING_SIZES = { 'Heat Furnace': 1.0, 'Cooling Unit': 2.0, 'Sunlamp': 1.0 };
+const DEFAULT_ENVIRONMENT_BUILDING_SIZE = 2.0;
+const environmentBuildingSize = name => ENVIRONMENT_BUILDING_SIZES[name] ?? DEFAULT_ENVIRONMENT_BUILDING_SIZE;
+const ENVIRONMENT_COVERAGE_RADIUS = 4.5;
+const ENVIRONMENT_MODE_SHADE = { Adequate: 0.55 };
+const ENVIRONMENT_MODE_COLORS = {
+    Warm: '#f59e0b',
+    Scorching: '#ef4444',
+    Cool: '#67e8f9',
+    Freeze: '#2563eb',
+    Adequate: '#facc15',
 };
-const initialsOf = name => {
-    if (name === 'Generator' || name === 'Crackle Generator') return '⚡GEN';
-    if (name === 'Crackle Power Pole' || name === 'Power Pole') return '⚡POLE';
-    return name.split(/[\s-]+/).map(w => w[0]).join('').toUpperCase();
-};
-
-let layoutRunId = 0;
-let layoutWorker = null;
-
-// Every plot of the homeland, `{ number, x, y, w, h }` in tiles, with the top left at the origin.
-function homelandPlots() {
-    return HOMELAND_PLOTS.flatMap((row, r) => row.map((number, c) => ({
-        number, x: c * HOMELAND_PLOT_SIZE.w, y: r * HOMELAND_PLOT_SIZE.h, w: HOMELAND_PLOT_SIZE.w, h: HOMELAND_PLOT_SIZE.h,
-    })));
-}
-
-// The RV level the layout is for: the one given in Simple mode, else the lowest that allows
-// everything entered (see `homeLevelCovering`).
-function layoutHomeLevel() {
-    return isSimpleMode() ? selectedHomeLevel() : homeLevelCovering(lastPlanInput);
-}
-
-function attachLayoutHandlers() {
-    document.getElementById('layout-whole')?.addEventListener('change', (e) => {
-        layoutShowsWhole = e.target.checked;
-        if (lastLayout) drawLayout(lastLayout);
-    });
-    document.getElementById('layout-minor-grid')?.addEventListener('change', () => {
-        if (lastLayout) drawLayout(lastLayout);
-    });
-    document.getElementById('layout-su-count')?.addEventListener('change', () => {
-        if (lastPlan && lastPlan.success) renderHomelandLayout(lastPlan);
-    });
-}
-
-let layoutSvgState = {
-    origViewBox: null,
-    currentViewBox: null,
-    lastWhole: false,
-    isPanning: false,
-    panStart: { x: 0, y: 0 },
-    isDragging: false,
-    dragTarget: null,
-    grabOffset: { x: 0, y: 0 },
-    customPositions: new Map(), // key: `${pIdx}_${mIdx}` or `su_${idx}` => { x, y }
-};
-
-function initLayoutInteraction(svg) {
-    if (!svg) return;
-
-    const zoomLevelEl = document.getElementById('layout-zoom-level');
-    const updateZoomDisplay = () => {
-        if (!zoomLevelEl || !layoutSvgState.origViewBox || !layoutSvgState.currentViewBox) return;
-        const scale = (layoutSvgState.origViewBox.w / layoutSvgState.currentViewBox.w) * 100;
-        zoomLevelEl.textContent = `${Math.round(scale)}%`;
-    };
-
-    const applyViewBox = () => {
-        if (!layoutSvgState.currentViewBox) return;
-        const { x, y, w, h } = layoutSvgState.currentViewBox;
-        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-        updateZoomDisplay();
-    };
-
-    updateZoomDisplay();
-
-    // Zoom buttons
-    document.getElementById('layout-zoom-in').onclick = () => {
-        if (!layoutSvgState.currentViewBox) return;
-        const factor = 0.8;
-        const cx = layoutSvgState.currentViewBox.x + layoutSvgState.currentViewBox.w / 2;
-        const cy = layoutSvgState.currentViewBox.y + layoutSvgState.currentViewBox.h / 2;
-        const nw = layoutSvgState.currentViewBox.w * factor;
-        const nh = layoutSvgState.currentViewBox.h * factor;
-        layoutSvgState.currentViewBox = { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh };
-        applyViewBox();
-    };
-
-    document.getElementById('layout-zoom-out').onclick = () => {
-        if (!layoutSvgState.currentViewBox) return;
-        const factor = 1.25;
-        const cx = layoutSvgState.currentViewBox.x + layoutSvgState.currentViewBox.w / 2;
-        const cy = layoutSvgState.currentViewBox.y + layoutSvgState.currentViewBox.h / 2;
-        const nw = layoutSvgState.currentViewBox.w * factor;
-        const nh = layoutSvgState.currentViewBox.h * factor;
-        layoutSvgState.currentViewBox = { x: cx - nw / 2, y: cy - nh / 2, w: nw, h: nh };
-        applyViewBox();
-    };
-
-    document.getElementById('layout-zoom-fit').onclick = () => {
-        if (!layoutSvgState.origViewBox) return;
-        layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
-        applyViewBox();
-    };
-
-    document.getElementById('layout-reset-btn').onclick = () => {
-        layoutSvgState.customPositions.clear();
-        layoutSvgState.origViewBox = null;
-        layoutSvgState.currentViewBox = null;
-        if (lastPlan && lastPlan.success) renderHomelandLayout(lastPlan);
-    };
-
-    // Mouse wheel zoom
-    svg.onwheel = (e) => {
-        e.preventDefault();
-        if (!layoutSvgState.currentViewBox) return;
-        const rect = svg.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / rect.width;
-        const my = (e.clientY - rect.top) / rect.height;
-
-        const factor = e.deltaY < 0 ? 0.85 : 1.18;
-        const minW = 6;
-        const maxW = (layoutSvgState.origViewBox?.w || 40) * 3;
-        const nw = Math.min(maxW, Math.max(minW, layoutSvgState.currentViewBox.w * factor));
-        const nh = Math.min(maxW * 0.75, Math.max(minW * 0.75, layoutSvgState.currentViewBox.h * factor));
-
-        layoutSvgState.currentViewBox.x += (layoutSvgState.currentViewBox.w - nw) * mx;
-        layoutSvgState.currentViewBox.y += (layoutSvgState.currentViewBox.h - nh) * my;
-        layoutSvgState.currentViewBox.w = nw;
-        layoutSvgState.currentViewBox.h = nh;
-        applyViewBox();
-    };
-
-    // Pointer events for Pan and Drag & Drop
-    const getSvgPoint = (clientX, clientY) => {
-        const pt = svg.createSVGPoint();
-        pt.x = clientX;
-        pt.y = clientY;
-        return pt.matrixTransform(svg.getScreenCTM().inverse());
-    };
-
-    svg.onpointerdown = (e) => {
-        if (e.button !== 0 && e.button !== 1) return;
-        const pieceEl = e.target.closest('.layout-piece');
-
-        if (pieceEl) {
-            // Drag and drop piece
-            e.stopPropagation();
-            layoutSvgState.isDragging = true;
-            layoutSvgState.dragTarget = pieceEl;
-            pieceEl.classList.add('is-dragging');
-            // Bring to top
-            pieceEl.parentElement?.appendChild(pieceEl);
-
-            const pt = getSvgPoint(e.clientX, e.clientY);
-            const curX = parseFloat(pieceEl.getAttribute('data-x') || '0');
-            const curY = parseFloat(pieceEl.getAttribute('data-y') || '0');
-            layoutSvgState.grabOffset = { x: pt.x - curX, y: pt.y - curY };
-            pieceEl.setPointerCapture?.(e.pointerId);
-        } else {
-            // Pan map
-            layoutSvgState.isPanning = true;
-            layoutSvgState.panStart = { x: e.clientX, y: e.clientY };
-            svg.classList.add('is-panning');
-            svg.setPointerCapture?.(e.pointerId);
-        }
-    };
-
-    svg.onpointermove = (e) => {
-        if (layoutSvgState.isDragging && layoutSvgState.dragTarget) {
-            const pt = getSvgPoint(e.clientX, e.clientY);
-            const minorGrid = !!document.getElementById('layout-minor-grid')?.checked;
-            const snap = minorGrid ? 0.25 : 0.5;
-            const targetX = Math.round((pt.x - layoutSvgState.grabOffset.x) / snap) * snap;
-            const targetY = Math.round((pt.y - layoutSvgState.grabOffset.y) / snap) * snap;
-
-            const origX = parseFloat(layoutSvgState.dragTarget.getAttribute('data-orig-x') || layoutSvgState.dragTarget.getAttribute('data-x') || '0');
-            const origY = parseFloat(layoutSvgState.dragTarget.getAttribute('data-orig-y') || layoutSvgState.dragTarget.getAttribute('data-y') || '0');
-
-            layoutSvgState.dragTarget.setAttribute('transform', `translate(${targetX - origX}, ${targetY - origY})`);
-            layoutSvgState.dragTarget.setAttribute('data-cur-x', targetX);
-            layoutSvgState.dragTarget.setAttribute('data-cur-y', targetY);
-        } else if (layoutSvgState.isPanning) {
-            const dx = (e.clientX - layoutSvgState.panStart.x) * (layoutSvgState.currentViewBox.w / svg.clientWidth);
-            const dy = (e.clientY - layoutSvgState.panStart.y) * (layoutSvgState.currentViewBox.h / svg.clientHeight);
-            layoutSvgState.currentViewBox.x -= dx;
-            layoutSvgState.currentViewBox.y -= dy;
-            layoutSvgState.panStart = { x: e.clientX, y: e.clientY };
-            applyViewBox();
-        }
-    };
-
-    const finishPointer = (e) => {
-        if (layoutSvgState.isDragging && layoutSvgState.dragTarget) {
-            const pieceEl = layoutSvgState.dragTarget;
-            pieceEl.classList.remove('is-dragging');
-            pieceEl.releasePointerCapture?.(e.pointerId);
-
-            const newX = parseFloat(pieceEl.getAttribute('data-cur-x'));
-            const newY = parseFloat(pieceEl.getAttribute('data-cur-y'));
-
-            if (!isNaN(newX) && !isNaN(newY)) {
-                const pIdx = pieceEl.getAttribute('data-piece-idx');
-                const mIdx = pieceEl.getAttribute('data-member-idx');
-                const suIdx = pieceEl.getAttribute('data-storage-idx');
-
-                if (suIdx !== null && lastLayout?.layout?.storages) {
-                    const idx = parseInt(suIdx, 10);
-                    if (lastLayout.layout.storages[idx]) {
-                        lastLayout.layout.storages[idx].x = newX;
-                        lastLayout.layout.storages[idx].y = newY;
-                        layoutSvgState.customPositions.set(`su_${idx}`, { x: newX, y: newY });
-                    }
-                } else if (pIdx !== null && mIdx !== null && lastLayout?.layout?.pieces) {
-                    const pi = parseInt(pIdx, 10);
-                    const mi = parseInt(mIdx, 10);
-                    const member = lastLayout.layout.pieces[pi]?.members?.[mi];
-                    if (member) {
-                        member.x = newX;
-                        member.y = newY;
-                        layoutSvgState.customPositions.set(`${pi}_${mi}`, { x: newX, y: newY });
-                    }
-                }
-            }
-
-            layoutSvgState.isDragging = false;
-            layoutSvgState.dragTarget = null;
-            if (lastLayout) drawLayout(lastLayout);
-        } else if (layoutSvgState.isPanning) {
-            layoutSvgState.isPanning = false;
-            svg.classList.remove('is-panning');
-            svg.releasePointerCapture?.(e.pointerId);
-        }
-    };
-
-    svg.onpointerup = finishPointer;
-    svg.onpointercancel = finishPointer;
-}
-
-function drawLayout(drawn) {
-    const diagram = document.getElementById('layout-diagram');
-    diagram.innerHTML = homelandSvg(drawn.layout, drawn.homeLevel);
-    const svg = diagram.querySelector('.layout-svg');
-    initLayoutInteraction(svg);
-}
-
-function renderHomelandLayout(plan) {
-    const card = document.getElementById('layout-card');
-    if (!plan?.success || !lastPlanInput) {
-        card.style.display = 'none';
-        return;
-    }
-    const runId = ++layoutRunId;
-    lastLayout = null;
-    stopLayoutSim();
-    setStep('layout', 'start');
-    card.style.display = 'block';
-    document.getElementById('layout-summary').textContent = 'Laying out…';
-    document.getElementById('layout-diagram').innerHTML = '';
-    // Worked out in a worker of its own: a large homeland takes a few seconds.
-    const { pieces, unplaced } = homelandPieces(plan, lastPlanInput);
-    const homeLevel = layoutHomeLevel();
-    const cells = homelandPlots().filter(p => p.number <= homeLevel);
-    if (layoutWorker) layoutWorker.terminate();
-    layoutWorker = new Worker(WORKER_URL.replace('worker.js', 'layout-worker.js'), { type: 'module' });
-    layoutWorker.onmessage = (event) => {
-        layoutWorker.terminate();
-        layoutWorker = null;
-        if (runId !== layoutRunId) return;
-        try {
-            const layout = event.data;
-            const at = layout.storageAt;
-            // Buildings carry nothing themselves.
-            const members = (layout.pieces || []).flatMap(p => p.members || []).filter(Boolean).map(m => ({ ...m, weight: m.weight || 0 }));
-            const trips = members.reduce((sum, m) => sum + m.weight, 0);
-            const storages = layout.storages || [layout.storage];
-            const walked = members.reduce((sum, m) => {
-                const cx = m.x + m.w / 2;
-                const cy = m.y + m.h / 2;
-                const minDist = Math.min(...storages.map(su => Math.hypot(cx - (su.x + su.w / 2), cy - (su.y + su.h / 2))));
-                return sum + m.weight * minDist;
-            }, 0);
-            const noRoom = [...new Set((layout.unplaced || []).map(item => {
-                const piece = typeof item === 'number' ? pieces[item] : item;
-                if (!piece) return '';
-                if (piece.cluster) {
-                    const fac = piece.buildings?.[0]?.facility || piece.members?.[0]?.facility || 'Cluster';
-                    return `${fac} and its plots`;
-                }
-                return piece.members?.[0]?.facility || piece.facility || 'Facility';
-            }).filter(Boolean))];
-            const isVi = window.i18n && window.i18n.getLang() === 'vi';
-            const notes = [
-                noRoom.length ? (isVi ? `Không đủ diện tích trên các lô đất RV ${homeLevel} cho: ${noRoom.join(', ')}.` : `No room found in RV ${homeLevel}'s plots for: ${noRoom.join(', ')}.`) : '',
-                unplaced.length ? (isVi ? `Chưa đặt được, không rõ kích thước: ${unplaced.join(', ')}.` : `Not placed, size unknown: ${unplaced.join(', ')}.`) : '',
-            ].filter(Boolean).join(' ');
-            document.getElementById('layout-summary').textContent = `${trips > 0
-                ? (isVi
-                    ? `${formatNumber(Math.round(trips))} chuyến/giờ đến Thiết Bị Lưu Trữ (SU), trung bình ${(walked / trips).toFixed(1)} ô mỗi chuyến, trong ${cells.length} lô đất mở tại RV ${homeLevel}.`
-                    : `${formatNumber(Math.round(trips))} trips/hour to the Storage Unit, ${(walked / trips).toFixed(1)} tiles each on average, in the ${cells.length} plot${cells.length === 1 ? '' : 's'} open at RV ${homeLevel}.`)
-                : (isVi ? 'Không có sản phẩm nào trong kế hoạch này cần chuyển đến Thiết Bị Lưu Trữ.' : 'Nothing in this plan is carried to the Storage Unit.')}${notes ? ` ${notes}` : ''}`;
-            lastLayout = { layout, homeLevel };
-            drawLayout(lastLayout);
-            setStep('layout', 'done');
-        } catch (err) {
-            console.error('Error rendering homeland layout:', err);
-            const isVi = window.i18n && window.i18n.getLang() === 'vi';
-            document.getElementById('layout-summary').textContent = isVi
-                ? `Lỗi hiển thị sơ đồ: ${err.message || err}`
-                : `Layout rendering error: ${err.message || err}`;
-            setStep('layout', 'fail');
-        }
-    };
-    layoutWorker.onerror = (event) => {
-        console.error('Homeland layout failed:', event.message || event);
-        if (runId !== layoutRunId) return;
-        stopLayout();
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        document.getElementById('layout-summary').textContent = isVi
-            ? 'Không thể tính toán được sơ đồ bố trí.'
-            : 'The layout couldn\'t be worked out.';
-        setStep('layout', 'fail');
-    };
-    const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
-    layoutWorker.postMessage({ pieces, cells: cells.map(({ x, y, w, h }) => ({ x, y, w, h })), options: { suCount } });
-}
-
-// Stops a layout still being worked out, so it can't land over a newer plan.
-function stopLayout() {
-    stopLayoutSim();
-    layoutRunId++;
-    layoutWorker?.terminate();
-    layoutWorker = null;
-    lastLayout = null;
-}
-
-// Whether the layout shows the whole homeland rather than just what's placed; the player's toggle.
-let layoutShowsWhole = false;
-let lastLayout = null;
-
-function homelandSvg(layout, homeLevel) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    // Each environment building in use covers the 9x9 square around its center
-    const coverage = (layout.pieces || []).flatMap(p => p.members || [])
-        .filter(m => m && m.building && m.mode)
-        .map(m => ({ x: m.x + m.w / 2 - ENVIRONMENT_COVERAGE_RADIUS, y: m.y + m.h / 2 - ENVIRONMENT_COVERAGE_RADIUS, w: ENVIRONMENT_COVERAGE_RADIUS * 2, h: ENVIRONMENT_COVERAGE_RADIUS * 2, mode: m.mode }));
-
-    const plots = homelandPlots();
-    const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
-    const placed = [...storages, ...(layout.pieces || []).flatMap(p => p.members || []).filter(Boolean)];
-    const whole = layoutShowsWhole;
-    const minX = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.x))) - 3;
-    const minY = whole ? -1 : Math.floor(Math.min(...placed.map(r => r.y))) - 3;
-    const maxX = whole ? Math.max(...plots.map(p => p.x + p.w)) + 1 : Math.ceil(Math.max(...placed.map(r => r.x + r.w))) + 3;
-    const maxY = whole ? Math.max(...plots.map(p => p.y + p.h)) + 1 : Math.ceil(Math.max(...placed.map(r => r.y + r.h))) + 3;
-
-    // Locked and open plots
-    const plotShapes = [...plots].sort((a, b) => (b.number <= homeLevel) - (a.number <= homeLevel)).map(p => {
-        const open = p.number <= homeLevel;
-        return `<g class="layout-plot${open ? '' : ' locked'}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" />
-            <text x="${p.x + 0.6}" y="${p.y + 0.9}" font-size="0.85" font-weight="700" fill="${open ? '#94a3b8' : '#ef4444'}">${open ? (isVi ? 'Lô' : 'Plot') : 'RV'} ${p.number}</text></g>`;
-    }).join('');
-
-    // Grid lines: major lines (1.0 tile) and minor subgrid (0.25 tile)
-    const showMinorGrid = !!document.getElementById('layout-minor-grid')?.checked;
-    const lines = [];
-    if (showMinorGrid) {
-        for (let x = minX; x <= maxX; x += 0.25) {
-            if (Math.abs(x % 1.0) > 0.05) {
-                lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="#334155" stroke-opacity="0.16" stroke-width="0.02" class="minor-grid" />`);
-            }
-        }
-        for (let y = minY; y <= maxY; y += 0.25) {
-            if (Math.abs(y % 1.0) > 0.05) {
-                lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" stroke="#334155" stroke-opacity="0.16" stroke-width="0.02" class="minor-grid" />`);
-            }
-        }
-    }
-    for (let x = minX; x <= maxX; x++) lines.push(`<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
-    for (let y = minY; y <= maxY; y++) lines.push(`<line x1="${minX}" y1="${y}" x2="${maxX}" y2="${y}" stroke="#334155" stroke-opacity="0.45" stroke-width="0.04" />`);
-
-    // Top-down SVG facility tiles with Drag and Drop data tags
-    const allMembers = layout.pieces.flatMap((p, pIdx) => (p.members || []).map((m, mIdx) => ({ ...m, pIdx, mIdx })));
-    const shapes = allMembers.map(m => {
-        const distId = m.district || getFacilityDistrict(m.facility);
-        const distDef = LAYOUT_DISTRICTS.find(d => d.id === distId) || { color: '#3b82f6' };
-        const su = storages.find(s => s.id === m.closestStorage) || storages[0];
-        const away = su ? Math.hypot(m.x + m.w / 2 - (su.x + su.w / 2), m.y + m.h / 2 - (su.y + su.h / 2)) : 0;
-        const facilityTitle = getFacilityDisplayName(m.facility);
-        const modeTitle = getModeDisplayName(m.mode);
-        const detailText = m.jobs ? m.jobs.map(j => prettyItem(j.item)).join(', ') : m.crop ? prettyItem(m.crop) : m.building && m.mode ? modeTitle : (isVi ? 'Đang chờ' : 'Idle');
-        const statsText = m.weight > 0 ? (isVi ? `${formatRate(m.weight)} chuyến/giờ · ${away.toFixed(1)} ô tới ${su?.label || 'SU'}` : `${formatRate(m.weight)} trips/h · ${away.toFixed(1)} tiles to ${su?.label || 'SU'}`) : '';
-        const tip = tipAttrs(facilityTitle, {
-            detail: detailText,
-            stats: statsText,
-            color: distDef.color,
-        });
-
-        return `<g class="layout-piece" data-type="facility" data-piece-idx="${m.pIdx}" data-member-idx="${m.mIdx}" data-facility="${m.facility}" data-x="${m.x}" data-y="${m.y}" data-orig-x="${m.x}" data-orig-y="${m.y}" ${tip}>${renderHomelandSvgFacility(m)}</g>`;
-    }).join('');
-
-    // Climate coverage areas (rounded rectangle with dashed border matching AniimoGuide)
-    const coverageShapes = coverage.map(c => {
-        const tint = ENVIRONMENT_MODE_COLORS[c.mode] || '#9aa0a8';
-        const shade = (0.14 * (ENVIRONMENT_MODE_SHADE[c.mode] ?? 1)).toFixed(3);
-        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="0.5" fill="${tint}" fill-opacity="${shade}" />`;
-    }).join('');
-    const coverageEdges = coverage.map(c => {
-        const tint = ENVIRONMENT_MODE_COLORS[c.mode] || '#9aa0a8';
-        return `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="0.5" fill="none"
-            stroke="${tint}" stroke-opacity="0.85" stroke-dasharray="0.4 0.25" stroke-width="0.08" />`;
-    }).join('');
-
-    const vbW = maxX - minX;
-    const vbH = maxY - minY;
-    // Always initialize fresh viewbox centered on the full compound
-    layoutSvgState.origViewBox = { x: minX, y: minY, w: vbW, h: vbH };
-    layoutSvgState.currentViewBox = { ...layoutSvgState.origViewBox };
-    layoutSvgState.lastWhole = layoutShowsWhole;
-    const curVb = layoutSvgState.currentViewBox;
-
-    return `<svg class="layout-svg" viewBox="${curVb.x} ${curVb.y} ${curVb.w} ${curVb.h}" role="img" aria-label="Homeland layout">
-        <defs><pattern id="layout-locked" width="1" height="1" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="1" class="layout-hatch" /></pattern></defs>
-        <g class="env-grid">${lines.join('')}</g>
-        <g class="layout-plots">${plotShapes}</g>
-        <g class="layout-coverage">${coverageShapes}</g>
-        ${shapes}
-        <g class="layout-coverage-edges" pointer-events="none">${coverageEdges}</g>
-        ${(() => {
-            const members = layout.pieces.flatMap(p => p.members);
-            const generators = members.filter(m => m.facility === 'Crackle Generator' || m.facility === 'Generator' || m.generator);
-            const poles = members.filter(m => m.facility === 'Crackle Power Pole' || m.facility === 'Power Pole' || m.powerPole);
-            const electricFacilities = members.filter(m => m.isElectric && !m.generator && !m.powerPole);
-
-            let aura = '';
-            if (generators.length > 0) {
-                aura += `<g class="generator-power-network" pointer-events="none">`;
-
-                // 1. Draw 11x11 square range for EACH generator
-                generators.forEach((gen, gIdx) => {
-                    const gx = gen.x - (11 - gen.w) / 2;
-                    const gy = gen.y - (11 - gen.h) / 2;
-                    const genCenter = { x: gen.x + gen.w / 2, y: gen.y + gen.h / 2 };
-                    aura += `
-                        <!-- Crackle Generator #${gIdx + 1} 11x11 Square Grid -->
-                        <rect x="${gx}" y="${gy}" width="11" height="11" rx="0.3"
-                            fill="#06b6d4" fill-opacity="0.05" stroke="#06b6d4" stroke-opacity="0.65" stroke-width="0.14" stroke-dasharray="0.8 0.4" />
-                        <text x="${genCenter.x}" y="${gy - 0.35}" font-size="0.6" fill="#06b6d4" font-weight="700" text-anchor="middle">${isVi ? `⚡ Trụ điện #${gIdx + 1} (11×11 · 1000W)` : `⚡ Generator #${gIdx + 1} (11×11 · 1000W)`}</text>
-                    `;
-                });
-
-                // 2. Draw 7x7 square relay range for EACH pole
-                poles.forEach((pole, pIdx) => {
-                    const px = pole.x - (7 - pole.w) / 2;
-                    const py = pole.y - (7 - pole.h) / 2;
-                    const pCenter = { x: pole.x + pole.w / 2, y: pole.y + pole.h / 2 };
-                    aura += `
-                        <!-- Power Pole #${pIdx + 1} 7x7 Relay Range -->
-                        <rect x="${px}" y="${py}" width="7" height="7" rx="0.25"
-                            fill="#eab308" fill-opacity="0.04" stroke="#eab308" stroke-opacity="0.55" stroke-width="0.12" stroke-dasharray="0.5 0.25" />
-                        <text x="${pCenter.x}" y="${py - 0.25}" font-size="0.5" fill="#eab308" font-weight="600" text-anchor="middle">${isVi ? `⚡ Cột điện #${pIdx + 1} (7×7 Relay)` : `⚡ Power Pole #${pIdx + 1} (7×7 Relay)`}</text>
-                    `;
-                });
-
-                // 3. Power Transmission Backbone (Yellow line connecting Gen1 -> Gen2 -> Pole1 -> Pole2 -> ...)
-                const powerSpine = [];
-                generators.forEach(g => powerSpine.push({ x: g.x + g.w / 2, y: g.y + g.h / 2 }));
-                const sortedPoles = [...poles].sort((a, b) => (a.x - b.x));
-                sortedPoles.forEach(p => powerSpine.push({ x: p.x + p.w / 2, y: p.y + p.h / 2 }));
-
-                for (let i = 0; i < powerSpine.length - 1; i++) {
-                    const n1 = powerSpine[i];
-                    const n2 = powerSpine[i + 1];
-                    aura += `
-                        <!-- Power Backbone Cable -->
-                        <line x1="${n1.x}" y1="${n1.y}" x2="${n2.x}" y2="${n2.y}"
-                            stroke="#facc15" stroke-width="0.18" stroke-linecap="round" stroke-dasharray="0.6 0.25" stroke-opacity="0.95" />
-                    `;
-                }
-
-                // 4. Yellow feed lines to EVERY electric facility + "Đã đáp ứng yêu cầu ⚡"
-                const allPowerSources = [...generators, ...poles].map(s => ({
-                    x: s.x + s.w / 2,
-                    y: s.y + s.h / 2,
-                    isGen: !!s.generator
-                }));
-
-                electricFacilities.forEach(ef => {
-                    const efCenter = { x: ef.x + ef.w / 2, y: ef.y + ef.h / 2 };
-                    let closest = null;
-                    let minD = Infinity;
-                    for (const ps of allPowerSources) {
-                        const d = Math.hypot(efCenter.x - ps.x, efCenter.y - ps.y);
-                        if (d < minD) { minD = d; closest = ps; }
-                    }
-                    if (closest) {
-                        aura += `
-                            <!-- Electric Feed Line to ${ef.facility} -->
-                            <line x1="${closest.x}" y1="${closest.y}" x2="${efCenter.x}" y2="${efCenter.y}"
-                                stroke="#facc15" stroke-width="0.10" stroke-opacity="0.8" stroke-dasharray="0.3 0.15" />
-                            <circle cx="${efCenter.x}" cy="${efCenter.y}" r="0.16" fill="#facc15" />
-                            <text x="${ef.x + ef.w / 2}" y="${ef.y + ef.h + 0.38}" font-size="0.34" fill="#facc15" font-weight="700" text-anchor="middle" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.8))">${isVi ? 'Đã đáp ứng yêu cầu ⚡' : 'Power Requirement Met ⚡'}</text>
-                        `;
-                    }
-                });
-
-                aura += `</g>`;
-            }
-            const suImgUrl = getFacilityIconUrl('Storage Unit');
-            const suElements = storages.map((su, idx) => {
-                const roleColors = { central: '#eab308', farm: '#10b981', workshop: '#06b6d4', forestry: '#059669', expansion: '#8b5cf6' };
-                const suColor = roleColors[su.role] || '#f59e0b';
-                const roleName = su.role ? (isVi ? (su.role === 'central' ? 'Trung tâm' : su.role === 'farm' ? 'Nông trại' : su.role === 'workshop' ? 'Xưởng' : su.role === 'forestry' ? 'Lâm nghiệp' : su.role === 'expansion' ? 'Mở rộng' : su.role) : (su.role[0].toUpperCase() + su.role.slice(1))) : (isVi ? 'Đa năng' : 'All-purpose');
-                const suDetail = isVi ? `Thiết bị lưu trữ: ${roleName}` : `Storage Unit: ${roleName}`;
-                const suLabel = isVi ? (su.label ? su.label.replace('Central', 'Trung tâm').replace('Farm', 'Nông trại').replace('Workshop', 'Xưởng').replace('Forestry', 'Lâm nghiệp').replace('Expansion', 'Mở rộng') : `SU ${idx + 1}`) : (su.label || `SU ${idx + 1}`);
-                return `<g class="layout-piece layout-storage-unit su-${su.role || 'hub'}" data-type="storage" data-storage-idx="${idx}" data-x="${su.x}" data-y="${su.y}" data-orig-x="${su.x}" data-orig-y="${su.y}" ${tipAttrs(suLabel, { detail: suDetail, color: suColor })}>
-                    <rect x="${su.x + 0.04}" y="${su.y + 0.04}" width="${su.w - 0.08}" height="${su.h - 0.08}" rx="0.22" fill="#131c17" fill-opacity="0.65" stroke="${suColor}" stroke-width="0.06" class="homeland-facility-base" />
-                    <image href="${suImgUrl}" x="${su.x + 0.06}" y="${su.y + 0.04}" width="${su.w - 0.12}" height="${su.h - 0.08}" preserveAspectRatio="xMidYMid meet" class="homeland-building-sprite" onerror="this.style.display='none'" />
-                    <g class="homeland-su-badge" pointer-events="none">
-                        <circle cx="${su.x + su.w / 2}" cy="${su.y + su.h / 2}" r="0.42" fill="${suColor}" stroke="#0f172a" stroke-width="0.08" />
-                        <text x="${su.x + su.w / 2}" y="${su.y + su.h / 2 + 0.15}" font-size="0.45" font-weight="800" fill="#0f172a" text-anchor="middle">${idx + 1}</text>
-                    </g>
-                </g>`;
-            }).join('');
-            return aura + suElements;
-        })()}
-    </svg>`;
-}
-
-// --- Deliveries ------------------------------------------------------------------------
-// The layout plays its homeland out in sped-up game time, from the moment everything is set up.
-// Every finished batch goes to the Storage Unit, with its byproduct, and adds to what's there; a
-// recipe starts a batch only once the Storage Unit has all it takes, and takes it out. Each unit
-// also keeps to the plan's pace for each recipe it runs, so it doesn't take more than its share
-// of what others need; a Bench or Kiln runs its tiers in turn. A ring on each shows its batch,
-// amber while it waits for materials. What isn't modeled: carrying takes no time (the dots walk
-// at a fixed pace just to show it), and which of two recipes wanting the same thing gets it first
-// (they take turns at random).
-
-// Roughly how many real seconds the build-up takes, however long it is in game (at least a
-// minute a second, at most an hour); a guess from first batches, not the whole wait.
-const SIM_BUILD_UP = 10;
-// Tiles a second a delivery walks, in real time.
-const SIM_PACE = 4;
-// Game seconds per step of the simulation.
-const SIM_STEP = 2;
-// Real seconds between two dots on the same line, at the least.
-const SIM_DOT_GAP = 0.12;
-let layoutSim = null;
-
-// Each piece carried to the Storage Unit: its line and ring, and its jobs: what it makes, how
-// long a batch takes and its pace in the plan (batches a second). Most pieces have one; a Bench
-// or Kiln unit has one per tier it takes turns on (see `homelandPieces`).
-function layoutFlows(layout) {
-    const storages = (layout.storages && layout.storages.length > 0) ? layout.storages : [layout.storage];
-    return layout.pieces.flatMap(p => p.members).filter(m => m.weight > 0 && m.crop && m.cycle > 0).map(m => {
-        const x1 = m.x + m.w / 2;
-        const y1 = m.y + m.h / 2;
-        const closestSU = storages.reduce((best, su) => {
-            const d1 = Math.hypot(x1 - (su.x + su.w / 2), y1 - (su.y + su.h / 2));
-            const d2 = Math.hypot(x1 - (best.x + best.w / 2), y1 - (best.y + best.h / 2));
-            return d1 < d2 ? su : best;
-        }, storages[0]);
-        const x2 = closestSU.x + closestSU.w / 2;
-        const y2 = closestSU.y + closestSU.h / 2;
-        const ring = Math.min(0.45, Math.min(m.w, m.h) * 0.22);
-        return {
-            x1, y1, x2, y2, length: Math.hypot(x2 - x1, y2 - y1),
-            ring, rx: m.x + m.w - ring - 0.12, ry: m.y + ring + 0.12,
-            jobs: m.jobs || [{ item: m.crop, cycle: m.cycle, rate: m.weight / 3600 }],
-        };
-    });
-}
-
-// What a recipe takes and gives, from the recipe list: ingredients with amounts, its item and
-// yield (a quick variant makes the regular item), and its byproduct.
-function recipeTerms(name) {
-    const r = recipeIndex.find(r => r.name === name);
-    return {
-        takes: (r?.ingredients || []).map((ingredient, i) => [ingredient, r.amounts?.[i] ?? 1]),
-        makes: name.replace(/^quick_/, ''),
-        yield: r?.yieldAmount || 1,
-        byproduct: r?.byproduct ? [r.byproduct, r.byproductAmount || 0] : null,
-    };
-}
-
-// When an item's first batch could be ready, from the moment everything is set up: a crop's grow
-// time, or a recipe's own batch time after its slowest ingredient is first there, as the planner
-// works it out (see `item_lead_time` in optimizer.rs). Only sets the simulation's speed.
-function firstBatchTimes(flows) {
-    const batch = new Map();
-    flows.flatMap(f => f.jobs).forEach(j => batch.set(j.item, Math.min(batch.get(j.item) ?? Infinity, j.cycle)));
-    const makers = new Map();
-    batch.forEach((_, name) => {
-        const terms = recipeTerms(name);
-        [terms.makes, terms.byproduct?.[0]].filter(Boolean).forEach(item => makers.set(item, [...(makers.get(item) || []), name]));
-    });
-    const known = new Map();
-    const first = (name, depth = 0) => {
-        if (depth > 8) return 0;
-        if (!known.has(name)) {
-            known.set(name, 0);
-            const waits = recipeTerms(name).takes
-                .map(([ingredient]) => makers.get(ingredient))
-                .filter(Boolean)
-                .map(list => Math.min(...list.map(m => first(m, depth + 1))));
-            known.set(name, Math.max(0, ...waits) + (batch.get(name) || 0));
-        }
-        return known.get(name);
-    };
-    return first;
-}
-
-function startLayoutSim(svg, flows, stock) {
-    stopLayoutSim();
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    document.getElementById('layout-sim').hidden = !svg || flows.length === 0 || reduce;
-    if (!svg || flows.length === 0) return;
-    const lines = [...svg.querySelectorAll('.layout-flow-line')];
-    const rings = [...svg.querySelectorAll('.layout-ring')];
-    if (reduce) {
-        lines.forEach(line => line.classList.add('live'));
-        rings.forEach(ring => ring.remove());
-        return;
-    }
-    const first = firstBatchTimes(flows);
-    const latest = Math.max(...flows.flatMap(f => f.jobs).map(j => first(j.item)));
-    const speed = Math.min(3600, Math.max(60, latest / SIM_BUILD_UP));
-    const units = flows.map((flow, k) => ({
-        flow,
-        jobs: flow.jobs.map(job => ({ ...job, terms: recipeTerms(job.item) })),
-        line: lines[k], ring: rings[k], fill: rings[k]?.querySelector('.ring-fill'),
-    }));
-    // Something no piece here makes, and no stock covers, is taken as always there, so a recipe
-    // using it isn't held up forever.
-    const made = new Set(units.flatMap(u => u.jobs).flatMap(j => [j.terms.makes, j.terms.byproduct?.[0]].filter(Boolean)));
-    const sim = { svg, units, speed, stock, made, layer: svg.querySelector('.layout-dots'), dots: [], frame: 0, visible: true };
-    layoutSim = sim;
-    document.getElementById('layout-clock').title = `Game time since everything was set up, at ${formatNumber(Math.round(speed))}× speed`;
-    // Only plays while the diagram is on screen.
-    sim.observer = new IntersectionObserver(([entry]) => {
-        sim.visible = entry.isIntersecting;
-        if (sim.visible && !sim.frame && layoutSim === sim) sim.frame = requestAnimationFrame(now => tickLayoutSim(sim, now));
-    });
-    sim.observer.observe(svg);
-    resetLayoutSim(sim);
-}
-
-function resetLayoutSim(sim) {
-    sim.game = 0;
-    sim.real = 0;
-    sim.last = null;
-    sim.store = new Map(sim.stock);
-    sim.units.forEach(unit => {
-        unit.jobs.forEach(job => { job.pace = 1; });
-        unit.job = null;
-        unit.until = null;
-        unit.free = 0;
-        unit.lastDot = -Infinity;
-        unit.line?.classList.remove('live');
-        showRing(unit, 0, false);
-    });
-    sim.dots.forEach(dot => dot.el.remove());
-    sim.dots = [];
-    showSimClock(0);
-    if (!sim.frame) sim.frame = requestAnimationFrame(now => tickLayoutSim(sim, now));
-}
-
-function stopLayoutSim() {
-    if (!layoutSim) return;
-    cancelAnimationFrame(layoutSim.frame);
-    layoutSim.observer?.disconnect();
-    layoutSim = null;
-}
-
-// Whether the Storage Unit has what `job` needs for a batch.
-function simHas(sim, job) {
-    return job.terms.takes.every(([item, n]) => !sim.made.has(item) && !sim.stock.has(item) || (sim.store.get(item) || 0) >= n);
-}
-
-// Whether `job` is due a batch by its pace. Pace may run a little over one, so a batch noticed at
-// the end of a step doesn't lose the time since.
-const simDue = job => job.pace >= 1 - 1e-9;
-
-// Starts the first job of `unit` that's due and has its materials, at game time `at`.
-function simStart(sim, unit, at) {
-    const job = unit.jobs.find(j => simDue(j) && simHas(sim, j));
-    if (!job) return;
-    job.terms.takes.forEach(([item, n]) => {
-        if (sim.made.has(item) || sim.stock.has(item)) sim.store.set(item, (sim.store.get(item) || 0) - n);
-    });
-    job.pace -= 1;
-    unit.job = job;
-    unit.started = at;
-    unit.until = at + job.cycle;
-}
-
-function stepLayoutSim(sim, dt) {
-    const from = sim.game;
-    sim.game += dt;
-    // Recipes wanting the same thing take turns at random.
-    const order = [...sim.units];
-    for (let i = order.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [order[i], order[j]] = [order[j], order[i]];
-    }
-    for (const unit of order) {
-        unit.jobs.forEach(job => { job.pace = Math.min(1 + job.rate * SIM_STEP, job.pace + job.rate * dt); });
-        // Each batch finished within the step is delivered then, and the next starts right away.
-        while (unit.until != null && unit.until <= sim.game) {
-            const { makes, byproduct, yield: amount } = unit.job.terms;
-            sim.store.set(makes, (sim.store.get(makes) || 0) + amount);
-            if (byproduct) sim.store.set(byproduct[0], (sim.store.get(byproduct[0]) || 0) + byproduct[1]);
-            deliver(sim, unit, (sim.game - unit.until) / sim.speed);
-            unit.free = unit.until;
-            unit.until = null;
-            unit.job = null;
-            simStart(sim, unit, unit.free);
-        }
-        if (unit.until == null) simStart(sim, unit, Math.max(from, unit.free));
-    }
-}
-
-function deliver(sim, unit, age) {
-    unit.line?.classList.add('live');
-    const walk = unit.flow.length / SIM_PACE;
-    // A line busier than the eye can follow shows only some of its dots.
-    if (age >= walk || sim.real - age - unit.lastDot < SIM_DOT_GAP) return;
-    unit.lastDot = sim.real - age;
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    el.setAttribute('r', '0.2');
-    el.setAttribute('class', 'layout-dot');
-    sim.layer.appendChild(el);
-    sim.dots.push({ el, flow: unit.flow, age });
-}
-
-function showRing(unit, progress, waiting) {
-    if (!unit.ring) return;
-    unit.fill.setAttribute('stroke-dasharray', `${progress.toFixed(3)} 1`);
-    unit.ring.classList.toggle('waiting', waiting);
-}
-
-function tickLayoutSim(sim, now) {
-    sim.frame = 0;
-    if (layoutSim !== sim || !sim.svg.isConnected) return;
-    // A long gap between frames (a hidden tab) isn't counted as time passing.
-    const dt = sim.last == null ? 0 : Math.min(now - sim.last, 100) / 1000;
-    sim.last = now;
-    const until = sim.game + dt * sim.speed;
-    while (sim.game < until - 1e-9) stepLayoutSim(sim, Math.min(SIM_STEP, until - sim.game));
-    sim.real += dt;
-    sim.units.forEach(unit => {
-        const busy = unit.until != null;
-        showRing(unit, busy ? Math.min(1, (sim.game - unit.started) / unit.job.cycle) : 0, !busy && unit.jobs.some(simDue));
-    });
-    sim.dots = sim.dots.filter(dot => {
-        dot.age += dt;
-        const along = (dot.age * SIM_PACE) / dot.flow.length;
-        if (along >= 1) {
-            dot.el.remove();
-            return false;
-        }
-        dot.el.setAttribute('cx', (dot.flow.x1 + (dot.flow.x2 - dot.flow.x1) * along).toFixed(2));
-        dot.el.setAttribute('cy', (dot.flow.y1 + (dot.flow.y2 - dot.flow.y1) * along).toFixed(2));
-        return true;
-    });
-    showSimClock(sim.game);
-    if (sim.visible) sim.frame = requestAnimationFrame(t => tickLayoutSim(sim, t));
-    else sim.last = null;
-}
-
-function showSimClock(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const days = Math.floor(minutes / 1440);
-    const hours = Math.floor(minutes / 60) % 24;
-    const text = `${days ? `${days}d ` : ''}${hours}h ${String(minutes % 60).padStart(2, '0')}m`;
-    const clock = document.getElementById('layout-clock');
-    if (clock.textContent !== text) clock.textContent = text;
-}
-
+const ENVIRONMENT_MODE_ORDER = ['Warm', 'Scorching', 'Cool', 'Freeze', 'Adequate'];
+
+const homelandUIController = createHomelandUIController({
+    document,
+    window,
+    IntersectionObserver: typeof IntersectionObserver !== 'undefined' ? IntersectionObserver : class { observe() {} disconnect() {} },
+    requestAnimationFrame: typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (cb => setTimeout(cb, 16)),
+    cancelAnimationFrame: typeof cancelAnimationFrame !== 'undefined' ? cancelAnimationFrame : (id => clearTimeout(id)),
+    createWorker: url => new Worker(url, { type: 'module' }),
+    workerUrl: WORKER_URL,
+    homelandPlots: HOMELAND_PLOTS,
+    homelandPlotSize: HOMELAND_PLOT_SIZE,
+    facilityFootprints: FACILITY_FOOTPRINTS,
+    facilityPowerWatts: FACILITY_POWER_WATTS,
+    environmentModeOrder: ENVIRONMENT_MODE_ORDER,
+    environmentModeColors: ENVIRONMENT_MODE_COLORS,
+    environmentModeShade: ENVIRONMENT_MODE_SHADE,
+    environmentCoverageRadius: ENVIRONMENT_COVERAGE_RADIUS,
+    layoutDistricts: LAYOUT_DISTRICTS,
+    getLastPlan: () => lastPlan,
+    getLastPlanInput: () => lastPlanInput,
+    isSimpleMode,
+    selectedHomeLevel,
+    homeLevelCovering: input => homeLevelCovering(input),
+    getPowerPoleCount,
+    isEmodeActive: () => (document.getElementById('emode-simple-on')?.checked ?? true) || !!document.getElementById('emode-on')?.checked,
+    getRecipes: () => recipeFilterController.getRecipeIndex(),
+    environmentBuildingSize: name => environmentBuildingSize(name),
+    simpleSetup,
+    getFacilityDistrict,
+    getFacilityDisplayName,
+    getModeDisplayName,
+    prettyItem,
+    formatRate,
+    formatNumber,
+    tipAttrs,
+    renderHomelandSvgFacility,
+    getFacilityIconUrl,
+    setStep: (step, status) => setStep(step, status),
+});
+
+function renderHomelandLayout(plan) { return homelandUIController.renderHomelandLayout(plan); }
+function stopLayout() { homelandUIController.stopLayout(); }
+function homelandPieces(plan, input) { return homelandUIController.homelandPieces(plan, input); }
+function homelandPlots() { return homelandUIController.homelandPlots(); }
 // --- Progress card ---------------------------------------------------------------------
 // Under the button, every step of working out a plan in the order it runs, each with a spinner
 // while it runs and its time once done: the solves in the worker (see `exactPlanJson` in
 // worker.js), then the layout, the opportunities and the Minimum team.
 
-let progress = null;
+const progressController = createProgressController({
+    document,
+    window,
+    getPlanRunId: () => planRunId,
+    getPlanContext: () => planContext,
+    priorityLabel: (target, aniipod) => priorityLabel(target, aniipod),
+});
 
 function startProgress(input, runId) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const levelUp = !!input.level_up && planContext.levelUp && !planContext.ready && !planContext.unavailable;
-    const priorities = input.priorities || [];
-    // A level-up's solves (the soonest level-up, the most Home Coins at that pace, spare Bench
-    // and Kiln time) are one step, and every plan's last is its final solve and the re-check
-    // of it against every limit: the worker's steps map onto these (see `setStep`).
-    const steps = [
-        ...priorities.map(target => ({ key: `priority:${target}`, label: isVi ? `Nhiều ${priorityLabel(target, planContext.aniipod)} nhất` : `Most ${priorityLabel(target, planContext.aniipod)}` })),
-        { key: 'plan', label: levelUp ? (isVi ? 'Lên cấp nhanh nhất' : 'Fastest Level-Up') : priorities.length ? (isVi ? 'Home Coin từ phần còn lại' : "Home Coins with What's Left") : (isVi ? 'Nhiều Home Coin nhất' : 'Most Home Coins') },
-        { key: 'layout', label: isVi ? 'Bố cục Homeland' : 'Homeland Layout' },
-        { key: 'minimum', label: isVi ? 'Tổ đội Aniimo tối thiểu' : 'Minimum Team Plan' },
-    ];
-    progress = { runId, steps: steps.map(step => ({ ...step, state: 'pending' })) };
-    renderProgress();
+    return progressController.startProgress(input, runId);
 }
 
-// The worker's solves that make up the card's 'plan' step; it's done once the plan is checked.
-const PLAN_SOLVES = ['level_up', 'final', 'stock_up', 'check'];
-
-// Moves step `key` on: 'start', 'done', 'skip' or 'fail', with an optional note such as
-// "3 of 12", and for a solve, whether HiGHS proved its answer. The backup planner only appears
-// if the exact one couldn't run.
 function setStep(key, state, detail, proven) {
-    if (!progress || progress.runId !== planRunId) return;
-    if (PLAN_SOLVES.includes(key)) {
-        const plan = progress.steps.find(s => s.key === 'plan');
-        if (proven === false) plan.unproven = true;
-        if (state === 'start' && plan.state !== 'running') setStep('plan', 'start');
-        else if (state === 'done' && key === 'check') setStep('plan', 'done', undefined, !plan.unproven);
-        else renderProgress();
-        return;
-    }
-    let step = progress.steps.find(s => s.key === key);
-    if (!step && key === 'backup') {
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        step = { key, label: isVi ? 'Bộ giải dự phòng' : 'Backup Planner', state: 'pending' };
-        progress.steps.splice(progress.steps.findIndex(s => s.key === 'layout'), 0, step);
-    }
-    if (!step) return;
-    const now = performance.now();
-    if (state === 'start') {
-        if (step.state !== 'running') step.started = now;
-        step.state = 'running';
-    } else if (state === 'done' || state === 'fail') {
-        step.ms = step.started ? now - step.started : null;
-        step.state = state;
-    } else if (state === 'skip') {
-        step.state = 'skipped';
-    }
-    if (detail !== undefined) step.detail = detail;
-    if (proven !== undefined) step.proven = proven;
-    renderProgress();
+    return progressController.setStep(key, state, detail, proven);
 }
 
-// What "proven best" means, shown on hovering it.
-const PROVEN_MEANS = 'No plan the model allows does better. Some of its options, such as how plots can be arranged around an environment building, come from a shortlist rather than every possibility.';
-const PROVEN_MEANS_VI = 'Không phương án nào trong mô hình toán đạt hiệu suất cao hơn. Các phương án bố trí ô đất quanh cơ sở môi trường đã được tối ưu hóa.';
-
-// Whether a solve proved its plan the best the model allows, or ran out of time first.
-function searchNote(proven) {
-    if (proven === undefined) return '';
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    return proven
-        ? `<span title="${isVi ? PROVEN_MEANS_VI : PROVEN_MEANS}">${isVi ? 'tối ưu chuẩn xác' : 'proven best'}</span>`
-        : `<span title="${isVi ? 'Bộ giải đạt thời gian giới hạn.' : 'The solver ran out of time before it could prove nothing does better.'}">${isVi ? 'tốt nhất theo thời gian' : 'best found in time'}</span>`;
-}
-
-// Once the plan is back, any solve that never ran (a level-up out of reach skips the last one;
-// the backup planner skips them all) is marked skipped.
 function finishSolveSteps() {
-    if (!progress) return;
-    progress.steps
-        .filter(s => s.key === 'plan' || s.key.startsWith('priority:'))
-        .forEach(s => { if (s.state === 'pending' || s.state === 'running') s.state = 'skipped'; });
-    if (progress.steps.some(s => s.key === 'backup')) setStep('backup', 'done');
-    renderProgress();
+    return progressController.finishSolveSteps();
 }
 
 function renderProgress() {
-    const card = document.getElementById('solve-progress');
-    if (!progress) {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = 'block';
-    const icon = state => ({
-        running: '<span class="step-spinner" aria-label="Running"></span>',
-        done: '<span class="step-icon done" aria-label="Done">✓</span>',
-        fail: '<span class="step-icon fail" aria-label="Failed">✕</span>',
-        skipped: '<span class="step-icon skipped" aria-label="Skipped">–</span>',
-    }[state] || '<span class="step-icon pending" aria-label="Waiting">•</span>');
-    const time = ms => ms == null ? '' : ms < 1000 ? `${Math.max(1, Math.round(ms))} ms` : `${(ms / 1000).toFixed(1)} s`;
-    card.innerHTML = `<ol class="progress-steps">${progress.steps.map(step => {
-        const finished = step.state === 'done' || step.state === 'fail';
-        const note = [step.detail, finished ? searchNote(step.proven) : '', finished ? time(step.ms) : ''].filter(Boolean).join(' · ');
-        return `
-        <li class="progress-step ${step.state}">${icon(step.state)}<span class="step-label">${step.label}</span>
-            <span class="step-note">${note}</span></li>`;
-    }).join('')}</ol>`;
+    return progressController.renderProgress();
 }
 
 // --- My Aniimo -------------------------------------------------------------------------
@@ -4022,312 +1237,33 @@ function renderProgress() {
 // abilities with their levels, its four personalities (one from each pair) and how many are alike.
 // The plan shares their hours out, so one level-4 Earth Aniimo covers what it can and no more.
 
-let roster = [];
-// The Best plan's team, to start a roster from (see `renderAniimoSummary`).
-let lastBestTeam = null;
+const rosterUIController = createRosterUIController({
+    document,
+    window,
+    facilities: FACILITIES,
+    abilities: ABILITIES,
+    personalityPairs: PERSONALITY_PAIRS,
+    environmentBuildingAbility: ENVIRONMENT_BUILDING_ABILITY,
+    personalityLetter,
+    abilityTag,
+    escapeText,
+    prettyItem,
+    getRecipeIndex: () => recipeFilterController.getRecipeIndex(),
+    saveInputsToStorage: () => saveInputsToStorage(),
+    switchAniimoSetup: () => switchAniimoSetup(),
+    setTimeoutFn: setTimeout,
+    clearTimeoutFn: clearTimeout,
+});
 
-function newRosterAniimo(abilities = {}, personalities = null) {
-    return { name: '', count: 1, abilities, personalities: personalities || PERSONALITY_PAIRS.map(pair => pair.names[0]) };
-}
-
-// Facilities whose Aniimo lives there: every Aniimo Materials facility.
-const RESIDENT_FACILITIES = new Set(FACILITIES.filter(f => f.category === 'Aniimo Materials').map(f => f.name));
-
-// The roster for the solver (see `JsRoster` in wasm.rs).
-function rosterPayload() {
-    return {
-        members: roster.map(a => ({ count: a.count, abilities: a.abilities, personalities: a.personalities })),
-        residents: [...RESIDENT_FACILITIES],
-        environment: ENVIRONMENT_BUILDING_ABILITY,
-        personalities: Object.fromEntries(FACILITIES.filter(f => f.personality).map(f => [f.name, f.personality])),
-    };
-}
-
-const escapeText = text => String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-// A card's name: what the player called it, else its abilities.
-function rosterLabel(aniimo, i) {
-    if (aniimo.name?.trim()) return escapeText(aniimo.name.trim());
-    const abilities = Object.entries(aniimo.abilities).map(([ability, level]) => `${ability} ${level}`).join(', ');
-    return abilities || `Aniimo ${i + 1}`;
-}
-
-function renderRoster() {
-    const editor = document.getElementById('roster-editor');
-    if (!editor) return;
-    const cards = roster.map((aniimo, i) => {
-        const abilities = Object.entries(aniimo.abilities).map(([ability, level]) => `
-            <span class="roster-ability">${abilityTag(ability)}<span class="tabs level-picker">${[1, 2, 3, 4].map(l =>
-            `<label><input type="radio" name="roster-${i}-${ability}" data-level="${i}|${ability}" value="${l}"${l === level ? ' checked' : ''}> ${l}</label>`).join('')}</span><button type="button" class="roster-x" data-drop="${i}|${ability}" aria-label="Remove ${ability}" title="Remove ${ability}">✕</button></span>`).join('');
-        const missing = ABILITIES.map(a => a.name).filter(name => !(name in aniimo.abilities));
-        const add = missing.length
-            ? `<select class="roster-add-ability" data-add="${i}" aria-label="Add an ability"><option value="">+ Ability</option>${missing.map(name => `<option>${name}</option>`).join('')}</select>`
-            : '';
-        const personalities = PERSONALITY_PAIRS.map((pair, p) => `<span class="tabs level-picker roster-pair" role="radiogroup" aria-label="${pair.names.join(' or ')}">${pair.names.map((name, k) =>
-            `<label title="${name}"><input type="radio" name="roster-${i}-pair-${p}" data-personality="${i}|${p}" value="${name}"${aniimo.personalities[p] === name ? ' checked' : ''}> ${pair.letters[k]}</label>`).join('')}</span>`).join('');
-        return `
-            <div class="roster-card">
-                <div class="roster-head">
-                    <input type="text" class="roster-name" data-name="${i}" value="${escapeText(aniimo.name)}" placeholder="Aniimo ${i + 1}" aria-label="Name">
-                    <span class="roster-count" title="How many you have that are alike"><button type="button" data-count="${i}|-1" aria-label="One fewer">−</button><span>×${aniimo.count}</span><button type="button" data-count="${i}|1" aria-label="One more">+</button></span>
-                    <button type="button" class="roster-x" data-remove="${i}" aria-label="Remove this Aniimo" title="Remove">✕</button>
-                </div>
-                <div class="roster-abilities">${abilities}${add}</div>
-                <div class="roster-personalities">${personalities}</div>
-            </div>`;
-    }).join('');
-    editor.innerHTML = `${cards || '<p class="hint small">No Aniimo yet. Add the ones you have, or start from the Best plan\'s team.</p>'}
-        <div class="roster-actions">
-            <button type="button" class="skip-add-btn" data-roster="add">+ Add Aniimo</button>
-            ${lastBestTeam?.length ? '<button type="button" class="skip-add-btn" data-roster="from-best">Start from the Best team</button>' : ''}
-        </div>`;
-}
-
-// When the roster can't make a plan: keeps the Aniimo card, and its editor, on screen so the
-// player can add to it.
-function showRosterShortfall() {
-    document.getElementById('error-message').style.display = 'none';
-    showSetupOnly();
-    const anyAble = roster.some(a => a.count > 0 && Object.keys(a.abilities).length);
-    // An empty roster's editor already says to add some.
-    document.getElementById('aniimo-collapsed-summary').textContent = anyAble ? 'No plan found with these Aniimo.' : '';
-}
-
-// Of the results, only the Aniimo card, emptied of the last plan's team: its setup may be what
-// to change.
-function showSetupOnly() {
-    const content = document.getElementById('results-content');
-    content.style.display = 'block';
-    content.classList.add('setup-only');
-    document.getElementById('aniimo-collapsed-summary').textContent = '';
-    document.getElementById('aniimo-summary').innerHTML = '';
-    document.getElementById('aniimo-abilities').innerHTML = '';
-    document.getElementById('aniimo-count').hidden = true;
-}
-
-// Plans again once the player stops changing the roster for a moment, not on every click.
-let rosterReplan = null;
-function rosterChanged(rerender = true) {
-    saveInputsToStorage();
-    if (rerender) renderRoster();
-    clearTimeout(rosterReplan);
-    rosterReplan = setTimeout(switchAniimoSetup, 700);
-}
-
-function attachRosterHandlers() {
-    const editor = document.getElementById('roster-editor');
-    if (!editor) return;
-    editor.addEventListener('click', (e) => {
-        const button = e.target.closest('button');
-        if (!button) return;
-        const { count, remove, drop, roster: action } = button.dataset;
-        if (count) {
-            const [i, by] = count.split('|').map(Number);
-            roster[i].count = Math.max(1, roster[i].count + by);
-        } else if (remove) {
-            roster.splice(Number(remove), 1);
-        } else if (drop) {
-            const [i, ability] = drop.split('|');
-            delete roster[Number(i)].abilities[ability];
-        } else if (action === 'add') {
-            roster.push(newRosterAniimo());
-        } else if (action === 'from-best' && lastBestTeam) {
-            // Alike Aniimo share a card, with how many there are.
-            const cards = new Map();
-            lastBestTeam.forEach(g => {
-                const personalities = PERSONALITY_PAIRS.map(pair => pair.names.find(name => g.personalities?.has(name)) || pair.names[0]);
-                const key = `${g.ability}|${g.level}|${personalities.join()}`;
-                if (cards.has(key)) cards.get(key).count += g.count;
-                else cards.set(key, { ...newRosterAniimo({ [g.ability]: g.level }, personalities), count: g.count });
-            });
-            roster = [...cards.values()];
-        } else {
-            return;
-        }
-        rosterChanged();
-    });
-    editor.addEventListener('change', (e) => {
-        const { level, personality, add, name } = e.target.dataset;
-        if (level) {
-            const [i, ability] = level.split('|');
-            roster[Number(i)].abilities[ability] = Number(e.target.value);
-        } else if (personality) {
-            const [i, p] = personality.split('|').map(Number);
-            roster[i].personalities[p] = e.target.value;
-        } else if (add) {
-            if (!e.target.value) return;
-            roster[Number(add)].abilities[e.target.value] = 1;
-        } else if (name !== undefined) {
-            roster[Number(name)].name = e.target.value;
-            saveInputsToStorage();
-            return;
-        } else {
-            return;
-        }
-        rosterChanged();
-    });
-}
-
-// The Aniimo Team card for a roster plan: how busy each card's Aniimo are and where. A resident
-// The Aniimo Team card for a roster plan: how busy each card's Aniimo are and where. A resident
-// facility keeps its Aniimo all day; environment buildings too (see `staffing`).
-export function renderRosterSummary(plan, options = {}) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const activeRoster = options.roster || options.crew?.members || (typeof roster !== 'undefined' ? roster : []);
-    const busy = activeRoster.map(() => 0);
-    const where = activeRoster.map(() => new Map());
-    const guardDoubleCountingViolations = [];
-    const guardMappingErrors = [];
-
-    (plan.coin_items || []).forEach(step => {
-        if (step.crew == null || step.status !== 'producing' || !activeRoster[step.crew]) return;
-        busy[step.crew] += RESIDENT_FACILITIES.has(step.facility) ? step.facility_count : (step.busy_units ?? step.facility_count);
-        const place = `${step.facility} (${prettyItem(step.item_name)})`;
-        where[step.crew].set(place, (where[step.crew].get(place) || 0) + step.facility_count);
-    });
-    (plan.staffing || []).forEach(([building, member, share]) => {
-        if (!activeRoster[member]) return;
-        busy[member] += share;
-        where[member].set(building, (where[member].get(building) || 0) + share);
-    });
-
-    // Process guard_staffing directly for the active roster
-    if (Array.isArray(plan.guard_staffing) && plan.guard_staffing.length > 0) {
-        plan.guard_staffing.forEach((entry) => {
-            let memberIdx, count;
-            if (Array.isArray(entry)) {
-                [memberIdx, count] = entry;
-            } else if (entry && typeof entry === 'object') {
-                memberIdx = entry.aniimo_index ?? entry.member ?? entry.index;
-                count = entry.count ?? 1;
-            } else {
-                return;
-            }
-            if (!Number.isInteger(memberIdx) || memberIdx < 0 || memberIdx >= activeRoster.length) {
-                guardMappingErrors.push({
-                    index: memberIdx,
-                    count,
-                    message: isVi
-                        ? `Lỗi mapping: Solver gán guard cho index #${memberIdx} nhưng roster chỉ có ${activeRoster.length} thành viên`
-                        : `Mapping error: Solver assigned guard to index #${memberIdx} but roster has only ${activeRoster.length} members`
-                });
-                return;
-            }
-
-            const memberObj = activeRoster[memberIdx];
-        const parsedMemberCount = Number(memberObj?.count);
-        const memberCount = Number.isFinite(parsedMemberCount) && parsedMemberCount >= 0 ? parsedMemberCount : 1;
-            const validGuardCount = Number.isFinite(count) && count > 0 ? count : 0;
-            if (validGuardCount === 0) {
-                guardMappingErrors.push({
-                    index: memberIdx,
-                    count,
-                    message: isVi
-                        ? `Lỗi mapping: số Aniimo trực trụ không hợp lệ tại index #${memberIdx}`
-                        : `Mapping error: invalid guard count at index #${memberIdx}`
-                });
-                return;
-            }
-
-            // A roster row may represent multiple physical Aniimo. Only report a
-            // collision when existing work plus guards exceeds that group capacity.
-            if (busy[memberIdx] + validGuardCount > memberCount + 1e-6) {
-                const label = typeof rosterLabel === 'function' ? rosterLabel(memberObj, memberIdx) : `Member #${memberIdx}`;
-                guardDoubleCountingViolations.push({
-                    index: memberIdx,
-                    name: label,
-                    existingBusy: busy[memberIdx],
-                    guardCount: validGuardCount,
-                    memberCount
-                });
-            }
-            busy[memberIdx] += validGuardCount;
-            const guardPlace = isVi
-                ? (validGuardCount > 1 ? `⚡ Trực trạm điện ×${validGuardCount}` : '⚡ Trực trạm điện')
-                : (validGuardCount > 1 ? `⚡ Power Pole Guard ×${validGuardCount}` : '⚡ Power Pole Guard');
-            where[memberIdx].set(guardPlace, (where[memberIdx].get(guardPlace) || 0) + validGuardCount);
-        });
-    }
-
-    // The growing jobs (sowing, reaping and the like) take seconds a harvest, so they don't count
-    // as busy time, but someone has to do them: each goes to the least busy Aniimo able to.
-    const jobs = new Map();
-    (plan.coin_items || []).forEach(step => {
-        if (step.status !== 'producing' || !(step.facility === 'Farmland' || step.facility === 'Woodland')) return;
-        (recipeIndex.find(r => r.name === step.item_name)?.jobs || []).forEach(([job, ability, level]) => {
-            jobs.set(`${job}|${ability}|${level}|${step.facility}`, { job, ability, level, facility: step.facility });
-        });
-    });
-    jobs.forEach(({ job, ability, level, facility }) => {
-        const able = activeRoster.map((a, i) => i).filter(i => (activeRoster[i].abilities[ability] || 0) >= level);
-        if (!able.length) return;
-        const pick = able.reduce((a, b) => (busy[b] / activeRoster[b].count < busy[a] / activeRoster[a].count ? b : a));
-        const place = `${job} on ${facility}`;
-        if (!where[pick].has(place)) where[pick].set(place, 1);
-    });
-    const have = activeRoster.reduce((sum, a) => sum + a.count, 0);
-    const working = activeRoster.reduce((sum, a, i) => sum + Math.min(a.count, Math.ceil(busy[i] - 1e-6)), 0);
-    const rows = activeRoster.map((aniimo, i) => {
-        const places = [...where[i]].map(([place, n]) => Number.isInteger(n) && n > 1 ? `${place} ×${n}` : place).join(', ');
-        const abilities = Object.entries(aniimo.abilities || {}).map(([ability, level]) => `${abilityTag ? abilityTag(ability) : ability} ${level}`).join(' ');
-        const letters = (aniimo.personalities || []).map(p => typeof personalityLetter === 'function' ? personalityLetter(p) : p[0]).join('');
-        const label = typeof rosterLabel === 'function' ? rosterLabel(aniimo, i) : (aniimo.name || `Aniimo #${i + 1}`);
-        return `<tr><td data-label="Aniimo">${label}<div class="hint small">${abilities} · ${letters}</div></td><td data-label="How many">${aniimo.count}</td><td data-label="Busy on average">${busy[i].toFixed(1)}</td><td data-label="Where">${places || '<span class="hint small">idle</span>'}</td></tr>`;
-    }).join('');
-
-    let warningsHtml = '';
-    if (guardDoubleCountingViolations.length > 0) {
-        warningsHtml += `
-            <div class="guard-invariant-warning" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 4px; color: #fca5a5; font-size: 0.85rem;">
-                ⚠️ <strong>${isVi ? 'Vi phạm bất biến phân công Guard' : 'Guard Assignment Invariant Violation'}:</strong>
-                ${guardDoubleCountingViolations.map(v => isVi
-                    ? `Thành viên <strong>${v.name}</strong> có tổng việc và trực trụ vượt số lượng trong nhóm (${v.existingBusy} việc + ${v.guardCount} trụ / ${v.memberCount} Aniimo).`
-                    : `Member <strong>${v.name}</strong> has more assigned work and guard duty than the group size (${v.existingBusy} work + ${v.guardCount} poles / ${v.memberCount} Aniimo).`
-                ).join('<br>')}
-            </div>`;
-    }
-    if (guardMappingErrors.length > 0) {
-        warningsHtml += `
-            <div class="guard-mapping-warning" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 4px; color: #fcd34d; font-size: 0.85rem;">
-                ⚠️ <strong>${isVi ? 'Cảnh báo ánh xạ Guard' : 'Guard Mapping Warning'}:</strong>
-                ${guardMappingErrors.map(e => e.message).join('<br>')}
-            </div>`;
-    }
-
-    const container = document.getElementById('aniimo-summary');
-    if (container) {
-        container.innerHTML = activeRoster.length
-            ? `<table class="aniimo-table"><thead><tr><th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th><th>${window.th ? window.th('th_how_many', 'How many') : 'How many'}</th><th>${window.th ? window.th('th_busy_avg', 'Busy on average') : 'Busy on average'}</th><th>${window.th ? window.th('th_where', 'Where') : 'Where'}</th></tr></thead><tbody>${rows}</tbody></table>
-               <p class="hint small">${working} of your ${have} Aniimo have work in this plan.</p>
-               ${warningsHtml}`
-            : `<p class="hint">Add the Aniimo you have under My Aniimo to plan with them.</p>${warningsHtml}`;
-    }
-    const collapsedSummary = document.getElementById('aniimo-collapsed-summary');
-    if (collapsedSummary) collapsedSummary.textContent = '';
-    const abilitiesEl = document.getElementById('aniimo-abilities');
-    if (abilitiesEl) abilitiesEl.innerHTML = '';
-    const count = document.getElementById('aniimo-count');
-    if (count) {
-        const haveEl = document.getElementById('aniimo-count-have');
-        if (haveEl) haveEl.textContent = working;
-        const of = document.getElementById('aniimo-count-of');
-        if (of) {
-            of.textContent = have;
-            of.hidden = false;
-        }
-        count.hidden = false;
-        count.classList.remove('over');
-        count.title = `${working} of your ${have} Aniimo have work in this plan`;
-    }
-    return {
-        working,
-        have,
-        busy,
-        where,
-        guardDoubleCountingViolations,
-        guardMappingErrors
-    };
-}
+function newRosterAniimo(abilities = {}, personalities = null) { return rosterUIController.newRosterAniimo(abilities, personalities); }
+function rosterPayload() { return rosterUIController.rosterPayload(); }
+function rosterLabel(aniimo, i) { return rosterUIController.rosterLabel(aniimo, i); }
+function renderRoster() { rosterUIController.renderRoster(); }
+function showRosterShortfall() { rosterUIController.showRosterShortfall(); }
+function showSetupOnly() { rosterUIController.showSetupOnly(); }
+function rosterChanged(rerender = true) { rosterUIController.rosterChanged(rerender); }
+function attachRosterHandlers() { rosterUIController.attachRosterHandlers(); }
+export function renderRosterSummary(plan, options = {}) { return rosterUIController.renderRosterSummary(plan, options); }
 
 // --- Season (Lễ hội Trung Thu / Harvest Moon Festival) -------------------------------------
 // Mốc kết thúc sự kiện Trăng Mùa Gặt: 03:00 28/10/2026 GMT+7 (20:00 UTC 27/10/2026)
@@ -4383,225 +1319,59 @@ function seasonActive() {
     return seasonAvailable() && document.getElementById('season-on')?.checked;
 }
 
-function updateSeasonPlotsSummary() {
-    const summaryEl = document.getElementById('season-plots-summary');
-    if (!summaryEl) return;
-    const totalFarmland = simpleSetup(selectedHomeLevel()).facilities['Farmland']?.[0]?.count || 32;
-    const used = seasonRadishPlots + seasonPepperPlots;
-    const remaining = Math.max(0, totalFarmland - used);
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (isVi) {
-        summaryEl.innerHTML = `Dành <strong>${used} ô đất</strong> (${seasonRadishPlots} Củ cải + ${seasonPepperPlots} Ớt) cho sự kiện Trung Thu. Còn lại <strong>${remaining} ô đất nông nghiệp</strong> cho nhân sâm, lúa nước và các cây trồng khác.`;
-    } else {
-        summaryEl.innerHTML = `Dedicated <strong>${used} plots</strong> (${seasonRadishPlots} Radish + ${seasonPepperPlots} Pepper) for the event. Remaining <strong>${remaining} farmland plots</strong> for standard agriculture.`;
-    }
-}
+const seasonController = createSeasonController({
+    document,
+    recipes: SEASON_RECIPES,
+    getPlots: () => ({ radish: seasonRadishPlots, pepper: seasonPepperPlots }),
+    setPlot: (crop, value) => {
+        if (crop === 'radish') seasonRadishPlots = value;
+        else seasonPepperPlots = value;
+    },
+    getSelectedDishes: () => selectedSeasonDishes,
+    setDishSelected: (name, selected) => selected ? selectedSeasonDishes.add(name) : selectedSeasonDishes.delete(name),
+    isSeasonAvailable: seasonAvailable,
+    isSeasonActive: seasonActive,
+    getHomeLevel: selectedHomeLevel,
+    simpleSetup,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+    updateTitleCountdown: updateSeasonTitleCountdown,
+    renderItemIcon,
+    getItemDisplayName,
+    getFacilityDisplayName,
+    renderStrategy,
+    saveInputsToStorage,
+});
 
-function renderSeason() {
-    const seasonSec = document.getElementById('season-section');
-    const divider = document.querySelector('.custom-card-divider');
-    const available = seasonAvailable();
-    if (seasonSec) {
-        seasonSec.hidden = !available;
-        seasonSec.style.display = available ? '' : 'none';
-    }
-    if (divider) {
-        divider.style.display = available ? '' : 'none';
-    }
-    const seasonCfg = document.getElementById('season-config');
-    if (seasonCfg) seasonCfg.hidden = !seasonActive();
-    if (!available) return;
+function updateSeasonPlotsSummary() { seasonController.updatePlotsSummary(); }
+function renderSeason() { seasonController.render(); }
+function attachSeasonHandlers() { seasonController.attachHandlers(); }
 
-    updateSeasonTitleCountdown();
+const recipeFilterController = createRecipeFilterController({
+    document,
+    window,
+    callWorker,
+    specialRecipes: SPECIAL_RECIPES,
+    seasonRecipes: SEASON_RECIPES,
+    aniipodTiers: ANIIPOD_TIERS,
+    getUnlockedSpecial: () => unlockedSpecial,
+    getSpecialNames: () => SPECIAL_NAMES,
+    isSeasonActive: seasonActive,
+    getSelectedSeasonDishes: () => selectedSeasonDishes,
+    wantsAniipods,
+    bestAniipod,
+    prettyItem,
+    escapeText,
+    saveInputsToStorage: () => saveInputsToStorage(),
+    runFindPlan: () => runFindPlan(),
+});
 
-    // Update stepper inputs
-    const radishInput = document.getElementById('season-radish-plots');
-    if (radishInput) radishInput.value = seasonRadishPlots;
-    const pepperInput = document.getElementById('season-pepper-plots');
-    if (pepperInput) pepperInput.value = seasonPepperPlots;
-
-    updateSeasonPlotsSummary();
-
-    const notesGrid = document.getElementById('season-notes');
-    if (notesGrid) {
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        notesGrid.innerHTML = SEASON_RECIPES.map(r => {
-            const checked = selectedSeasonDishes.has(r.name);
-            const pointsText = `+${r.points} ${isVi ? 'điểm' : 'pts'}`;
-            return `
-            <label class="season-dish-card ${checked ? 'active' : ''}">
-                <input type="checkbox" class="dish-checkbox" data-season-dish="${r.name}"${checked ? ' checked' : ''}>
-                <div class="dish-thumb">
-                    ${renderItemIcon(r.name)}
-                </div>
-                <div class="dish-details">
-                    <span class="dish-name">${getItemDisplayName(r.name)}</span>
-                    <span class="dish-meta">
-                        <span class="dish-facility">${getFacilityDisplayName(r.facility)}</span>
-                        <span class="dish-points-badge">${pointsText}</span>
-                    </span>
-                </div>
-            </label>`;
-        }).join('');
-    }
-}
-
-function attachSeasonHandlers() {
-    document.getElementById('season-on')?.addEventListener('change', () => {
-        renderStrategy();
-        saveInputsToStorage();
-    });
-
-    // Stepper buttons for dedicated festival plots
-    document.querySelectorAll('[data-step-plot]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const crop = btn.dataset.stepPlot;
-            const dir = Number(btn.dataset.stepDir);
-            if (crop === 'radish') {
-                seasonRadishPlots = Math.max(0, Math.min(10, seasonRadishPlots + dir));
-                const input = document.getElementById('season-radish-plots');
-                if (input) input.value = seasonRadishPlots;
-            } else if (crop === 'pepper') {
-                seasonPepperPlots = Math.max(0, Math.min(10, seasonPepperPlots + dir));
-                const input = document.getElementById('season-pepper-plots');
-                if (input) input.value = seasonPepperPlots;
-            }
-            updateSeasonPlotsSummary();
-            saveInputsToStorage();
-        });
-    });
-
-    // Inputs for dedicated plots
-    document.getElementById('season-radish-plots')?.addEventListener('input', (e) => {
-        seasonRadishPlots = Math.max(0, Math.min(10, Number(e.target.value) || 0));
-        updateSeasonPlotsSummary();
-        saveInputsToStorage();
-    });
-    document.getElementById('season-pepper-plots')?.addEventListener('input', (e) => {
-        seasonPepperPlots = Math.max(0, Math.min(10, Number(e.target.value) || 0));
-        updateSeasonPlotsSummary();
-        saveInputsToStorage();
-    });
-
-    // Dishes selection
-    document.getElementById('season-notes')?.addEventListener('change', (e) => {
-        const name = e.target.dataset.seasonDish;
-        if (!name) return;
-        if (e.target.checked) selectedSeasonDishes.add(name);
-        else selectedSeasonDishes.delete(name);
-        e.target.closest('.season-dish-card')?.classList.toggle('active', e.target.checked);
-        saveInputsToStorage();
-    });
-}
-
-// Every recipe plans may not use: the player's skips, locked special recipes, and unselected season dishes.
-function excludedRecipes() {
-    const lockedSpecial = SPECIAL_RECIPES.map(r => r.name).filter(name => !unlockedSpecial.has(name));
-    const lockedSeason = seasonActive()
-        ? SEASON_RECIPES.map(r => r.name).filter(name => !selectedSeasonDishes.has(name))
-        : SEASON_RECIPES.map(r => r.name);
-    // Going for Aniipods means the best tier only; the others would be cheaper but catch worse.
-    const best = wantsAniipods() ? bestAniipod() : null;
-    const lesser = best ? ANIIPOD_TIERS.filter(name => name !== best) : [];
-    return [...new Set([...skippedRecipes, ...lockedSpecial, ...lockedSeason, ...lesser])];
-}
-
-// --- Recipes to skip -------------------------------------------------------------------
-// Recipes plans may not use (see `JsPlanInput::exclude` in wasm.rs), for things the player can't
-// make yet. Saved with the other inputs.
-
-let skippedRecipes = new Set();
-
-// Every recipe as `{ name, facility }`, loaded once for the search box.
-let recipeIndex = [];
-
-function recipeLabel(recipe) {
-    return `${prettyItem(recipe.name)} (${recipe.facility})`;
-}
-
-async function loadRecipeIndex() {
-    try {
-        const rawItems = JSON.parse(await callWorker('get_all_items'));
-        window.ALL_RECIPES_MAP = new Map(rawItems.map(r => [r.name, r]));
-        recipeIndex = rawItems
-            .map(r => ({ name: r.name, facility: r.facility, cost: r.cost || 0, seasonSeedCost: r.season_seed_cost || 0, environment: r.environment || null, jobs: r.jobs || [], ingredients: r.raw_materials || [], amounts: r.required_amount || [], yieldAmount: r.yield_amount || 1, byproduct: r.byproduct_item || null, byproductAmount: r.byproduct?.[1] || 0, turns: r.sell_currency === 'none' }))
-            .sort((a, b) => a.facility.localeCompare(b.facility) || a.name.localeCompare(b.name));
-        document.getElementById('skip-options').innerHTML =
-            recipeIndex.map(r => `<option value="${recipeLabel(r)}"></option>`).join('');
-        renderSkippedRecipes();
-    } catch (error) {
-        console.warn('Could not load the recipe list:', error);
-    }
-}
-
-// The Recipes section's badge, e.g. " (2 on, 3 skipped)", so what's set shows while it's closed.
-function renderRecipeCount() {
-    const parts = [];
-    const on = [...unlockedSpecial].filter(name => SPECIAL_NAMES.has(name)).length;
-    if (on) parts.push(`${on} on`);
-    if (skippedRecipes.size) parts.push(`${skippedRecipes.size} skipped`);
-    document.getElementById('recipe-count').textContent = parts.length ? ` (${parts.join(', ')})` : '';
-}
-
-function renderSkippedRecipes() {
-    renderRecipeCount();
-    const facilityOf = name => recipeIndex.find(r => r.name === name)?.facility;
-    document.getElementById('skip-chips').innerHTML = [...skippedRecipes]
-        .sort((a, b) => prettyItem(a).localeCompare(prettyItem(b)))
-        .map(name => {
-            const facility = facilityOf(name);
-            return `<span class="skip-chip">${escapeText(prettyItem(name))}${facility ? ` <span class="skip-chip-facility">${facility}</span>` : ''}<button type="button" data-unskip="${escapeText(name)}" aria-label="Stop skipping ${escapeText(prettyItem(name))}" title="Stop skipping">✕</button></span>`;
-        }).join('');
-}
-
-function setSkipped(name, skipped) {
-    if (skipped) skippedRecipes.add(name); else skippedRecipes.delete(name);
-    renderSkippedRecipes();
-    saveInputsToStorage();
-}
-
-// Adds what's typed in the search box: a full "Item (Facility)" pick, or a unique partial match.
-function addSkipFromInput() {
-    const input = document.getElementById('skip-input');
-    const text = input.value.trim().toLowerCase();
-    if (!text) return;
-    let match = recipeIndex.find(r => recipeLabel(r).toLowerCase() === text);
-    if (!match) {
-        const partial = recipeIndex.filter(r => recipeLabel(r).toLowerCase().includes(text));
-        if (partial.length === 1) match = partial[0];
-    }
-    if (!match) {
-        input.setCustomValidity('Pick a recipe from the list.');
-        input.reportValidity();
-        return;
-    }
-    input.setCustomValidity('');
-    input.value = '';
-    setSkipped(match.name, true);
-}
-
-function attachSkipHandlers() {
-    document.getElementById('skip-add-btn').addEventListener('click', addSkipFromInput);
-    const input = document.getElementById('skip-input');
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addSkipFromInput();
-        }
-    });
-    input.addEventListener('input', () => input.setCustomValidity(''));
-    document.getElementById('skip-chips').addEventListener('click', (e) => {
-        const name = e.target.closest('[data-unskip]')?.dataset.unskip;
-        if (name) setSkipped(name, false);
-    });
-    // The ✕ on a plan row skips that recipe and plans again.
-    document.getElementById('facility-plan-container').addEventListener('click', (e) => {
-        const name = e.target.closest('[data-skip]')?.dataset.skip;
-        if (!name) return;
-        setSkipped(name, true);
-        runFindPlan();
-    });
-}
+function excludedRecipes() { return recipeFilterController.excludedRecipes(); }
+function recipeLabel(recipe) { return recipeFilterController.recipeLabel(recipe); }
+function loadRecipeIndex() { return recipeFilterController.loadRecipeIndex(); }
+function renderRecipeCount() { recipeFilterController.renderRecipeCount(); }
+function renderSkippedRecipes() { recipeFilterController.renderSkippedRecipes(); }
+function setSkipped(name, skipped) { recipeFilterController.setSkipped(name, skipped); }
+function attachSkipHandlers() { recipeFilterController.attachSkipHandlers(); }
 
 // --- Strategy ----------------------------------------------------------------------------
 // "Level up" plans the soonest next RV level-up (its coins plus Wood Blocks and Mineral Sand, or
@@ -4611,148 +1381,47 @@ function attachSkipHandlers() {
 // What the player has toward a level-up, by item name ('coins' for coins).
 let levelUpStock = {};
 
-// The highest ability level an Aniimo reaches, and the abilities that stop short of it; mirrors
-// `MAX_ANIIMO_LEVEL` and `ABILITY_DEFAULTS` in models.rs.
 const MAX_ANIIMO_LEVEL = 4;
-// Abilities to assume less of unless the player says otherwise: there is no level-4 Perfumery
-// Aniimo in the game yet, so one isn't assumed, but a player who has one can say so.
-const ABILITY_DEFAULTS = { Perfumery: 3 };
-const defaultLevelFor = ability => ABILITY_DEFAULTS[ability] ?? MAX_ANIIMO_LEVEL;
 
-// Which abilities a level matters for: the ones a facility works with, since a crop's grow time
-// is fixed and an environment building's Aniimo level isn't known to change anything. Largest
-// first so the list reads in the game's ability order.
+const aniimoSetupUIController = createAniimoSetupUIController({
+    document,
+    window,
+    facilities: FACILITIES,
+    abilities: () => ABILITIES,
+    maxAniimoLevel: MAX_ANIIMO_LEVEL,
+    getWorkerForLevel,
+    abilityTag,
+    rosterPayload,
+    saveInputsToStorage: () => saveInputsToStorage(),
+    switchAniimoSetup: () => switchAniimoSetup(),
+});
+
 function levelledAbilities() {
-    const used = new Set(FACILITIES.map(f => f.ability).filter(Boolean));
-    return ABILITIES.map(a => a.name).filter(name => used.has(name));
+    return aniimoSetupUIController.levelledAbilities();
 }
 
-// The ability levels the player says they have, for the plan input. An ability left out is taken
-// as level 4; the game's own ceiling applies on top (see `max_level_for` in models.rs).
-let aniimoLevels = {};
-
-// What to send the solver for `setup`: the per-ability levels, or the player's roster (see
-// `aniimo_setup_from` and `JsRoster` in wasm.rs).
 function aniimoInput(setup) {
-    if (setup.startsWith('roster')) return { aniimo: 'roster', roster: rosterPayload(), aniimo_levels: {} };
-    const levels = {};
-    levelledAbilities().forEach(ability => { levels[ability] = bestAniimoLevel(ability); });
-    return { aniimo: setup.split(':')[0], aniimo_levels: levels };
+    return aniimoSetupUIController.aniimoInput(setup);
 }
 
 function bestAniimoLevel(ability) {
-    return aniimoLevels[ability] ?? defaultLevelFor(ability);
+    return aniimoSetupUIController.bestAniimoLevel(ability);
 }
 
-
-// Which of the three setups is on screen.
 function selectedSetupTab() {
-    if (document.getElementById('aniimo-minimum')?.checked) return 'minimum';
-    if (document.getElementById('aniimo-custom')?.checked) return 'custom';
-    return 'best';
+    return aniimoSetupUIController.selectedSetupTab();
 }
 
-// A row of level buttons, one picked, in the same segmented style as the tabs above. A level the
-// game isn't known to have is marked, and asks before it's taken.
 function levelPicker(group, chosen, ability, label) {
-    const usual = defaultLevelFor(ability);
-    return `<span class="tabs level-picker" role="radiogroup" aria-label="${label}">${[1, 2, 3, 4]
-        .map(level => {
-            const unheardOf = level > usual;
-            const w = getWorkerForLevel(ability, level);
-            const wName = w ? ` · ${w.name}${w.is_prismana && level >= 4 ? ' (Prismana)' : ''}` : '';
-            const mark = unheardOf
-                ? ` class="unheard-of" title="Chưa có Aniimo ${ability} cấp ${level} trong dữ liệu game"`
-                : ` title="Cấp ${level}${wName}"`;
-            const confirm = unheardOf ? ` data-confirm="${ability}"` : '';
-            return `<label${mark}><input type="radio" name="${group}" value="${level}"${chosen === level ? ' checked' : ''}${confirm}> ${level}</label>`;
-        })
-        .join('')}</span>`;
+    return aniimoSetupUIController.levelPicker(group, chosen, ability, label);
 }
 
-// Best: the level the player has of each ability a level matters for.
 function renderAbilityLevels() {
-    const list = document.getElementById('ability-levels');
-    if (!list) return;
-    list.innerHTML = levelledAbilities().map(ability => {
-        const chosen = bestAniimoLevel(ability);
-        const w = getWorkerForLevel(ability, chosen);
-        const isPrismana = w && w.is_prismana && chosen >= 4;
-        const avatarHtml = w ? `
-            <span class="ability-chosen-avatar ${isPrismana ? 'is-prismana' : ''}" title="${w.name} · Cấp ${chosen}${isPrismana ? ' (Prismana)' : ''}">
-                <img class="chosen-avatar-img" src="${w.img_url}" alt="${w.name}" loading="lazy" onerror="this.src='https://aniimoguide.com/images/aniimo/head_round/${w.number || '10011'}.webp'">
-                <span class="chosen-worker-name">${w.name}</span>
-            </span>` : '';
-        return `
-            <div class="ability-level">
-                <div class="ability-level-info">
-                    ${abilityTag(ability)}
-                    ${avatarHtml}
-                </div>
-                ${levelPicker(`level-${ability}`, chosen, ability, `${ability} level`)}
-            </div>`;
-    }).join('');
+    return aniimoSetupUIController.renderAbilityLevels();
 }
 
-// Shows the settings for whichever setup is picked, and works that plan out.
 function showAniimoSetup() {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const tab = selectedSetupTab();
-    const panel = document.getElementById('aniimo-setup-panel');
-    if (panel) panel.hidden = true;
-    const levels = document.getElementById('ability-levels');
-    if (levels) levels.hidden = true;
-    const editor = document.getElementById('roster-editor');
-    if (editor) editor.hidden = true;
-    const hint = document.getElementById('aniimo-setup-hint');
-    if (hint) {
-        hint.textContent = isVi ? 'Tổ đội công nhân luôn được tối ưu tự động theo các Aniimo cấp cao nhất.' : 'Workers automatically optimized with best Aniimos.';
-    }
-    switchAniimoSetup();
-}
-
-const ITEM_NAMES = {
-    coins: 'Home Coins',
-    wood_block: 'Wood Blocks',
-    mineral_sand: 'Mineral Sand',
-    umbral_sweet_and_spicy_sauce: 'Umbral Sweet and Spicy Sauce',
-    coarse_sifted_ore: 'Coarse-Sifted Ore',
-    river_washed_stones: 'River-Washed Stones',
-    premium_river_washed_stones: 'Premium River-Washed Stones',
-    sugar_roasted_chestnuts: 'Sugar-Roasted Chestnuts',
-    flowers_in_a_bottle: 'Flowers in a Bottle',
-};
-
-function getFacilityDisplayName(name) {
-    if (!name) return name;
-    if (window.i18n && typeof window.i18n.getFacilityDisplayName === 'function') {
-        return window.i18n.getFacilityDisplayName(name);
-    }
-    return name;
-}
-
-function getModeDisplayName(mode) {
-    if (!mode) return mode;
-    if (window.i18n && typeof window.i18n.getModeDisplayName === 'function') {
-        return window.i18n.getModeDisplayName(mode);
-    }
-    return mode;
-}
-
-function getModuleDisplayName(name) {
-    if (!name) return name;
-    if (window.i18n && typeof window.i18n.getModuleDisplayName === 'function') {
-        return window.i18n.getModuleDisplayName(name);
-    }
-    return name.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
-}
-
-function getItemDisplayName(name) {
-    if (!name) return name;
-    if (window.i18n && typeof window.i18n.getItemDisplayName === 'function') {
-        return window.i18n.getItemDisplayName(name);
-    }
-    return prettyItem(name);
+    return aniimoSetupUIController.showAniimoSetup();
 }
 
 function isLevelUpStrategy() {
@@ -4837,108 +1506,23 @@ function priorityLabel(target) {
 function renderPriorities() {
     const list = document.getElementById('priority-list');
     if (!list) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const shown = shownPriorities();
-    let currentRank = 0;
-    const activeList = shown.filter(p => p.on);
-    const coinsTopNotice = (activeList.length > 1 && activeList[0].target === 'coins')
-        ? `<div class="coins-top-priority-notice" style="margin-bottom: 0.8rem; padding: 0.65rem 0.85rem; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-left: 4px solid #3b82f6; border-radius: 6px; font-size: 0.82rem; color: var(--text); line-height: 1.45;">
-            💡 <strong>${isVi ? 'Lưu ý thứ tự ưu tiên:' : 'Priority Notice:'}</strong> ${isVi ? 'Xu Gia Viên đang ở vị trí #1 sẽ khóa 100% công suất cho tiền, khiến các mục tiêu bên dưới (Aniipod Mega / EXP) không còn dư tài nguyên (sản lượng = 0). Để sản xuất chúng, hãy kéo chúng lên TRÊN Xu Gia Viên (hoặc TẮT switch của Xu Gia Viên để hệ thống tự tối ưu phần công suất còn lại).' : 'Home Coins at #1 locks 100% capacity for coin revenue, leaving 0 spare resources for lower priorities (Aniipod Mega / EXP). To produce them, drag them ABOVE Home Coins or turn Home Coins OFF.'}
-          </div>`
-        : '';
-    list.innerHTML = coinsTopNotice + shown.map((p, at) => {
-        const i = priorityOrder.indexOf(p);
-        const above = at > 0 ? priorityOrder.indexOf(shown[at - 1]) : -1;
-        const below = at < shown.length - 1 ? priorityOrder.indexOf(shown[at + 1]) : -1;
-        const meta = RV20_PRIORITY_TARGETS.find(t => t.id === p.target) || {
-            icon: '🎯',
-            labelVi: p.target,
-            labelEn: p.target,
-            subVi: '',
-            subEn: ''
-        };
-        const label = isVi ? meta.labelVi : meta.labelEn;
-        const sub = isVi ? meta.subVi : meta.subEn;
-        if (p.on) currentRank++;
-        const rankDisplay = p.on
-            ? `<span class="priority-rank-badge">${currentRank}</span>`
-            : `<span class="priority-rank-empty">-</span>`;
-
-        return `
-        <li class="priority ${p.on ? 'on' : 'off'}" draggable="true" data-index="${i}">
-            <span class="drag-handle" title="${isVi ? 'Kéo để sắp xếp' : 'Drag to reorder'}" aria-hidden="true">⋮⋮</span>
-            <span class="priority-rank">${rankDisplay}</span>
-            <span class="priority-icon" aria-hidden="true">${meta.icon}</span>
-            <div class="priority-info">
-                <span class="priority-name">${label}</span>
-                ${sub ? `<span class="priority-desc">${sub}</span>` : ''}
-            </div>
-            <label class="priority-switch" title="${p.on ? (isVi ? 'Đang bật: Solver sẽ ưu tiên mục tiêu này' : 'On: the plan prioritizes this') : (isVi ? 'Đang tắt: Solver sẽ bỏ qua mục tiêu này' : 'Off: the plan ignores this')}">
-                <input type="checkbox" role="switch" data-toggle="${i}" aria-label="${label}"${p.on ? ' checked' : ''}>
-                <span class="switch-track" aria-hidden="true"></span>
-                <span class="switch-text">${p.on ? 'On' : 'Off'}</span>
-            </label>
-            <span class="priority-move">
-                <button type="button" data-move="${i}" data-to="${above}" data-by="-1" title="${isVi ? 'Chuyển lên' : 'Move up'}" aria-label="Move ${label} up"${above < 0 ? ' disabled' : ''}>${ARROW_UP}</button>
-                <button type="button" data-move="${i}" data-to="${below}" data-by="1" title="${isVi ? 'Chuyển xuống' : 'Move down'}" aria-label="Move ${label} down"${below < 0 ? ' disabled' : ''}>${ARROW_DOWN}</button>
-            </span>
-        </li>`;
-    }).join('');
+    list.innerHTML = buildPriorityListMarkup({
+        shown: shownPriorities(),
+        priorityOrder,
+        priorityTargets: RV20_PRIORITY_TARGETS,
+        isVietnamese: window.i18n && window.i18n.getLang() === 'vi',
+        arrowUp: ARROW_UP,
+        arrowDown: ARROW_DOWN,
+    });
 }
-
-function movePriority(from, to) {
-    if (to < 0 || to >= priorityOrder.length || from === to) return;
-    const [moved] = priorityOrder.splice(from, 1);
-    priorityOrder.splice(to, 0, moved);
-    renderPriorities();
-    saveInputsToStorage();
-}
-
 function attachPriorityHandlers() {
-    const list = document.getElementById('priority-list');
-    if (!list) return;
-    list.addEventListener('change', (e) => {
-        const i = Number(e.target.dataset.toggle);
-        if (Number.isNaN(i) || !priorityOrder[i]) return;
-        priorityOrder[i].on = e.target.checked;
-        renderPriorities();
-        saveInputsToStorage();
-    });
-    list.addEventListener('click', (e) => {
-        const button = e.target.closest('[data-move]');
-        if (!button) return;
-        const to = Number(button.dataset.to);
-        movePriority(Number(button.dataset.move), to);
-        list.querySelector(`[data-move="${to}"][data-by="${button.dataset.by}"]`)?.focus();
-    });
-    let dragFrom = null;
-    list.addEventListener('dragstart', (e) => {
-        const item = e.target.closest('li[data-index]');
-        if (!item) return;
-        dragFrom = Number(item.dataset.index);
-        item.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(dragFrom));
-    });
-    list.addEventListener('dragover', (e) => {
-        if (dragFrom === null) return;
-        e.preventDefault();
-        const over = e.target.closest('li[data-index]');
-        list.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
-        if (over) over.classList.add('drop-target');
-    });
-    list.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const over = e.target.closest('li[data-index]');
-        if (dragFrom !== null && over) movePriority(dragFrom, Number(over.dataset.index));
-        dragFrom = null;
-    });
-    list.addEventListener('dragend', () => {
-        dragFrom = null;
-        renderPriorities();
-    });
+    createPriorityController({
+        list: document.getElementById('priority-list'),
+        getPriorityOrder: () => priorityOrder,
+        render: renderPriorities,
+        save: saveInputsToStorage,
+    }).attach();
 }
-
 // The best Aniipod the owned Aniipod Maker can make, or null without one. A better Aniipod
 // catches better, so the strategy makes only this one.
 function bestAniipod() {
@@ -4949,358 +1533,105 @@ function bestAniipod() {
     return level > 0 ? ANIIPOD_TIERS[Math.min(level, ANIIPOD_TIERS.length) - 1] : null;
 }
 
-// The RV level being worked toward: the next one in simple mode, the picked one in advanced.
-function levelUpTarget() {
-    if (isSimpleMode()) return selectedHomeLevel() + 1;
-    return numberOrDefault(document.getElementById('level-up-target').value, 7);
-}
-
-// The target's cost, or null if it isn't known.
-function levelUpCost() {
-    return LEVEL_UP_COSTS[levelUpTarget()] || null;
-}
-
-// Why the level-up can't be planned, or null if it can.
-function levelUpUnavailable() {
-    const target = levelUpTarget();
-    if (target > MAX_HOME_LEVEL) return `RV ${MAX_HOME_LEVEL} is the top level, so there's no level-up to plan.`;
-    if (!LEVEL_UP_COSTS[target]) return `There's no level-up cost for RV ${target}.`;
-    return null;
-}
-
-// Everything worth counting toward `cost`: coins, and each chain up to the tier it needs.
-function stockNames(cost) {
-    const names = ['coins'];
-    cost.items.forEach(([item]) => {
-        const chain = LEVEL_UP_CHAINS.find(c => c.includes(item));
-        if (chain) names.push(...chain.slice(0, chain.indexOf(item) + 1));
-    });
-    return names;
-}
-
-function stockAmount(name) {
-    const amount = Number(levelUpStock[name]);
-    return Number.isFinite(amount) && amount > 0 ? amount : 0;
-}
-
-function populateLevelUpTargets() {
-    const select = document.getElementById('level-up-target');
-    if (!select) return;
-    select.innerHTML = Object.keys(LEVEL_UP_COSTS).map(level => `<option value="${level}">${level}</option>`).join('');
-}
-
-function renderStrategy() {
-    renderSeason();
-    const isRV20 = isRV20Endgame();
-    const prioritiesSec = document.getElementById('priorities-section');
-    if (prioritiesSec) {
-        prioritiesSec.hidden = !isRV20;
-        if (isRV20) {
-            renderPriorities();
-        }
-    }
-
-    const levelUpCard = document.querySelector('.config-strategy-card');
-    const levelUpConfig = document.getElementById('level-up-config');
-    if (isRV20) {
-        if (levelUpCard) levelUpCard.style.display = 'none';
-        if (levelUpConfig) levelUpConfig.style.display = 'none';
-        return;
-    }
-    if (levelUpConfig) levelUpConfig.style.display = 'block';
-
-    // Simple mode always plans the next RV level, so only Advanced picks one.
-    const targetRow = document.getElementById('level-up-target-row');
-    if (targetRow) targetRow.style.display = isSimpleMode() ? 'none' : '';
-
-    const costEl = document.getElementById('level-up-cost');
-    const stockDetails = document.getElementById('level-up-stock');
-    if (!costEl || !stockDetails) return;
-    const unavailable = levelUpUnavailable();
-    if (unavailable) {
-        const noteText = window.i18n && window.i18n.getLang() === 'vi'
-            ? `${unavailable} Kế hoạch sẽ ưu tiên kiếm nhiều Home Coin nhất.`
-            : `${unavailable} Plans will go for the most Home Coins.`;
-        costEl.innerHTML = `<p class="level-up-note">${noteText}</p>`;
-        stockDetails.style.display = 'none';
-        return;
-    }
-    const cost = levelUpCost();
-    const chip = (amount, name) => `<div class="chip"><span><span class="chip-count">${formatNumber(amount)}</span> ${getItemDisplayName(name)}</span></div>`;
-    const titleText = (window.i18n ? window.i18n.t('rv_costs') : 'RV {level} costs').replace('{level}', levelUpTarget());
-    costEl.innerHTML = `
-        <p class="assume-title">${titleText}</p>
-        <div class="chip-grid">${chip(cost.coins, 'coins')}${cost.items.map(([item, n]) => chip(n, item)).join('')}</div>`;
-    stockDetails.style.display = '';
-    const stockGrid = document.getElementById('level-up-stock-grid');
-    if (stockGrid) {
-        stockGrid.innerHTML = stockNames(cost).map(name => `
-            <div class="input-field">
-                <label for="stock-${name}">${getItemDisplayName(name)}</label>
-                <input type="number" id="stock-${name}" data-stock="${name}" min="0" value="${stockAmount(name)}">
-            </div>`).join('');
-    }
-}
-
-function attachStrategyHandlers() {
-    document.getElementById('strategy-level-up')?.addEventListener('change', renderStrategy);
-    document.getElementById('strategy-priorities')?.addEventListener('change', renderStrategy);
-    document.getElementById('level-up-target')?.addEventListener('change', () => {
-        levelUpTargetChosen = true;
-        renderStrategy();
-    });
-    const grid = document.getElementById('level-up-stock-grid');
-    grid?.addEventListener('input', (e) => {
-        const name = e.target.dataset.stock;
-        if (!name) return;
-        levelUpStock[name] = Math.max(0, floatOrDefault(e.target.value, 0));
-        saveInputsToStorage();
-    });
-    grid?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.matches('input')) runFindPlan();
-    });
-}
-
-// The level-up the solver should plan for (see `JsPlanInput::level_up` in wasm.rs), or null.
-function levelUpInput() {
-    if (!isLevelUpStrategy() || levelUpUnavailable()) return null;
-    const cost = levelUpCost();
-    return {
-        cost: [['coins', cost.coins], ...cost.items],
-        stock: stockNames(cost).filter(name => stockAmount(name) > 0).map(name => [name, stockAmount(name)]),
-    };
-}
-
-// A per-second rate as a per-hour figure, with a decimal when it's small.
-function perHour(perSecond) {
-    const hourly = perSecond * 3600;
-    return hourly < 10 ? hourly.toFixed(1) : formatNumber(Math.round(hourly));
-}
-
-// "2d 4h", "5h 12m", "12m": how long until a level-up is covered.
-function formatDuration(seconds) {
-    const minutes = Math.ceil(seconds / 60);
-    const days = Math.floor(minutes / 1440);
-    const hours = Math.floor((minutes % 1440) / 60);
-    const mins = minutes % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
-}
-
 // What the plans on screen were asked for, so they're described against the right target even
 // after the inputs change.
 let planContext = null;
 
-// The level-up part of the rate card: how soon the plan covers the target's cost, one line per
-// cost at the selected rate unit. With a table to show, the unit select moves into its rate
-// column and the separate coin rate is hidden, since the Coins row says the same.
+const strategyUIController = createStrategyUIController({
+    document,
+    window,
+    isSimpleMode,
+    selectedHomeLevel,
+    isRV20Endgame,
+    isLevelUpStrategy,
+    levelUpCosts: LEVEL_UP_COSTS,
+    levelUpChains: LEVEL_UP_CHAINS,
+    maxHomeLevel: MAX_HOME_LEVEL,
+    rateUnitSeconds: RATE_UNIT_SECONDS,
+    renderSeason,
+    renderPriorities,
+    getLevelUpStock: () => levelUpStock,
+    setLevelUpStock: (name, amount) => { levelUpStock[name] = amount; },
+    setLevelUpTargetChosen: value => { levelUpTargetChosen = value; },
+    formatNumber,
+    formatRate,
+    getItemDisplayName,
+    saveInputsToStorage,
+    runFindPlan,
+    getPlanContext: () => planContext,
+    buildLevelUpStrategyViewModel,
+    buildLevelUpViewModel,
+    createStrategyFormController,
+    getLevelUpStockNames,
+    getLevelUpStockAmount,
+    numberOrDefault,
+    floatOrDefault,
+});
+
+function levelUpTarget() {
+    return strategyUIController.levelUpTarget();
+}
+
+function levelUpCost() {
+    return strategyUIController.levelUpCost();
+}
+
+function levelUpUnavailable() {
+    return strategyUIController.levelUpUnavailable();
+}
+
+function populateLevelUpTargets() {
+    return strategyUIController.populateLevelUpTargets();
+}
+
+function renderStrategy() {
+    return strategyUIController.renderStrategy();
+}
+
+function attachStrategyHandlers() {
+    return strategyUIController.attachStrategyHandlers();
+}
+
+function levelUpInput() {
+    return strategyUIController.levelUpInput();
+}
+
+function perHour(perSecond) {
+    return strategyUIController.perHour(perSecond);
+}
+
+function formatDuration(seconds) {
+    return strategyUIController.formatDuration(seconds);
+}
+
 function renderLevelUp(plan) {
-    const card = document.getElementById('level-up-card');
-    const select = document.getElementById('rate-unit');
-    const rateBlock = document.getElementById('rate-block');
-    if (select.closest('#level-up-card')) document.getElementById('rate-line').appendChild(select);
-    rateBlock.style.display = '';
-    const context = planContext;
-    if (!context || !context.levelUp) {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = 'block';
-    const label = document.getElementById('level-up-label');
-    const time = document.getElementById('level-up-time');
-    const lines = document.getElementById('level-up-lines');
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    label.textContent = isVi ? `NÂNG CẤP RV ${context.target}` : `RV ${context.target} level-up`;
-    const report = plan.level_up;
-    if (context.unavailable) {
-        time.textContent = '-';
-        lines.innerHTML = `<p class="level-up-note">${context.unavailable} ${isVi ? 'Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'This plan is for the most Home Coins.'}</p>`;
-        return;
-    }
-    if (context.ready) {
-        time.textContent = isVi ? 'Đã đủ nguyên liệu' : 'Ready now';
-        lines.innerHTML = `<p class="level-up-note">${isVi ? 'Bạn đã có đủ mọi nguyên liệu cần thiết. Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'You already have everything it costs. This plan is for the most Home Coins.'}</p>`;
-        return;
-    }
-    if (!report) {
-        const why = plan.level_up_note === 'unreachable'
-            ? (isVi ? 'Các cơ sở hiện tại không thể sản xuất đủ toàn bộ nguyên liệu yêu cầu.' : `These facilities can't make everything it costs.`)
-            : (isVi ? 'Không thể lập kế hoạch nâng cấp cấp RV này.' : `The level-up couldn't be planned.`);
-        time.textContent = '-';
-        lines.innerHTML = `<p class="level-up-note">${why} ${isVi ? 'Kế hoạch này tập trung kiếm nhiều Home Coin nhất.' : 'This plan is for the most Home Coins.'}</p>`;
-        return;
-    }
-    time.textContent = isVi ? `trong ${formatDuration(report.seconds)}` : `in ${formatDuration(report.seconds)}`;
-    const { multiplier } = RATE_UNIT_SECONDS[select.value] || RATE_UNIT_SECONDS.second;
-    const perUnit = perSecond => formatRate(perSecond * multiplier);
-    const slowest = Math.max(...report.requirements.map(r => r.seconds ?? Infinity));
-    const rows = report.requirements.map(r => {
-        const ready = r.seconds === null
-            ? (isVi ? 'không thể' : 'never')
-            : r.seconds === 0
-                ? (isVi ? 'đã đủ' : 'have it')
-                : formatDuration(r.seconds);
-        const isSlowest = r.seconds !== null && r.seconds > 0 && r.seconds >= slowest * (1 - 1e-6);
-        return `<tr${isSlowest ? ' class="slowest"' : ''}>
-            <td>${getItemDisplayName(r.name)}</td>
-            <td>${formatNumber(r.need)}</td>
-            <td>${formatNumber(r.have)}</td>
-            <td>${perUnit(r.per_second)}</td>
-            <td>${ready}</td>
-        </tr>`;
-    }).join('');
-    // What's left over once everything is ready and paid for: costs that finish early keep coming
-    // in while the slowest one finishes.
-    const surplus = report.requirements
-        .map(r => ({ name: r.name, spare: Math.floor(r.have + r.per_second * report.seconds - r.need) }))
-        .concat((report.leftovers || []).map(([name, amount]) => ({ name, spare: Math.floor(amount) })))
-        .filter(r => r.spare >= 1)
-        .map(r => `${formatNumber(r.spare)} ${r.name === 'coins' ? 'Home Coins' : getItemDisplayName(r.name)}`);
-    const surplusLabel = isVi ? 'Thặng dư:' : 'Surplus:';
-    const coinsNote = surplus.length
-        ? `<p class="level-up-coins"><span>${surplusLabel}</span> <strong>${surplus.join(', ')}</strong></p>`
-        : '';
-    lines.innerHTML = `
-        <table class="level-up-lines">
-            <thead><tr><th>${window.th ? window.th('th_cost', 'Cost') : 'Cost'}</th><th>${window.th ? window.th('th_need', 'Need') : 'Need'}</th><th>${window.th ? window.th('th_have', 'Have') : 'Have'}</th><th id="level-up-rate-head"></th><th>${window.th ? window.th('th_ready_in', 'Ready in') : 'Ready in'}</th></tr></thead>
-            <tbody>${rows}</tbody>
-        </table>
-        ${coinsNote}`;
-    document.getElementById('level-up-rate-head').appendChild(select);
-    rateBlock.style.display = 'none';
+    return strategyUIController.renderLevelUp(plan);
 }
+const productionSummaryViewController = createProductionSummaryViewController({
+    document,
+    window,
+    rateUnitSeconds: RATE_UNIT_SECONDS,
+    getPlanContext: () => planContext,
+    getRecipeIndex: () => recipeFilterController.getRecipeIndex(),
+    seasonCurrency: SEASON.currency,
+    isVietnamese: () => window.i18n && window.i18n.getLang() === 'vi',
+    prettyItem,
+    formatRate,
+    formatNumber,
+    perHour,
+    getFacilityDisplayName,
+    renderItemIcon,
+    renderFacilityIcon,
+    getLastPlan: () => lastPlan,
+});
 
-// The seeds a plan plants: one seed per planting of each Farmland and Woodland crop, and what
-// they cost. A level-up plan counts them until the level-up is ready; others per the rate
-// card's unit. Mines, Wells and resident facilities aren't planted.
 function renderSeedTable(plan) {
-    const card = document.getElementById('seed-card');
-    const el = document.getElementById('seed-table');
-    const unit = document.getElementById('rate-unit').value;
-    const levelUp = plan.level_up && plan.level_up.seconds > 0 && planContext?.levelUp ? plan.level_up : null;
-    const multiplier = levelUp ? levelUp.seconds : (RATE_UNIT_SECONDS[unit] || RATE_UNIT_SECONDS.second).multiplier;
-    const rows = (plan.coin_items || [])
-        .filter(s => (s.facility === 'Farmland' || s.facility === 'Woodland') && s.status === 'producing' && s.cycle_time > 0)
-        .map(s => {
-            const perSecond = s.facility_count / s.cycle_time;
-            const recipe = recipeIndex.find(r => r.name === s.item_name);
-            const cost = recipe?.cost || 0;
-            // Whole seeds when counting to the level-up.
-            const seeds = levelUp ? Math.ceil(perSecond * multiplier) : perSecond * multiplier;
-            const wheat = seeds * (recipe?.seasonSeedCost || 0);
-            return { name: s.item_name, facility: s.facility, plots: s.facility_count, seeds, cost: seeds * cost, wheat };
-        })
-        .sort((a, b) => b.seeds - a.seeds);
-    if (rows.length === 0) {
-        card.style.display = 'flex';
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        const unitEl = document.getElementById('seed-card-unit');
-        if (unitEl) {
-            unitEl.textContent = isVi
-                ? 'Kế hoạch hiện tại không sử dụng Đất nông nghiệp hoặc Vườn ươm cây trồng.'
-                : 'The current plan does not use Farmland or Woodland crops.';
-        }
-        el.innerHTML = `<p class="hint" style="text-align: center; padding: 1.5rem; margin: 0;">${isVi ? 'Không có hạt giống nào cần gieo trồng.' : 'No seeds required for this plan.'}</p>`;
-        return;
-    }
-    const amount = formatRate;
-    const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
-    const totalWheat = rows.reduce((sum, r) => sum + r.wheat, 0);
-    const totals = [
-        totalCost > 0 ? `${amount(totalCost)} Home Coins` : '',
-        totalWheat > 0 ? `${amount(totalWheat)} ${SEASON.currency}` : '',
-    ].filter(Boolean).join(' + ');
-    card.style.display = 'flex';
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const per = levelUp
-        ? (isVi ? `đến RV ${planContext.target}` : `until RV ${planContext.target}`)
-        : (isVi
-            ? ({ second: 'mỗi giây', minute: 'mỗi phút', hour: 'mỗi giờ', day: 'mỗi ngày' }[unit] || 'mỗi giây')
-            : ({ second: 'per second', minute: 'per minute', hour: 'per hour', day: 'per day' }[unit] || 'per second'));
-    document.getElementById('seed-card-unit').textContent = isVi
-        ? `Hạt giống cần ${per}: 1 hạt cho mỗi lượt gieo trồng trên Đất nông nghiệp và Vườn ươm trong kế hoạch.`
-        : `Seeds ${per}: one per planting, for every Farmland and Woodland crop in the plan.`;
-    el.innerHTML = `
-        <table>
-            <thead><tr><th>${window.th ? window.th('th_crop', 'Crop') : 'Crop'}</th><th>${window.th ? window.th('th_plots', 'Plots') : 'Plots'}</th><th>${window.th ? window.th('th_seeds', 'Seeds') : 'Seeds'}</th><th>${window.th ? window.th('th_cost', 'Cost') : 'Cost'}</th></tr></thead>
-            <tbody>${rows.map(r => `<tr>
-                <td>${prettyItem(r.name)}</td>
-                <td>${r.plots}</td>
-                <td>${amount(r.seeds)}</td>
-                <td>${r.wheat > 0 ? `${amount(r.wheat)} ${SEASON.currency}` : r.cost > 0 ? `${amount(r.cost)} Home Coins` : (isVi ? 'miễn phí' : 'free')}</td>
-            </tr>`).join('')}</tbody>
-            ${rows.length > 1 && totals ? `<tfoot><tr><td colspan="3">${isVi ? 'Tổng cộng' : 'Total'}</td><td>${totals}</td></tr></tfoot>` : ''}
-        </table>`;
+    return productionSummaryViewController.renderSeedTable(plan);
 }
 
-// What each product sold earns in a level-up plan, per hour and by the time the level-up is
-// ready. (Priorities plans show this in the goal card instead.)
 function renderProfitBreakdown(plan) {
-    const card = document.getElementById('profit-card');
-    const report = plan.level_up;
-    const rawStreams = (plan.income_streams || []).filter(s => s.units_per_second > 0);
-    if (rawStreams.length === 0) {
-        card.style.display = 'none';
-        return;
-    }
-    // Gộp các streams có cùng base item name (ví dụ quartz_ore và quartz_ore__specialist)
-    const streamMap = new Map();
-    for (const s of rawStreams) {
-        const baseName = s.item_name.replace(/__(specialist|manual)$/, '');
-        const existing = streamMap.get(baseName);
-        if (existing) {
-            existing.units_per_second += s.units_per_second;
-            existing.rate_per_second += s.rate_per_second;
-        } else {
-            streamMap.set(baseName, { ...s, item_name: baseName });
-        }
-    }
-    const streams = Array.from(streamMap.values());
-    card.style.display = 'block';
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const total = streams.reduce((sum, s) => sum + s.rate_per_second, 0);
-    const rows = [...streams]
-        .sort((a, b) => b.rate_per_second - a.rate_per_second)
-        .map(s => {
-            const profitUntilCell = report
-                ? `<td data-label="${isVi ? `Lợi nhuận đến RV ${planContext?.target}` : `Profit until RV ${planContext?.target}`}">${formatNumber(Math.floor(s.rate_per_second * report.seconds))}</td>`
-                : '';
-            return `<tr>
-                <td data-label="${isVi ? 'Sản phẩm' : 'Product'}">
-                    <div class="item-cell">
-                        ${renderItemIcon(s.item_name)}
-                        <span class="item-name-text">${prettyItem(s.item_name)}</span>
-                    </div>
-                </td>
-                <td data-label="${isVi ? 'Cơ sở' : 'Facility'}">
-                    <div class="facility-cell">
-                        ${renderFacilityIcon(s.facility)}
-                        <span class="facility-name-text">${getFacilityDisplayName(s.facility)}</span>
-                    </div>
-                </td>
-                <td data-label="${isVi ? 'Bán / giờ' : 'Sold per hour'}">${perHour(s.units_per_second)}</td>
-                <td data-label="${isVi ? 'Lợi nhuận / giờ' : 'Profit per hour'}">${formatNumber(Math.round(s.rate_per_second * 3600))}</td>
-                <td data-label="${isVi ? 'Tỷ lệ' : 'Share'}">${total > 0 ? Math.round(s.rate_per_second / total * 100) : 0}%</td>
-                ${profitUntilCell}
-            </tr>`;
-        }).join('');
-    const profitUntilHeader = report
-        ? `<th>${(window.th ? window.th('th_profit_until_rv', 'Profit until RV {rv}') : 'Profit until RV {rv}').replace('{rv}', planContext?.target || '')}</th>`
-        : '';
-    const colCountText = report
-        ? (isVi ? 'Vuốt ngang để xem đủ 6 cột dữ liệu' : 'Swipe horizontally to view all columns')
-        : (isVi ? 'Vuốt ngang để xem đủ 5 cột dữ liệu' : 'Swipe horizontally to view all columns');
-    document.getElementById('profit-breakdown').innerHTML = `
-        <span class="worksheet-scroll-hint">👉 ${colCountText}</span>
-        <div class="table-wrapper profit-table-wrapper">
-            <table class="facility-plan-table profit-plan-table">
-                <thead><tr><th>${window.th ? window.th('th_product', 'Product') : 'Product'}</th><th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th><th>${window.th ? window.th('th_sold_hour', 'Sold per hour') : 'Sold per hour'}</th><th>${window.th ? window.th('th_profit_hour', 'Profit per hour') : 'Profit per hour'}</th><th>${window.th ? window.th('th_share', 'Share') : 'Share'}</th>${profitUntilHeader}</tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>`;
+    return productionSummaryViewController.renderProfitBreakdown(plan);
 }
-
 // Metadata for Harvest Moon festival dishes
 export const SEASON_DISH_DATA = {
     harvest_platter: {
@@ -5444,142 +1775,21 @@ export const SEASON_DISH_DATA = {
  * 4. Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện (phải sở hữu đủ cơ sở trong chuỗi).
  */
 export function selectOptimalSeasonDishes(planRateEstimate = 40) {
-    if (!seasonActive()) return [];
-    const radishPlots = seasonRadishPlots;
-    const pepperPlots = seasonPepperPlots;
-    if (radishPlots <= 0 && pepperPlots <= 0) return [];
-
-    const cycleTime = 1200;
-    const yieldPerHarvest = 8;
-    const radishPerSec = (radishPlots * yieldPerHarvest) / cycleTime;
-    const pepperPerSec = (pepperPlots * yieldPerHarvest) / cycleTime;
-
-    const userChecked = SEASON_RECIPES.filter(r => selectedSeasonDishes.has(r.name));
-    if (userChecked.length === 0) return [];
-
-    // Kiểm tra số lượng cơ sở người chơi sở hữu ở cấp RV hiện tại
-    const currentSetup = simpleSetup(selectedHomeLevel()).facilities;
-    function hasSufficientFacilities(dish) {
-        const usage = dish.facilityUsage || { [dish.facility]: 1 };
-        for (const [fac, reqCount] of Object.entries(usage)) {
-            const owned = currentSetup[fac]?.[0]?.count || 0;
-            if (owned < reqCount) return false;
-        }
-        return true;
-    }
-
-    const evaluated = [];
-    const baselineRate = Math.max(15, planRateEstimate || 40);
-
-    for (const r of userChecked) {
-        const info = SEASON_DISH_DATA[r.name];
-        if (!info) continue;
-        if (!hasSufficientFacilities(info)) continue;
-
-        // Công suất trần của 1 cơ sở:
-        const maxFacCapacity = 1 / (info.cycleTime || 203);
-
-        let availUnits = 0;
-        let rawRate = 0;
-
-        if (info.radish > 0 && info.pepper > 0) {
-            availUnits = Math.min(radishPerSec / info.radish, pepperPerSec / info.pepper);
-            rawRate = Math.min(availUnits, maxFacCapacity) * (info.radish * 74 + info.pepper * 74);
-        } else if (info.radish > 0) {
-            availUnits = radishPerSec / info.radish;
-            rawRate = Math.min(availUnits, maxFacCapacity) * (info.radish * 74);
-        } else if (info.pepper > 0) {
-            availUnits = pepperPerSec / info.pepper;
-            rawRate = Math.min(availUnits, maxFacCapacity) * (info.pepper * 74);
-        }
-
-        // Bị chặn trên bởi công suất tối đa của cơ sở chế biến (tránh kế hoạch ảo)
-        const maxUnits = Math.min(availUnits, maxFacCapacity);
-        const maxRate = maxUnits * info.sellValue;
-        const extraGain = maxRate - rawRate;
-        const share = maxRate / (baselineRate + maxRate);
-
-        // Quy tắc 1: Nếu món không làm tăng doanh thu hoặc share < 2% -> loại bỏ
-        if (extraGain > 0 && share >= 0.02 && maxUnits > 1e-7) {
-            evaluated.push({
-                ...info,
-                maxUnits,
-                maxRate,
-                extraGain,
-                share
-            });
-        }
-    }
-
-    // Quy tắc 1: Không món nào đạt tiêu chuẩn -> bỏ qua tất cả
-    if (evaluated.length === 0) return [];
-
-    // Sắp xếp theo doanh thu tối đa giảm dần
-    evaluated.sort((a, b) => b.maxRate - a.maxRate || b.points - a.points);
-
-    // Nếu chỉ có 1 món đạt chuẩn -> chọn 1 món (Quy tắc 2)
-    if (evaluated.length === 1) {
-        return [evaluated[0]];
-    }
-
-    const top1 = evaluated[0];
-    const top2 = evaluated[1];
-
-    function hasFacilityConflict(dishA, dishB) {
-        const usageA = dishA.facilityUsage || { [dishA.facility]: 1 };
-        const usageB = dishB.facilityUsage || { [dishB.facility]: 1 };
-        const allFacs = new Set([...Object.keys(usageA), ...Object.keys(usageB)]);
-        for (const fac of allFacs) {
-            const req = (usageA[fac] || 0) + (usageB[fac] || 0);
-            const owned = currentSetup[fac]?.[0]?.count || 0;
-            if (req > owned) return true;
-        }
-        return false;
-    }
-
-    // Quy tắc 3: Kiểm tra xem có thể chọn 2 món bổ trợ không
-    // 3a. Hai món đơn không trùng nguyên liệu và không trùng bất kỳ cơ sở nào
-    if ((top1.radish > 0 && top1.pepper === 0 && top2.pepper > 0 && top2.radish === 0) ||
-        (top1.pepper > 0 && top1.radish === 0 && top2.radish > 0 && top2.pepper === 0)) {
-        if (!hasFacilityConflict(top1, top2)) {
-            return [top1, top2];
-        }
-    }
-
-    // 3b. Top 1 là món combo nhưng thừa nguyên liệu và có món đơn tận dụng phần thừa (khác cơ sở)
-    if (top1.radish > 0 && top1.pepper > 0) {
-        if (radishPlots > pepperPlots) {
-            const singleRadish = evaluated.find(d => d.radish > 0 && d.pepper === 0 && !hasFacilityConflict(top1, d));
-            if (singleRadish && singleRadish.share >= 0.02) {
-                return [top1, singleRadish];
-            }
-        } else if (pepperPlots > radishPlots) {
-            const singlePepper = evaluated.find(d => d.pepper > 0 && d.radish === 0 && !hasFacilityConflict(top1, d));
-            if (singlePepper && singlePepper.share >= 0.02) {
-                return [top1, singlePepper];
-            }
-        }
-    }
-
-    // Quy tắc 2: Các trường hợp còn lại (2 món combo cạnh tranh nguyên liệu hoặc trùng cơ sở) -> chỉ chọn 1 món tốt nhất
-    return [top1];
+    return selectOptimalSeasonDishesPolicy({
+        seasonActive: seasonActive(),
+        radishPlots: seasonRadishPlots,
+        pepperPlots: seasonPepperPlots,
+        selectedRecipes: SEASON_RECIPES.filter(recipe => selectedSeasonDishes.has(recipe.name)),
+        dishData: SEASON_DISH_DATA,
+        getCurrentSetup: () => simpleSetup(selectedHomeLevel()).facilities,
+        planRateEstimate,
+    });
 }
 
-/**
- * Trả về số lượng cơ sở mà các món ăn sự kiện được chọn sẽ chiếm dụng (tính cả chuỗi sơ chế)
- */
+/** Return facility reservations for the currently selected season dishes. */
 export function getSeasonFacilityUsage(planRateEstimate = 40) {
-    const dishes = selectOptimalSeasonDishes(planRateEstimate);
-    const usage = {};
-    for (const d of dishes) {
-        const facUsage = d.facilityUsage || { [d.facility]: 1 };
-        for (const [fac, count] of Object.entries(facUsage)) {
-            usage[fac] = (usage[fac] || 0) + count;
-        }
-    }
-    return usage;
+    return summarizeSeasonFacilityUsage(selectOptimalSeasonDishes(planRateEstimate));
 }
-
 // Bảng tra cứu điều kiện mở khóa công thức siêu tốc (quick_):
 // Cần đạt cấp tối thiểu của cơ sở và cấp tối thiểu của mô-đun tương ứng
 export const QUICK_RECIPE_UNLOCKS = {
@@ -5617,421 +1827,57 @@ export function isQuickRecipeUnlocked(rawItem, facilities, modules) {
 // Get plan-level input values from the form (facilities/modules/prioritize-byproducts, nothing
 // goal-related, since find_plan doesn't need a target). Currency is always coins: the full
 // release removed Bud Tickets, the only other sellable currency.
+const buildPlanInputValuesFromPage = createPlanInputBuilder({
+    getHomeLevel: selectedHomeLevel,
+    simpleSetup,
+    getExcludedRecipes: excludedRecipes,
+    isSeasonActive: seasonActive,
+    selectedSeasonDishes,
+    getSeasonRadishPlots: () => seasonRadishPlots,
+    getSeasonPepperPlots: () => seasonPepperPlots,
+    quickRecipeUnlocks: QUICK_RECIPE_UNLOCKS,
+    isQuickRecipeUnlocked,
+    selectOptimalSeasonDishes,
+    getSeasonFacilityUsage,
+    getActivePriorities: activePriorities,
+    getLevelUpInput: levelUpInput,
+    getPowerGridRate,
+    getProductionAniimoCap,
+    getPowerPoleCount,
+    getSpecialistQuotas,
+    getFacilityOverrides,
+});
+
 function getPlanInputValues() {
-    const { facilities, modules } = simpleSetup(selectedHomeLevel());
-    const excluded = [...excludedRecipes()];
-
-    // 1. Highest-tier crops rule ONLY for Woodland:
-    // Only allow crops of the highest unlocked level for Woodland to maximize Wood Blocks for level-up.
-    // At RV 14, Woodland is Lv.5: Only natural_rubber, coconut, quick_maple_syrup are allowed. All lower crops (Lv 1-4) are blocked.
-    // Farmland is NOT locked because Farmland does not produce Wood Blocks.
-    const woodlandTier = facilities['Woodland']?.[0]?.level || 1;
-
-    const woodlandCropsByLevel = {
-        1: ['willow_wood'],
-        2: ['bamboo', 'lemon'],
-        3: ['cherry_blossom', 'apple', 'maple_syrup', 'quick_bamboo'],
-        4: ['palm_bark', 'chestnut', 'walnut', 'quick_lemon'],
-        5: ['natural_rubber', 'coconut', 'quick_maple_syrup'],
-        6: ['cocoa', 'orange_flower', 'quick_coconut'],
-    };
-
-    // If season is active and user wants umbral_pickle, keep apple for cider_vinegar
-    const keepAppleForSeason = seasonActive() && selectedSeasonDishes.has('umbral_pickle');
-
-    if (selectedHomeLevel() < 20) {
-        for (const [lvl, crops] of Object.entries(woodlandCropsByLevel)) {
-            if (Number(lvl) < woodlandTier) {
-                for (const crop of crops) {
-                    if (keepAppleForSeason && crop === 'apple') continue;
-                    if (!excluded.includes(crop)) excluded.push(crop);
-                }
-            }
-        }
-    }
-
-    // 2. Block Pearl if Crafting Table Lv.6 (Pearl Necklace) is not unlocked (RV < 16)
-    // Selling raw pearl is economically unviable and forces climate wastage.
-    const craftingTableLevel = facilities['Crafting Table']?.[0]?.level || 1;
-    if (craftingTableLevel < 6) {
-        if (!excluded.includes('pearl')) excluded.push('pearl');
-    }
-
-    // 3. Ưu tiên công thức nhanh (Quick recipes):
-    // Nếu công thức quick_ đã được mở khóa (đạt cấp cơ sở và mô-đun yêu cầu), tự động loại trừ công thức thường tương ứng
-    // để solver luôn sử dụng công thức nhanh (sản lượng cao hơn, chu kỳ ngắn hơn).
-    for (const [rawItem, info] of Object.entries(QUICK_RECIPE_UNLOCKS)) {
-        if (isQuickRecipeUnlocked(rawItem, facilities, modules)) {
-            if (!excluded.includes(rawItem)) {
-                excluded.push(rawItem);
-            }
-        }
-    }
-
-    // 4. Deduct dedicated event plots from Farmland and reserve facilities for chosen season dishes
-    if (seasonActive()) {
-        const optimalDishes = selectOptimalSeasonDishes();
-        const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
-        const sugarcanePlots = needsRockCandy ? 1 : 0;
-
-        const totalFarmland = facilities['Farmland']?.[0]?.count || 0;
-        const dedicated = Math.min(totalFarmland, seasonRadishPlots + seasonPepperPlots + sugarcanePlots);
-        if (facilities['Farmland'] && facilities['Farmland'][0]) {
-            facilities['Farmland'][0].count = Math.max(0, totalFarmland - dedicated);
-        }
-
-        // Quy tắc 4: Luôn ưu tiên cơ sở chế biến cho món ăn sự kiện được chọn (bao gồm cả chuỗi sơ chế)
-        const eventFacUsage = getSeasonFacilityUsage();
-        for (const [fac, count] of Object.entries(eventFacUsage)) {
-            if (facilities[fac] && facilities[fac][0]) {
-                facilities[fac][0].count = Math.max(0, facilities[fac][0].count - count);
-            }
-        }
-    }
-
-    return {
-        home_level: selectedHomeLevel(),
-        currency: 'coins',
-        priorities: activePriorities(),
-        prioritize_byproducts: false,
-        level_up: levelUpInput(),
-        exclude: excluded,
-        season: seasonActive(),
-        emode_facilities: [],
-        emode_facility_counts: {},
-        power_grid_rate: getPowerGridRate(),
-        production_aniimo_cap: getProductionAniimoCap(),
-        power_poles: selectedHomeLevel() >= 12 ? getPowerPoleCount() : 0,
-        specialist_quotas: getSpecialistQuotas(),
-        facility_overrides: getFacilityOverrides(),
-        facilities,
-        modules
-    };
+    return buildPlanInputValuesFromPage();
 }
 
-// Policy-specific builders share parsed facility/module data while keeping the two objectives
-// mutually exclusive all the way to the worker/WASM contract.
-function buildLevelUpPlanInput(commonInput = getPlanInputValues()) {
-    return {
-        ...commonInput,
-        strategy_policy: 'level_up',
-        priorities: [],
-        level_up: levelUpInput(),
-        prioritize_byproducts: false,
-    };
-}
-
-function buildEndgamePlanInput(commonInput = getPlanInputValues()) {
-    return {
-        ...commonInput,
-        strategy_policy: 'endgame',
-        priorities: activePriorities(),
-        level_up: null,
-        prioritize_byproducts: false,
-    };
-}
 
 export function buildStrategyPlanInput(commonInput = getPlanInputValues()) {
-    return isRV20Endgame()
-        ? buildEndgamePlanInput(commonInput)
-        : buildLevelUpPlanInput(commonInput);
+    return buildStrategyPlanInputModule({
+        commonInput,
+        isEndgame: isRV20Endgame(),
+        getPriorities: activePriorities,
+        getLevelUp: levelUpInput,
+    });
 }
 
 // Integrates dedicated festival crops and chosen festival dishes into the solved plan
 function integrateSeasonPlan(plan) {
-    if (!plan || !plan.success || !seasonActive()) return plan;
-    const radishPlots = seasonRadishPlots;
-    const pepperPlots = seasonPepperPlots;
-    if (radishPlots <= 0 && pepperPlots <= 0) return plan;
-
-    // Harvest rate (with watering, cycle is 1200s, yield is 8 per harvest)
-    const cycleTime = 1200;
-    const yieldPerHarvest = 8;
-    let radishPerSec = (radishPlots * yieldPerHarvest) / cycleTime;
-    let pepperPerSec = (pepperPlots * yieldPerHarvest) / cycleTime;
-
-    const newSteps = [...(plan.coin_items || [])];
-    const newStreams = [...(plan.income_streams || [])];
-    let extraCoinsRate = 0;
-    let seasonPointsRate = 0;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    // Thêm các bước canh tác Farmland mùa vụ
-    if (radishPlots > 0) {
-        newSteps.push({
-            facility: 'Farmland',
-            item_name: 'moondew_radish',
-            facility_count: radishPlots,
-            status: 'producing',
-            cycle_time: cycleTime,
-            is_grower: true,
-            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
-            environment: null
-        });
-    }
-    if (pepperPlots > 0) {
-        newSteps.push({
-            facility: 'Farmland',
-            item_name: 'waxing_moon_pepper',
-            facility_count: pepperPlots,
-            status: 'producing',
-            cycle_time: cycleTime,
-            is_grower: true,
-            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
-            environment: null
-        });
-    }
-
-    // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo các quy tắc
-    const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
-    const newAssignments = JSON.parse(JSON.stringify(plan.environment_assignments || []));
-
-    // Nếu có món cần Kẹo đá, thêm 1 ô Farmland trồng Mía (Mía bắt buộc trồng trong Lò Sưởi chế độ Bỏng Cháy - Scorching)
-    const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
-    if (needsRockCandy) {
-        newSteps.push({
-            facility: 'Farmland',
-            item_name: 'sugarcane',
-            facility_count: 1,
-            status: 'producing',
-            cycle_time: 2400,
-            is_grower: true,
-            reason: isVi ? 'Dùng cho Kẹo đá; phần còn lại bán trực tiếp' : 'Used for rock_candy; the rest sells directly',
-            environment: 'Scorching'
-        });
-
-        // Bổ sung phân bổ ô đất trong Lò Sưởi Scorching
-        const scorchingAssignment = newAssignments.find(a => a.building === 'Heat Furnace' && a.mode === 'Scorching');
-        if (scorchingAssignment) {
-            if (scorchingAssignment.covered) {
-                const fc = scorchingAssignment.covered.find(c => c.facility === 'Farmland');
-                if (fc) fc.count += 1;
-                else scorchingAssignment.covered.push({ facility: 'Farmland', count: 1 });
-            }
-            if (scorchingAssignment.layouts && scorchingAssignment.layouts[0]) {
-                scorchingAssignment.layouts[0].push({ facility: 'Farmland', x: 2, y: 0, size: 1 });
-            }
-        } else {
-            newAssignments.push({
-                building: 'Heat Furnace',
-                mode: 'Scorching',
-                units: 1,
-                covered: [{ facility: 'Farmland', count: 1 }],
-                layouts: [[{ facility: 'Farmland', x: 0, y: 1, size: 1 }]],
-                partner: null,
-                zone: null,
-                pair_modes: null
-            });
-        }
-    }
-
-    // Helper kiểm tra xem máy của cơ sở có được cấp điện theo overrides / lastEmodeCounts không
-    function checkStepEmode(fac, count = 1) {
-        const ovr = facilityOverrides.find(o => o.facility === fac);
-        let cap = (lastEmodeCounts && lastEmodeCounts[fac]) || 0;
-        if (ovr && typeof ovr.electric_count === 'number') {
-            cap = ovr.electric_count;
-        }
-        const alreadyUsed = newSteps
-            .filter(s => s.facility && s.facility.replace(/ \(Electric\)$/, '') === fac && s.is_emode && s.status === 'producing')
-            .reduce((sum, s) => sum + (s.facility_count || 1), 0);
-        return (alreadyUsed + count) <= cap;
-    }
-
-    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt (ưu tiên công thức siêu tốc nếu đã mở khóa)
-    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.name === 'umbral_hot_pot');
-    if (needsFreshWater) {
-        const fwReason = isVi
-            ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
-            : 'Used for event dishes';
-        const wellElectric = checkStepEmode('Well', 1);
-        const { facilities: curFacs, modules: curMods } = simpleSetup(selectedHomeLevel());
-        const useQuickWater = isQuickRecipeUnlocked('fresh_water', curFacs, curMods);
-        const waterItem = useQuickWater ? 'quick_fresh_water' : 'fresh_water';
-
-        newSteps.push({
-            facility: 'Well',
-            item_name: waterItem,
-            facility_count: 1,
-            status: 'producing',
-            cycle_time: useQuickWater ? 1800 : 2250,
-            is_grower: false,
-            is_emode: wellElectric,
-            is_manual: !wellElectric,
-            aniimo: wellElectric ? null : { ability: 'Water', level: 4, personality_bonus: true },
-            reason: fwReason,
-            environment: null
-        });
-    }
-
-    for (const dish of optimalDishes) {
-        const maxFacCapacity = 1 / (dish.cycleTime || 203);
-        let availUnits = 0;
-
-        if (dish.radish > 0 && dish.pepper > 0) {
-            availUnits = Math.min(radishPerSec / dish.radish, pepperPerSec / dish.pepper);
-        } else if (dish.radish > 0) {
-            availUnits = radishPerSec / dish.radish;
-        } else if (dish.pepper > 0) {
-            availUnits = pepperPerSec / dish.pepper;
-        }
-
-        // Bị chặn trên bởi công suất tối đa của cơ sở chế biến
-        const units = Math.min(availUnits, maxFacCapacity);
-
-        if (dish.radish > 0) radishPerSec = Math.max(0, radishPerSec - units * dish.radish);
-        if (dish.pepper > 0) pepperPerSec = Math.max(0, pepperPerSec - units * dish.pepper);
-
-        if (units > 1e-7) {
-            const coinsPerSec = units * dish.sellValue;
-            const ptsPerSec = units * dish.points;
-            extraCoinsRate += coinsPerSec;
-            seasonPointsRate += ptsPerSec;
-
-            // 1. Nếu món có chuỗi sơ chế (ví dụ Mâm cỗ trung thu cần Kẹo đá, Củ cải sấy lát và Ớt nướng trăng):
-            if (dish.prepChain) {
-                for (const prep of dish.prepChain) {
-                    const prepElectric = checkStepEmode(prep.facility, 1);
-                    newSteps.push({
-                        facility: prep.facility,
-                        item_name: prep.item_name,
-                        facility_count: 1,
-                        status: 'producing',
-                        cycle_time: prep.cycleTime,
-                        is_grower: false,
-                        is_emode: prepElectric,
-                        is_manual: !prepElectric,
-                        reason: isVi ? prep.reasonVi : prep.reasonEn,
-                        environment: null
-                    });
-                }
-            }
-
-            // 2. Thêm cơ sở chính hoàn thiện món
-            const dishElectric = checkStepEmode(dish.facility, 1);
-            newSteps.push({
-                facility: dish.facility,
-                item_name: dish.name,
-                facility_count: 1,
-                status: 'producing',
-                cycle_time: dish.cycleTime || 203,
-                is_grower: false,
-                is_emode: dishElectric,
-                is_manual: !dishElectric,
-                reason: isVi ? `Món ăn Lễ hội Trung Thu (+${dish.points} điểm)` : `Festival dish (+${dish.points} pts)`,
-                environment: null
-            });
-
-            // 3. Dòng tiền bán món ăn ra thị trường
-            newStreams.push({
-                item_name: dish.name,
-                facility: dish.facility,
-                sell_value: dish.sellValue,
-                rate_per_second: coinsPerSec,
-                units_per_second: units,
-                lead_time_seconds: 0,
-                total_units: 0,
-                total_value: 0,
-                points: dish.points
-            });
-        }
-    }
-
-    // Bổ sung cơ sở sản xuất Muối biển chuyên dụng cho sự kiện:
-    // Ưu tiên Muối biển nhanh (quick_sea_salt) nếu đã mở khóa, nếu chưa thì dùng Muối biển thường (sea_salt)
-    const saltDishes = optimalDishes.filter(d => d.name === 'roasted_waxing_moon_pepper' || d.name === 'harvest_platter' || d.name === 'umbral_sweet_and_spicy_sauce');
-    if (saltDishes.length > 0) {
-        let forTextVi = 'Ớt nướng trăng';
-        if (saltDishes.some(d => d.name === 'harvest_platter')) {
-            forTextVi = 'Ớt nướng trăng (Mâm cỗ trung thu)';
-        } else if (saltDishes.some(d => d.name === 'umbral_sweet_and_spicy_sauce')) {
-            forTextVi = 'Sốt cay ngọt hắc ám';
-        }
-        const purposeText = isVi
-            ? `Dùng cho ${forTextVi}; phần còn lại bán trực tiếp`
-            : `Used for ${forTextVi}; the rest sells directly`;
-
-        const { facilities: curFacs, modules: curMods } = simpleSetup(selectedHomeLevel());
-        const useQuickSalt = isQuickRecipeUnlocked('sea_salt', curFacs, curMods);
-        const saltItem = useQuickSalt ? 'quick_sea_salt' : 'sea_salt';
-        const saltCycle = useQuickSalt ? 2250 : 1800;
-
-        newSteps.push({
-            facility: 'Tidewhisper Sandcastle',
-            item_name: saltItem,
-            facility_count: 1,
-            status: 'producing',
-            cycle_time: saltCycle,
-            is_grower: false,
-            reason: purposeText,
-            environment: null
-        });
-    }
-
-    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm (giá 74 coin)
-    if (radishPerSec > 1e-7) {
-        const coinsPerSec = radishPerSec * 74;
-        const ptsPerSec = radishPerSec * 1;
-        extraCoinsRate += coinsPerSec;
-        seasonPointsRate += ptsPerSec;
-        newStreams.push({
-            item_name: 'moondew_radish',
-            facility: 'Farmland',
-            sell_value: 74,
-            rate_per_second: coinsPerSec,
-            units_per_second: radishPerSec,
-            lead_time_seconds: 0,
-            total_units: 0,
-            total_value: 0,
-            points: 1
-        });
-    }
-
-    if (pepperPerSec > 1e-7) {
-        const coinsPerSec = pepperPerSec * 74;
-        const ptsPerSec = pepperPerSec * 1;
-        extraCoinsRate += coinsPerSec;
-        seasonPointsRate += ptsPerSec;
-        newStreams.push({
-            item_name: 'waxing_moon_pepper',
-            facility: 'Farmland',
-            sell_value: 74,
-            rate_per_second: coinsPerSec,
-            units_per_second: pepperPerSec,
-            lead_time_seconds: 0,
-            total_units: 0,
-            total_value: 0,
-            points: 1
-        });
-    }
-
-    let updatedLevelUp = plan.level_up;
-    if (plan.level_up && plan.level_up.requirements) {
-        const newRatePerSec = plan.rate_per_second + extraCoinsRate;
-        const newReqs = plan.level_up.requirements.map(r => {
-            if (r.name === 'coins') {
-                const short = Math.max(0, r.need - r.have);
-                const seconds = short <= 0 ? 0 : (newRatePerSec > 0 ? short / newRatePerSec : null);
-                return { ...r, per_second: newRatePerSec, seconds };
-            }
-            return r;
-        });
-        updatedLevelUp = {
-            ...plan.level_up,
-            requirements: newReqs
-        };
-    }
-
-    return {
-        ...plan,
-        coin_items: newSteps,
-        income_streams: newStreams,
-        environment_assignments: newAssignments,
-        rate_per_second: plan.rate_per_second + extraCoinsRate,
-        season_points: seasonPointsRate,
-        level_up: updatedLevelUp
-    };
+    return integrateSeasonPlanModule(plan, {
+        isSeasonActive: seasonActive,
+        getRadishPlots: () => seasonRadishPlots,
+        getPepperPlots: () => seasonPepperPlots,
+        isVietnamese: () => window.i18n && window.i18n.getLang() === 'vi',
+        selectOptimalSeasonDishes,
+        facilityOverrides,
+        lastEmodeCounts,
+        simpleSetup,
+        selectedHomeLevel,
+        isQuickRecipeUnlocked,
+    });
 }
+
 
 /**
  * Chuẩn hóa các cơ sở chế biến / phi canh tác:
@@ -6040,180 +1886,15 @@ function integrateSeasonPlan(plan) {
  * Nhờ đó người dùng có thể tùy chỉnh thủ công chế độ (Điện / Aniimo / Thường) cho từng máy một cách độc lập.
  */
 export function normalizePlanFacilityCounts(plan) {
-    if (!plan || !Array.isArray(plan.coin_items)) return plan;
-
-    const emodeAvailable = selectedHomeLevel() >= 12;
-    const newSteps = [];
-    let modified = false;
-    // Overrides describe a facility-wide partition. Consume each mode quota once across all
-    // recipe rows for that facility instead of reapplying the same quota to every row.
-    const remainingOverrideCounts = new Map();
-
-    for (const step of plan.coin_items) {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        const facDef = FACILITIES.find(f => f.name === baseFac);
-        const facCategory = facDef?.category || FACILITY_CATEGORY_BY_NAME.get(baseFac);
-        const isFarm = baseFac === 'Farmland' || baseFac === 'Woodland' || step.is_grower;
-
-        // Chỉ tách các cơ sở chế biến / sản xuất phi canh tác
-        const isProcessingFacility = !isFarm && (
-            facCategory === 'Materials Processing' ||
-            facCategory === 'Wood & Ore Processing' ||
-            !['Farmland', 'Woodland', 'Mine', 'Well'].includes(baseFac)
-        );
-
-        const count = step.facility_count || 1;
-        const hasFacilityOverride = facilityOverrides.some(override => override.facility === baseFac);
-        if (isProcessingFacility && (count > 1 || hasFacilityOverride)) {
-            modified = true;
-            // Xác định initial mode cho các máy nếu chưa có
-            let initialMode = step.mode;
-            if (!initialMode) {
-                if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
-                    initialMode = 'electric';
-                } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
-                    initialMode = 'manual';
-                } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
-                    initialMode = 'prismana';
-                } else if (emodeAvailable && step.is_emode !== false && facDef?.supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0) {
-                    initialMode = 'electric';
-                } else {
-                    initialMode = 'prismana';
-                }
-            }
-
-            // Kiểm tra xem đã có overrides cho cơ sở này chưa
-            const ovr = facilityOverrides.find(o => o.facility === baseFac);
-            let remaining = remainingOverrideCounts.get(baseFac);
-            if (ovr && !remaining) {
-                remaining = {
-                    electric: Math.max(0, ovr.electric_count || 0),
-                    prismana: Math.max(0, ovr.specialist_count || 0),
-                    manual: Math.max(0, ovr.manual_count || 0)
-                };
-                remainingOverrideCounts.set(baseFac, remaining);
-            }
-            let remainingE = ovr ? remaining.electric : (step.is_emode || rawFac.includes('(Electric)') ? count : 0);
-            let remainingP = ovr ? remaining.prismana : (step.is_specialist || rawFac.includes('(Prismana)') ? count : 0);
-            let remainingM = ovr ? remaining.manual : (step.is_manual || rawFac.includes('(Manual)') ? count : 0);
-
-            for (let i = 0; i < count; i++) {
-                let unitMode = initialMode;
-                if (ovr) {
-                    const preferredModeAvailable = (unitMode !== 'electric' || emodeAvailable) && remaining[unitMode] > 0;
-                    if (preferredModeAvailable) {
-                        remaining[unitMode]--;
-                        if (unitMode === 'electric') remainingE--;
-                        else if (unitMode === 'prismana') remainingP--;
-                        else if (unitMode === 'manual') remainingM--;
-                    } else if (emodeAvailable && remainingE > 0) {
-                        unitMode = 'electric';
-                        remainingE--;
-                        remaining.electric--;
-                    } else if (remainingP > 0) {
-                        unitMode = 'prismana';
-                        remainingP--;
-                        remaining.prismana--;
-                    } else if (remainingM > 0) {
-                        unitMode = 'manual';
-                        remainingM--;
-                        remaining.manual--;
-                    } else {
-                        // Any units omitted from a partial override keep the safest worker mode.
-                        unitMode = 'manual';
-                    }
-                }
-
-                const singleStep = {
-                    ...step,
-                    facility_count: 1,
-                    mode: unitMode,
-                    is_emode: unitMode === 'electric',
-                    is_specialist: unitMode === 'prismana',
-                    is_manual: unitMode === 'manual',
-                    units_per_second: (step.units_per_second != null) ? step.units_per_second / count : null,
-                    rate_per_second: (step.rate_per_second != null) ? step.rate_per_second / count : null,
-                    busy_units: (step.busy_units != null) ? step.busy_units / count : 1,
-                    aniimo: step.aniimo ? { ...step.aniimo } : null
-                };
-                newSteps.push(singleStep);
-            }
-        } else {
-            newSteps.push(step);
-        }
-    }
-
-    // Invariant guard: Đảm bảo tổng số máy hiển thị của các xưởng chế biến không vượt quá số lượng sở hữu thực tế
-    const ownedCounts = getOwnedFacilityCounts();
-    const facilityActiveCounts = {};
-    const clampedSteps = [];
-    for (const step of newSteps) {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        const isFarm = baseFac === 'Farmland' || baseFac === 'Woodland' || step.is_grower;
-        if (!isFarm && (baseFac === 'Woodworking Bench' || baseFac === 'Chimney Kiln')) {
-            const maxOwned = ownedCounts[baseFac];
-            if (typeof maxOwned === 'number' && maxOwned > 0) {
-                const currentUnits = facilityActiveCounts[baseFac] || 0;
-                const stepUnits = step.facility_count || 1;
-                if (currentUnits + stepUnits > maxOwned) {
-                    // Đã đủ số lượng cơ sở thực sở hữu (ví dụ Bàn Gia Công Gỗ tối đa 4 máy ở RV 18)
-                    modified = true;
-                    continue;
-                }
-                facilityActiveCounts[baseFac] = currentUnits + stepUnits;
-            }
-        }
-        clampedSteps.push(step);
-    }
-
-    if (modified) {
-        plan.coin_items = clampedSteps;
-    }
-
-    // Ánh xạ chính xác doanh thu thực tế từ income_streams vào từng bước sản xuất (coin_items)
-    // Đảm bảo cả Chế độ điện, Prismana và Thường đều hiển thị đúng doanh thu bán hàng thực tế (coins/h)
-    const incomeStreams = plan.income_streams || [];
-    const streamMap = new Map();
-    for (const stream of incomeStreams) {
-        if (!stream.item_name) continue;
-        const cleanName = stream.item_name.replace(/__(specialist|manual)$/, '');
-        streamMap.set(cleanName, stream);
-        streamMap.set(stream.item_name, stream);
-    }
-
-    const targetSteps = plan.coin_items || [];
-    // Tính tổng năng lực sản xuất của các bước cùng sản xuất một mặt hàng
-    const itemCapacityMap = new Map();
-    for (const step of targetSteps) {
-        if (step.status !== 'producing' || !step.item_name) continue;
-        const cleanItem = step.item_name.replace(/__(specialist|manual)$/, '');
-        const cap = ((step.facility_count || 1) * (step.yield_amount || 1)) / Math.max(0.1, step.cycle_time || 60);
-        itemCapacityMap.set(cleanItem, (itemCapacityMap.get(cleanItem) || 0) + cap);
-    }
-
-    for (const step of targetSteps) {
-        if (step.status !== 'producing' || !step.item_name) {
-            step.rate_per_second = 0;
-            step.sold_units_per_second = 0;
-            continue;
-        }
-        const cleanItem = step.item_name.replace(/__(specialist|manual)$/, '');
-        const stream = streamMap.get(cleanItem) || streamMap.get(step.item_name);
-        if (stream && typeof stream.rate_per_second === 'number' && stream.rate_per_second > 0) {
-            const totalCap = itemCapacityMap.get(cleanItem) || 0;
-            const stepCap = ((step.facility_count || 1) * (step.yield_amount || 1)) / Math.max(0.1, step.cycle_time || 60);
-            const ratio = totalCap > 0 ? (stepCap / totalCap) : 1;
-            step.rate_per_second = stream.rate_per_second * ratio;
-            step.sold_units_per_second = (stream.units_per_second || 0) * ratio;
-        } else {
-            step.rate_per_second = 0;
-            step.sold_units_per_second = 0;
-        }
-    }
-
-    return plan;
+    return normalizePlanFacilityCountsModule(plan, {
+        selectedHomeLevel,
+        facilityOverrides,
+        facilities: FACILITIES,
+        categoryByName: FACILITY_CATEGORY_BY_NAME,
+        lastEmodeCounts,
+        createWorksheetModeQuotaTracker,
+        getOwnedFacilityCounts,
+    });
 }
 
 /**
@@ -6221,431 +1902,63 @@ export function normalizePlanFacilityCounts(plan) {
  * Cân bằng chính xác giữa năng lực tiêu thụ của cơ sở chế biến và diện tích đất Farmland dành cho cây trồng giá trị cao (Nhân sâm).
  */
 export function calculateOptimalSeasonPlots(dishes, homeLevel) {
-    if (!dishes || dishes.length === 0) {
-        return { radish: 0, pepper: 0, dishNames: [] };
-    }
-
-    let reqRadishPerSec = 0;
-    let reqPepperPerSec = 0;
-    const dishNames = [];
-
-    for (const d of dishes) {
-        dishNames.push(prettyItem(d.name));
-        const maxFacUnits = 1 / (d.cycleTime || 203);
-        if (d.radish > 0) reqRadishPerSec += d.radish * maxFacUnits;
-        if (d.pepper > 0) reqPepperPerSec += d.pepper * maxFacUnits;
-    }
-
-    // 1 ô Farmland tưới nước chu kỳ 1200s, sản lượng 8 quả -> 8 / 1200 = 1 / 150 quả/s (24 quả/giờ)
-    const yieldPerSecPerPlot = 8 / 1200;
-
-    let optRadish = reqRadishPerSec > 0 ? Math.round(reqRadishPerSec / yieldPerSecPerPlot) : 0;
-    let optPepper = reqPepperPerSec > 0 ? Math.round(reqPepperPerSec / yieldPerSecPerPlot) : 0;
-
-    // Điểm cân bằng ngọt ngào (Sweet spot) cho các món combo (Mâm cỗ trung thu, Sốt cay ngọt, Lẩu hắc ám):
-    // Với cycleTime ~203s, 8 / 203 * 150 = 5.91 ô. Mức 5 ô Củ cải + 5 ô Ớt (tổng 10 ô) là điểm cân bằng lý tưởng nhất,
-    // giữ lại đúng 10+ ô Farmland cho Nhân sâm để tối đa hóa tổng doanh thu toàn nông trại.
-    if (optRadish >= 5 && optRadish <= 6) optRadish = 5;
-    if (optPepper >= 5 && optPepper <= 6) optPepper = 5;
-
-    // Giới hạn trong khoảng [0, 10]
-    optRadish = Math.max(0, Math.min(10, optRadish));
-    optPepper = Math.max(0, Math.min(10, optPepper));
-
-    return {
-        radish: optRadish,
-        pepper: optPepper,
-        dishNames
-    };
+    return calculateOptimalSeasonPlotsPolicy(dishes, prettyItem);
 }
+
+const seasonPlotsAdvisoryController = createSeasonPlotsAdvisoryController({
+    document,
+    window,
+    seasonActive: () => seasonActive(),
+    getRadishPlots: () => seasonRadishPlots,
+    getPepperPlots: () => seasonPepperPlots,
+    setRadishPlots: v => { seasonRadishPlots = v; },
+    setPepperPlots: v => { seasonPepperPlots = v; },
+    selectOptimalSeasonDishes: rate => selectOptimalSeasonDishes(rate),
+    calculateOptimalSeasonPlots: (dishes, level) => calculateOptimalSeasonPlots(dishes, level),
+    selectedHomeLevel: () => selectedHomeLevel(),
+    saveInputsToStorage,
+    runFindPlan,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+});
+seasonPlotsAdvisoryController.attachGlobal();
 
 /**
  * Đánh giá và hiển thị Banner Đề xuất Tối ưu hóa Ô đất (Plots Optimization Advisory Banner)
  */
 export function evaluatePlotsOptimization(plan) {
-    const bannerEl = document.getElementById('plots-optimization-banner');
-    if (!bannerEl) return;
-
-    if (!seasonActive() || !plan || !plan.success) {
-        bannerEl.style.display = 'none';
-        return;
-    }
-
-    const curR = seasonRadishPlots;
-    const curP = seasonPepperPlots;
-    const optimalDishes = selectOptimalSeasonDishes(plan.rate_per_second);
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    // Trường hợp A: Người chơi đặt ô đất nhưng không có món sự kiện nào được chọn để chế biến
-    if (optimalDishes.length === 0) {
-        if (curR > 0 || curP > 0) {
-            bannerEl.innerHTML = `
-                <div class="plots-opt-content">
-                    <div class="plots-opt-icon">⚠️</div>
-                    <div class="plots-opt-text">
-                        <h4>${isVi ? 'Chưa chọn món chế biến Lễ hội' : 'No Festival Recipe Selected'}</h4>
-                        <p>
-                            ${isVi
-                    ? `Hiện tại anh đang đặt <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
-                    : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
-                }
-                        </p>
-                    </div>
-                </div>
-                <button class="btn-apply-plots-opt" onclick="window.applyOptimalPlots(0, 0)">
-                    ⚡ ${isVi ? 'Chuyển về 0 ô đất' : 'Reset to 0 plots'}
-                </button>
-            `;
-            bannerEl.style.display = 'flex';
-            return;
-        }
-        bannerEl.style.display = 'none';
-        return;
-    }
-
-    // Trường hợp B: Có món ăn sự kiện được chọn
-    const opt = calculateOptimalSeasonPlots(optimalDishes, selectedHomeLevel());
-    const optR = opt.radish;
-    const optP = opt.pepper;
-
-    // Nếu đã ở đúng mức tối ưu -> Ẩn banner
-    if (curR === optR && curP === optP) {
-        bannerEl.style.display = 'none';
-        return;
-    }
-
-    const diffR = curR - optR;
-    const diffP = curP - optP;
-    const overPlots = Math.max(0, diffR) + Math.max(0, diffP);
-    const underPlots = Math.max(0, -diffR) + Math.max(0, -diffP);
-
-    // Chỉ kích hoạt nhắc nhở nếu sai lệch đáng kể (>= 2 ô)
-    if (overPlots < 2 && underPlots < 2) {
-        bannerEl.style.display = 'none';
-        return;
-    }
-
-    const curRatePerHour = Math.round(plan.rate_per_second * 3600);
-    const dishListStr = opt.dishNames.join(', ');
-
-    let explanation = '';
-    let gainPerHour = 0;
-
-    if (overPlots >= 2) {
-        // Chọn quá nhiều ô đất -> Cơ sở bị nghẽn (bottleneck), chiếm dụng đất của Nhân sâm
-        gainPerHour = Math.round(overPlots * 3500);
-        const estOptRate = curRatePerHour + gainPerHour;
-        explanation = isVi
-            ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đã chạm trần công suất. Số ô nông sản dư thừa phải bán thô giá rẻ (74 coin), đồng thời chiếm dụng mất diện tích Farmland quý giá của Nhân sâm.<br>
-               👉 Mức cân bằng tối ưu nhất: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
-            : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Processing facilities for <em>${dishListStr}</em> are at maximum capacity. Excess harvest is sold raw at a discount (74 coins) while occupying valuable Farmland needed for Ginseng.<br>
-               👉 Optimal sweet spot: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
-    } else {
-        // Chọn quá ít ô đất -> Cơ sở bị đói nguyên liệu
-        gainPerHour = Math.round(underPlots * 2200);
-        const estOptRate = curRatePerHour + gainPerHour;
-        explanation = isVi
-            ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đang bị thiếu nguyên liệu, hoạt động dưới công suất tối đa.<br>
-               👉 Đề xuất nâng lên: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
-            : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Facilities for <em>${dishListStr}</em> are starved of ingredients and running below capacity.<br>
-               👉 Recommended setup: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
-    }
-
-    bannerEl.innerHTML = `
-        <div class="plots-opt-content">
-            <div class="plots-opt-icon">⚡</div>
-            <div class="plots-opt-text">
-                <h4>${isVi ? 'Đề xuất Cân bằng Ô đất Tối ưu (Optimal Plot Balancer)' : 'Optimal Plot Balance Recommendation'}</h4>
-                <p>${explanation}</p>
-            </div>
-        </div>
-        <button class="btn-apply-plots-opt" onclick="window.applyOptimalPlots(${optR}, ${optP})">
-            ⚡ ${isVi ? `Áp dụng ngay: ${optR} Củ cải & ${optP} Ớt` : `Apply: ${optR} Radish & ${optP} Pepper`}
-        </button>
-    `;
-    bannerEl.style.display = 'flex';
-}
-
-// Hàm tương tác 1-chạm cập nhật ô đất và tự động tính lại ngay lập tức
-window.applyOptimalPlots = function (radish, pepper) {
-    const radishInput = document.getElementById('season-radish-plots');
-    const pepperInput = document.getElementById('season-pepper-plots');
-    if (radishInput) radishInput.value = radish;
-    if (pepperInput) pepperInput.value = pepper;
-    seasonRadishPlots = radish;
-    seasonPepperPlots = pepper;
-    saveInputsToStorage();
-    if (typeof runFindPlan === 'function') {
-        runFindPlan();
-    }
-};
-
-// parseInt/parseFloat that fall back to `fallback` only when the input doesn't parse to a number
-// at all (blank/invalid); unlike `value || fallback`, these correctly keep a legitimate 0 (e.g.
-// "I own zero of this facility"), which `||` would silently discard since 0 is falsy in JS.
-// "quick_aromathyst" -> "Quick Aromathyst": the data uses snake_case names.
-function prettyItem(name) {
-    if (!name) return name;
-    if (window.i18n && typeof window.i18n.getItemDisplayName === 'function') {
-        return window.i18n.getItemDisplayName(name);
-    }
-    const base = name.replace(/__(specialist|manual)$/, '');
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (isVi) {
-        const viItems = window.VI_ITEM_NAMES || (typeof VI_ITEM_NAMES !== 'undefined' ? VI_ITEM_NAMES : null);
-        if (viItems) {
-            if (viItems[name]) return viItems[name];
-            if (viItems[base]) return viItems[base];
-            const snake = base.toLowerCase().replace(/[\s-]+/g, '_');
-            if (viItems[snake]) return viItems[snake];
-        }
-    }
-    if (ITEM_NAMES[name]) return ITEM_NAMES[name];
-    if (ITEM_NAMES[base]) return ITEM_NAMES[base];
-    const snake = base.toLowerCase().replace(/[\s-]+/g, '_');
-    if (ITEM_NAMES[snake]) return ITEM_NAMES[snake];
-    return base.split('_').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ');
-}
-
-// A plan row's reason with its item names made readable: "Used for dried_strawberries, jam; the
-// rest sells directly" -> "Used for Dried Strawberries, Jam; the rest sells directly".
-function prettyReason(reason) {
-    if (!reason) return reason;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const names = list => list.split(', ').map(prettyItem).join(', ');
-    if (isVi) {
-        let r = reason;
-        r = r.replace(/^[Uu]sed for ([^;]+)/, (_, list) => 'Dùng cho ' + names(list));
-        r = r.replace(/; the rest sells directly/, '; phần còn lại bán trực tiếp');
-        r = r.replace(/; the rest goes to the level-up/, '; phần còn lại để nâng cấp RV');
-        r = r.replace(/; the rest is eaten by Aniimo/, '; phần còn lại cho Aniimo ăn');
-        r = r.replace(/; the rest is eaten and sold/, '; phần còn lại cho Aniimo ăn và bán');
-        r = r.replace(/^[Ee]aten by Aniimo; the rest sells directly/, 'Thức ăn cho Aniimo; phần còn lại bán trực tiếp');
-        r = r.replace(/^[Ee]aten by Aniimo/, 'Thức ăn cho Aniimo');
-        r = r.replace(/^[Ss]ells directly/, 'Bán trực tiếp');
-        r = r.replace(/^[Ff]or the level-up/, 'Dùng để nâng cấp RV');
-        r = r.replace(/takes turns with ([^;]+)$/, (_, list) => 'luân phiên với ' + names(list));
-        r = r.replace(/^[Tt]akes turns with ([^;]+)/, (_, list) => 'Luân phiên với ' + names(list));
-        r = r.replace(/^Nothing it can make.*/, 'Không có sản phẩm nào cần thiết cho kế hoạch này');
-        r = r.replace(/grown without ([^;]+) at ([0-9]+)% speed/, (_, wants, speed) => `trồng không cần ${prettyItem(wants)} ở tốc độ ${speed}%`);
-        return r;
-    }
-    return reason
-        .replace(/^Used for ([^;]+)/, (_, list) => 'Used for ' + names(list))
-        .replace(/takes turns with ([^;]+)$/, (_, list) => 'takes turns with ' + names(list));
+    return seasonPlotsAdvisoryController.evaluate(plan);
 }
 
 // Keys ("Facility|item") of the shown plan's rows that rely on recipes not yet checked in game;
 // set by `displayPlan` so the facility tables can tag those rows.
 let unverifiedRowKeys = new Set();
 
-function numberOrDefault(value, fallback) {
-    const parsed = parseInt(value, 10);
-    return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function floatOrDefault(value, fallback) {
-    const parsed = parseFloat(value);
-    return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-// Format number with commas
-function formatNumber(num) {
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-// A rate at the chosen unit: a whole number once it's big enough to read that way, otherwise two
-// significant figures, so a slow trickle doesn't round away to zero.
-function formatRate(n) {
-    return n >= 10 ? formatNumber(Math.round(n)) : String(Number(n.toPrecision(2)));
-}
+const infeasibleViewController = createInfeasibleViewController({
+    document,
+    window,
+    selectedHomeLevel,
+    simpleSetup,
+    seasonActive,
+    isLevelUpStrategy,
+    levelUpTarget,
+    getSelectedSeasonDishes: () => selectedSeasonDishes,
+    getUnlockedSpecial: () => unlockedSpecial,
+    getSeasonRadishPlots: () => seasonRadishPlots,
+    getSeasonPepperPlots: () => seasonPepperPlots,
+    getProductionAniimoCap,
+    aniimoMax: ANIIMO_MAX,
+    renderFacilityIcon,
+    renderItemIcon,
+});
 
 // Renders comprehensive explanation why a plan is infeasible according to Rule 5
 export function renderInfeasibleExplanation(plan = null) {
-    const container = document.getElementById('infeasible-explanation-section');
-    if (!container) return;
-
-    const currentRv = selectedHomeLevel();
-    const { facilities } = simpleSetup(currentRv);
-    const ownedCounts = {};
-    for (const [name, tiers] of Object.entries(facilities)) {
-        ownedCounts[name] = tiers.reduce((sum, t) => sum + t.count, 0);
-    }
-
-    const isVi = !window.i18n || window.i18n.getLang() === 'vi';
-    const isLevelUp = isLevelUpStrategy();
-    const targetRv = levelUpTarget();
-
-    // 1. Phân tích nguyên nhân cụ thể
-    const causes = [];
-
-    const isSeason = seasonActive();
-    const wantsSauce = isSeason && selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce');
-    const wantsHotpot = isSeason && selectedSeasonDishes.has('umbral_hot_pot');
-    const hasSpecialGinseng = unlockedSpecial.has('ginseng_congee');
-
-    if (wantsSauce && hasSpecialGinseng) {
-        causes.push({
-            icons: [renderFacilityIcon('Simmering Pot'), renderItemIcon('ginseng_congee'), renderItemIcon('umbral_sweet_and_spicy_sauce')],
-            title: isVi ? 'Tranh chấp Nồi hầm (Simmering Pot)' : 'Simmering Pot Contention',
-            desc: isVi
-                ? `Bạn sở hữu <strong>${ownedCounts['Simmering Pot'] || 2} Nồi hầm</strong>, nhưng đang bị yêu cầu đồng thời bởi <strong>Cháo nhân sâm</strong> và <strong>Sốt cay ngọt hắc ám</strong>. Solver không thể đáp ứng cả hai món cùng lúc với tài nguyên hiện tại.`
-                : `You own <strong>${ownedCounts['Simmering Pot'] || 2} Simmering Pots</strong>, but they are requested by both <strong>Ginseng Porridge</strong> and <strong>Umbral Sweet and Spicy Sauce</strong> simultaneously.`
-        });
-    }
-
-    if (wantsHotpot) {
-        causes.push({
-            icons: [renderFacilityIcon('Blazing Stove'), renderItemIcon('umbral_hot_pot')],
-            title: isVi ? 'Chiếm dụng Bếp lửa lớn (Blazing Stove)' : 'Blazing Stove Fully Occupied',
-            desc: isVi
-                ? `Bạn chỉ sở hữu <strong>1 Bếp lửa lớn</strong>. Món sự kiện <strong>Lẩu hắc ám</strong> đã chiếm trọn cơ sở này, khiến các công thức sản xuất hoặc chuỗi cung ứng chính không thể hoạt động.`
-                : `You only have <strong>1 Blazing Stove</strong>. The event dish <strong>Umbral Hot Pot</strong> fully locks it down, starving standard recipes.`
-        });
-    }
-
-    // Nguyên nhân đất canh tác Farmland (chỉ khi sự kiện Trung Thu đang bật)
-    const eventPlots = isSeason ? (seasonRadishPlots + seasonPepperPlots) : 0;
-    const totalFarmland = ownedCounts['Farmland'] || 30;
-    if (isSeason && eventPlots >= 4) {
-        causes.push({
-            icons: [renderFacilityIcon('Farmland'), renderItemIcon('moondew_radish'), renderItemIcon('waxing_moon_pepper')],
-            title: isVi ? 'Diện tích đất canh tác Farmland bị thu hẹp' : 'Farmland Crop Saturation',
-            desc: isVi
-                ? `Đã dành <strong>${eventPlots}/${totalFarmland} ô đất</strong> (${seasonRadishPlots} ô Củ cải & ${seasonPepperPlots} ô Ớt) cho nông sản sự kiện. Số ô đất còn lại (${totalFarmland - eventPlots} ô) không đủ để trồng nguyên liệu cho các sản phẩm chính và mục tiêu nâng cấp.${eventPlots > 10 ? ' Mức tối ưu khuyến nghị cho các cơ sở chế biến là 5 Củ cải & 5 Ớt (tổng 10 ô); việc chọn từ 6 Củ cải & 6 Ớt trở lên (12 ô) sẽ làm tắc nghẽn chuỗi cung ứng và bóp nghẹt diện tích nâng cấp.' : ''}`
-                : `Allocated <strong>${eventPlots}/${totalFarmland} plots</strong> (${seasonRadishPlots} Radish & ${seasonPepperPlots} Pepper) to festival crops, leaving insufficient plots (${totalFarmland - eventPlots}) for core production and level-up.${eventPlots > 10 ? ' The sweet spot capacity is 5 Radish & 5 Pepper (10 plots); picking 6+ each (12+ plots) causes supply saturation and starves level-up materials.' : ''}`
-        });
-    }
-
-    // Nguyên nhân nâng cấp RV
-    if (isLevelUp) {
-        causes.push({
-            icons: [renderFacilityIcon('Woodworking Bench'), renderFacilityIcon('Chimney Kiln')],
-            title: isVi ? `Xung đột mục tiêu Nâng cấp RV ${targetRv}` : `Conflict with RV ${targetRv} Level-Up Goal`,
-            desc: isVi
-                ? `Chiến lược nâng cấp RV yêu cầu tập trung toàn bộ công nhân và tài nguyên vào Xưởng gỗ và Lò luyện quặng để sản xuất vật liệu nâng cấp. Sự cạnh tranh nhân lực và công suất khiến solver không thể lập lộ trình hoàn thành cấp độ với thiết lập hiện tại.`
-                : `RV level-up demands full capacity on Woodworking Bench and Chimney Kiln, conflicting with other active resource demands.`
-        });
-    }
-
-    // Nếu không khớp các trường hợp trên, đưa ra nguyên nhân tổng quát
-    if (causes.length === 0) {
-        causes.push({
-            icons: [renderFacilityIcon('Simmering Pot'), renderFacilityIcon('Blazing Stove')],
-            title: isVi ? 'Xung đột tài nguyên và công nhân Aniimo' : 'Resource & Aniimo Worker Bottleneck',
-            desc: isVi
-                ? `Sự kết hợp giữa các công thức đã chọn vượt quá giới hạn công nhân Aniimo, điện năng hoặc số lượng cơ sở hiện có.`
-                : `The combination of chosen recipes exceeds current Aniimo staffing, electrical capacity, or facility counts.`
-        });
-    }
-
-    // 2. Đề xuất giải pháp thông minh
-    const recommendations = [];
-
-    if (isSeason) {
-        recommendations.push(`
-            <li class="infeasible-rec-item">
-                <span>💡</span>
-                <span>${isVi ? 'Đổi sang món sự kiện tối ưu nhất:' : 'Switch to the highest-yield event dish:'} <strong>${isVi ? 'Đĩa tiệc mùa màng' : 'Harvest Platter'}</strong> ${renderItemIcon('harvest_platter')} (${isVi ? 'chế biến tại Bàn chế tạo' : 'at Crafting Table'} ${renderFacilityIcon('Crafting Table')}), giá bán cao nhất (5.290 coin/đĩa) và không tranh chấp Nồi hầm hay Bếp lửa lớn.</span>
-            </li>
-        `);
-
-        if (wantsHotpot || wantsSauce) {
-            const dishToDrop = wantsHotpot ? 'umbral_hot_pot' : 'umbral_sweet_and_spicy_sauce';
-            const dishName = wantsHotpot ? (isVi ? 'Lẩu hắc ám' : 'Umbral Hot Pot') : (isVi ? 'Sốt cay ngọt hắc ám' : 'Umbral Sweet and Spicy Sauce');
-            recommendations.push(`
-                <li class="infeasible-rec-item">
-                    <span>💡</span>
-                    <span>${isVi ? 'Bỏ chọn món đang gây tắc nghẽn:' : 'Uncheck the conflicting dish:'} <strong>${dishName}</strong> ${renderItemIcon(dishToDrop)} ${isVi ? 'để giải phóng cơ sở cho sản xuất chính hoặc nâng cấp RV.' : 'to release the facility for core production.'}</span>
-                </li>
-            `);
-        }
-
-        if (eventPlots > 4) {
-            recommendations.push(`
-                <li class="infeasible-rec-item">
-                    <span>💡</span>
-                    <span>${isVi ? 'Cân bằng lại số ô đất sự kiện:' : 'Rebalance festival plots:'} ${isVi ? `Hạ số ô Củ cải (${seasonRadishPlots}) và Ớt (${seasonPepperPlots}) xuống mức cân bằng lý tưởng (<strong>5 ô Củ cải & 5 ô Ớt</strong>, hoặc 4 & 4) để giải phóng thêm diện tích Farmland cho chuỗi nguyên liệu nâng cấp RV.` : `Lower Radish and Pepper plots to the optimal sweet spot (<strong>5 Radish & 5 Pepper</strong>, or 4 & 4) to free farmland for level-up materials.`}</span>
-                </li>
-            `);
-        }
-    } else {
-        const currentAniimoCap = getProductionAniimoCap();
-        const maxAniimo = ANIIMO_MAX[currentRv - 1] || 38;
-        if (currentAniimoCap < maxAniimo) {
-            recommendations.push(`
-                <li class="infeasible-rec-item">
-                    <span>💡</span>
-                    <span>${isVi ? 'Tăng giới hạn công nhân Aniimo:' : 'Increase Aniimo worker cap:'} ${isVi ? `Hiện tại anh đang giới hạn <strong>${currentAniimoCap}/${maxAniimo}</strong> công nhân. Hãy nâng lên tối đa (${maxAniimo}) để giải phóng đủ nhân lực cho cả khâu trồng trọt và chế biến nâng cấp RV.` : `Currently capped at <strong>${currentAniimoCap}/${maxAniimo}</strong> workers. Increase to max (${maxAniimo}) to provide enough staffing for level-up.`}</span>
-                </li>
-            `);
-        }
-        recommendations.push(`
-            <li class="infeasible-rec-item">
-                <span>💡</span>
-                <span>${isVi ? 'Điều chỉnh Chế độ điện (E-mode):' : 'Adjust Electric Mode:'} ${isVi ? 'Nếu việc kích hoạt điện lưới trên quá nhiều cơ sở gây tắc nghẽn chuỗi cung ứng, hãy thử giảm bớt số máy dùng điện hoặc chuyển sang chế độ thủ công tiêu chuẩn.' : 'Try reducing electrified machines to keep supply chains balanced.'}</span>
-            </li>
-        `);
-    }
-
-    // 3. Render HTML
-    container.innerHTML = `
-        <div class="infeasible-header">
-            <div class="infeasible-badge-icon">⚠️</div>
-            <div class="infeasible-title-box">
-                <h2>${isVi ? 'Tại sao kế hoạch này không khả thi?' : 'Why is this plan infeasible?'}</h2>
-                <p class="infeasible-subtitle">${isVi ? 'Bộ giải tối ưu không thể tìm thấy phương án đáp ứng đồng thời tất cả các ràng buộc đã chọn. Dưới đây là phân tích chi tiết các điểm nghẽn:' : 'The optimizer cannot satisfy all selected constraints at once. Here is the bottleneck analysis:'}</p>
-            </div>
-        </div>
-        <div class="infeasible-causes-container">
-            ${causes.map(c => `
-                <div class="infeasible-cause-item">
-                    <div class="infeasible-visual-icons">
-                        ${c.icons.join('')}
-                    </div>
-                    <div class="infeasible-cause-text">
-                        <strong>${c.title}</strong>: ${c.desc}
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-        <div class="infeasible-recommendations-box">
-            <div class="infeasible-rec-title">
-                <span>✨</span>
-                <span>${isVi ? 'Đề xuất hành động để giải quyết:' : 'Recommended Actions to Fix:'}</span>
-            </div>
-            <ul class="infeasible-rec-list">
-                ${recommendations.join('')}
-            </ul>
-        </div>
-    `;
-
-    container.style.display = 'block';
+    return infeasibleViewController.renderInfeasibleExplanation(plan);
 }
 
-// Show an error in the results section (plan-level failures only; goal-level failures are rare
-// and shown inline in the goal section instead, since the plan above it is still valid).
+// Show an error in the results section
 function showError(message) {
-    const errorEl = document.getElementById('error-message');
-    const resultsContent = document.getElementById('results-content');
-    const resultsSection = document.getElementById('results-section');
-    const infeasibleEl = document.getElementById('infeasible-explanation-section');
-
-    resultsSection.style.display = 'block';
-    resultsContent.style.display = 'none';
-
-    // Rule 5: If it is an infeasibility error, show exclusively the infeasible explanation card
-    if (message.includes('No plan found') || message.includes('infeasible') || message.includes('không thể tìm thấy') || message.includes('no plan found')) {
-        if (errorEl) errorEl.style.display = 'none';
-        renderInfeasibleExplanation({ success: false, error: message });
-        return;
-    }
-
-    if (infeasibleEl) infeasibleEl.style.display = 'none';
-    if (errorEl) {
-        errorEl.textContent = message;
-        errorEl.style.display = 'block';
-    }
+    return infeasibleViewController.showError(message);
 }
 
 // The goal card's choices: coins and every priority that's on, in the player's order. Keeps the
@@ -6654,138 +1967,17 @@ function renderGoalTargets(plan) {
     const select = document.getElementById('goal-target');
     const previous = select.value;
     const rows = priorityRows(plan);
-    select.innerHTML = rows.map(r => `<option value="${r.target}">${goalName(r)}</option>`).join('');
+    select.innerHTML = renderGoalTargetOptions(rows, goalName);
     if (rows.some(r => r.target === previous)) select.value = previous;
 }
 
-function goalName(row) {
-    return row.target === 'coins' ? 'Home Coins' : row.label;
-}
-
-// Renders the item-level production breakdown from `goalResult.products`; one row per income
-// stream (a selected item, or the leftover-capacity portion of a split facility), already
-// sorted by net profit descending by the solver. Wood Blocks/Mineral Sand byproducts
-// (`goalResult.byproducts`) are appended as extra rows at the bottom, styled distinctly since
-// they're a side effect of the plan above rather than something sold for the chosen currency.
-// The Profit column scales with whichever unit is selected in `#rate-unit` (see
-// `updateRateDisplay`), same as "Your Rate" above.
 function renderProductBreakdown(goalResult) {
-    const section = document.getElementById('product-breakdown-section');
-    const tbody = document.getElementById('product-breakdown-tbody');
-
-    const products = goalResult.products || [];
-    const byproducts = (goalResult.byproducts || []).filter(([, amount]) => Math.floor(amount) > 0);
-    if (products.length === 0 && byproducts.length === 0) {
-        section.style.display = 'none';
-        return;
-    }
-    section.style.display = 'block';
-
-    const unit = document.getElementById('rate-unit').value;
-    const { multiplier, suffix } = RATE_UNIT_SECONDS[unit] || RATE_UNIT_SECONDS.second;
-    document.getElementById('product-breakdown-rate-header').innerHTML = `Profit <span class="th-unit">Home Coins${suffix}</span>`;
-    // During the season, what each item counts toward the season's points.
-    const season = lastPlan?.season_points != null;
-    const pointsEach = new Map((lastPlan?.income_streams || []).map(s => [s.item_name, s.points || 0]));
-    document.getElementById('product-breakdown-points-header').hidden = !season;
-    const pointsCell = amount => season ? `<td>${amount > 0 ? formatNumber(amount) : '&mdash;'}</td>` : '';
-
-    tbody.innerHTML = '';
-    products.forEach(p => {
-        const row = document.createElement('tr');
-        // Amount is floored to a whole number; the underlying rate math is a continuous
-        // approximation (same steady-state model used throughout this calculator), but you
-        // can't actually receive a fractional item; whatever fraction is left over represents
-        // a batch still in progress at the moment the goal is reached. Worth is then computed
-        // from THAT same whole number (amount * sell price), not the unrounded rate total, so
-        // the two columns always reconcile by hand-multiplication; Profit stays net of
-        // ingredient costs (matches Total Time/Amount Produced above), so it won't equal Worth
-        // / time; they're intentionally different figures (gross vs. net).
-        const wholeAmount = Math.floor(p.total_units);
-        const worth = wholeAmount * p.sell_value;
-        row.innerHTML = `
-            <td>${prettyItem(p.item_name)}</td>
-            <td>${p.facility}</td>
-            <td>${wholeAmount.toLocaleString()}</td>
-            <td>${formatRate(p.rate_per_second * multiplier)}</td>
-            <td>${formatNumber(worth)}</td>
-            ${pointsCell(wholeAmount * (pointsEach.get(p.item_name) || 0))}
-        `;
-        tbody.appendChild(row);
-    });
-
-    byproducts.forEach(([name, amount]) => {
-        const row = document.createElement('tr');
-        row.className = 'byproduct-row';
-        row.innerHTML = `
-            <td>${name} <span class="hint small">(bonus)</span></td>
-            <td>&mdash;</td>
-            <td>${Math.floor(amount).toLocaleString()}</td>
-            <td>&mdash;</td>
-            <td>not sold</td>
-            ${pointsCell(0)}
-        `;
-        tbody.appendChild(row);
-    });
+    return productionSummaryViewController.renderProductBreakdown(goalResult);
 }
 
-// Renders `goalResult.seed_requirements`; one row per grower crop actually being planted, how
-// many times each of its dedicated plots needs replanting over the goal's total time, so a
-// player can have enough seeds ready ahead of time. Never includes processor facilities; they
-// aren't planted (see `SeedRequirement` in models.rs).
 function renderSeedsNeeded(goalResult) {
-    const section = document.getElementById('seeds-needed-section');
-    const tbody = document.getElementById('seeds-needed-tbody');
-
-    const requirements = goalResult.seed_requirements || [];
-    if (requirements.length === 0) {
-        section.style.display = 'none';
-        return;
-    }
-    section.style.display = 'block';
-
-    tbody.innerHTML = requirements.map(r => `
-        <tr>
-            <td>${prettyItem(r.item_name)}</td>
-            <td>${r.facility}</td>
-            <td>${r.facility_count.toLocaleString()}</td>
-            <td>${r.seeds_per_plot.toLocaleString()}</td>
-            <td>${r.total_seeds.toLocaleString()}</td>
-        </tr>
-    `).join('');
+    return productionSummaryViewController.renderSeedsNeeded(goalResult);
 }
-
-// Fixed display order for environment groups; matches ENVIRONMENT_BUILDINGS's mode order in
-// optimizer.rs (Heat Furnace's two modes, then Cooling Unit's two, then Sunlamp's one).
-const ENVIRONMENT_MODE_ORDER = ['Warm', 'Scorching', 'Cool', 'Freeze', 'Adequate'];
-
-// "Fire Lv.4 · Practical" for a row that needs a specific Aniimo, or '-' when it doesn't (crops,
-// trees, idle facilities).
-// Every Aniimo ability in the game's own order, with its in-game color and what it's for.
-// `dark` marks colors light enough to need dark text.
-const ABILITIES = [
-    { name: 'Fire', color: '#e5484d', about: 'Cooking, smelting and heat' },
-    { name: 'Grass', color: '#3fa36b', about: 'Planting seeds and gathering' },
-    { name: 'Water', color: '#2b8fe8', about: 'Brewing, fetching water and watering' },
-    { name: 'Earth', color: '#b39a74', about: 'Reclaiming land and mining' },
-    { name: 'Lightning', color: '#e6c317', about: 'Electricity', dark: true },
-    { name: 'Ice', color: '#45c4de', about: 'Cooling the homeland' },
-    { name: 'Wind', color: '#2fbfa5', about: 'Processing with wind' },
-    { name: 'Dark', color: '#7d4bb3', about: 'Harvesting, cutting, pickling and drying' },
-    { name: 'Light', color: '#f5a524', about: 'Lighting the homeland', dark: true },
-    { name: 'Hauling', color: '#5f7fd1', about: 'Carrying produce to storage' },
-    { name: 'Artisanship', color: '#5fb14f', about: 'Handcrafted goods' },
-    { name: 'Leisure', color: '#e8678a', about: 'Making things while playing' },
-    { name: 'Perfumery', color: '#b877d9', about: 'Perfumes and incense' },
-];
-const ABILITY_BY_NAME = new Map(ABILITIES.map(a => [a.name, a]));
-
-// The ability each environment building's Aniimo needs (confirmed in game).
-const ENVIRONMENT_BUILDING_ABILITY = {
-    'Heat Furnace': 'Fire',
-    'Cooling Unit': 'Ice',
-    'Sunlamp': 'Light',
-};
 
 // A colored ability tag, like the game's.
 function abilityTag(name) {
@@ -6832,252 +2024,6 @@ function renderCropHarvestBadge(step, tasks, baseFac, preferPrismana = true) {
         ${workerCard}
         <span class="farm-role-tag">${roleTitle}</span>
     </div>`;
-}
-
-function renderFarmingCrewSummaryBox(totalFarmland, totalWoodland) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const totalPlots = totalFarmland + totalWoodland;
-    const isLargeFarm = totalPlots >= 30;
-    const crewCount = isLargeFarm ? 8 : 5;
-
-    const afkBadge = isLargeFarm
-        ? `<span class="farming-crew-pill afk-pill">🛡️ ${isVi ? 'Dự phòng kép (Chống AFK)' : 'Dual-Backup (Anti-AFK)'}</span>`
-        : `<span class="farming-crew-pill">⚡ ${isVi ? 'Đội hình tinh gọn' : 'Lean Crew'}</span>`;
-
-    const plotsBadge = `<span class="farming-crew-pill">📍 ${totalPlots} ${isVi ? 'ô đất' : 'plots'} (${totalFarmland} ${isVi ? 'Nông trại' : 'Farmland'} · ${totalWoodland} ${isVi ? 'Rừng cây' : 'Woodland'})</span>`;
-
-    const roles = isLargeFarm ? [
-        {
-            step: 1,
-            taskVi: 'Khai khẩn',
-            taskEn: 'Reclaiming',
-            plotsVi: `${totalPlots} ô đất`,
-            plotsEn: `${totalPlots} plots`,
-            workers: 'Gracewing (Sơn Lâm)',
-            count: '2×',
-            ability: 'Earth',
-            level: 2,
-            specific: 'Gracewing',
-            reasonVi: 'Gracewing Sơn Lâm chỉ có Thổ mà không có Vận chuyển, tập trung khai khẩn nhanh chóng, không bị sao nhãng.',
-            reasonEn: 'Gracewing (Forest) has Earth with no Hauling; focuses 100% on fast tilling without distraction.'
-        },
-        {
-            step: 2,
-            taskVi: 'Gieo trồng',
-            taskEn: 'Sowing',
-            plotsVi: `${totalPlots} ô đất`,
-            plotsEn: `${totalPlots} plots`,
-            workers: 'Irisalis (Leafy phụ)',
-            count: '2×',
-            ability: 'Grass',
-            level: 3,
-            specific: 'Irisal',
-            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung gieo hạt giống, không bị sao nhãng (Leafy chỉ phụ).',
-            reasonEn: 'Irisalis has only Grass skill so stays purely focused on sowing seeds without distraction (Leafy as backup).'
-        },
-        {
-            step: 3,
-            taskVi: 'Tưới nước',
-            taskEn: 'Watering',
-            plotsVi: `${totalPlots} ô × 2 đợt`,
-            plotsEn: `${totalPlots} plots × 2`,
-            workers: 'Piopiota (Đêm) + Leafy',
-            count: '2×',
-            ability: 'Water',
-            level: 3,
-            specific: 'Piopiota',
-            reasonVi: 'Piopiota Đêm có 2 kỹ năng Tưới nước và Ám: chỉ tập trung tưới nước và phụ thu hoạch nông trại.',
-            reasonEn: 'Night Piopiota has Water and Dark skills: focuses primarily on watering and backs up farm harvest.'
-        },
-        {
-            step: 4,
-            taskVi: 'Gặt & Đốn gỗ/Nhựa (Ám)',
-            taskEn: 'Harvest: Reap & Log (Dark)',
-            plotsVi: 'Lúa, khoai, mía, sâm, tre, gỗ, siro phong...',
-            plotsEn: 'Wheat, potato, cane, bamboo, timber, maple syrup...',
-            workers: 'Pawney + Rookey',
-            count: '2×',
-            ability: 'Dark',
-            level: 4,
-            specific: 'Pawney',
-            reasonVi: 'Pawney và Rookey là lựa chọn tốt nhất: dùng Hệ Ám gặt nông sản và đốn gỗ/khai thác siro phong, cao su; thu hoạch xong kiêm luôn vận chuyển.',
-            reasonEn: 'Pawney and Rookey are optimal: Dark skill reaps crops & logs timber/maple syrup/rubber; immediately hauls after harvest.'
-        },
-        {
-            step: 5,
-            taskVi: 'Hái hoa/trái/hạt (Cỏ)',
-            taskEn: 'Harvest: Collect (Grass)',
-            plotsVi: 'Dâu, đậu nành, nho, chanh, hạt dẻ, dừa...',
-            plotsEn: 'Berries, soybeans, grapes, lemons, nuts, coconut...',
-            workers: 'Irisalis (Leafy phụ)',
-            count: '2×',
-            ability: 'Grass',
-            level: 3,
-            specific: 'Irisal',
-            reasonVi: 'Irisalis chỉ có kỹ năng Cỏ duy nhất nên tập trung thu hái toàn bộ hoa, quả mọng và hạt mềm mà không bị sao nhãng.',
-            reasonEn: 'Irisalis has dedicated Grass skill: stays purely focused on collecting berries, fruits, flowers & nuts without distraction.'
-        },
-        {
-            step: 6,
-            taskVi: 'Vận chuyển',
-            taskEn: 'Hauling',
-            plotsVi: 'Toàn bộ nông sản & gỗ',
-            plotsEn: 'All crops & lumber',
-            workers: 'Pawney + Rookey',
-            count: '2-3×',
-            ability: 'Hauling',
-            level: 4,
-            specific: 'Pawney',
-            reasonVi: 'Pawney và Rookey là tốt nhất, khi không thu hoạch thì chỉ tập trung vận chuyển các sản phẩm khác.',
-            reasonEn: 'Pawney and Rookey are best: when not harvesting, they focus entirely on hauling all other products.'
-        }
-    ] : [
-        {
-            step: 1,
-            taskVi: 'Khai khẩn',
-            taskEn: 'Reclaiming',
-            plotsVi: `${totalPlots} ô đất`,
-            plotsEn: `${totalPlots} plots`,
-            workers: 'Gracewing (Sơn Lâm)',
-            count: '1×',
-            ability: 'Earth',
-            level: 2,
-            specific: 'Gracewing',
-            reasonVi: 'Gracewing Sơn Lâm chỉ có Thổ mà không có Vận chuyển, tập trung khai khẩn nhanh chóng, không bị sao nhãng.',
-            reasonEn: 'Gracewing (Forest) has Earth with no Hauling; focuses 100% on fast tilling without distraction.'
-        },
-        {
-            step: 2,
-            taskVi: 'Gieo hạt & Hái quả (Cỏ)',
-            taskEn: 'Sowing & Collect (Grass)',
-            plotsVi: `${totalPlots} ô đất`,
-            plotsEn: `${totalPlots} plots`,
-            workers: 'Irisalis',
-            count: '1×',
-            ability: 'Grass',
-            level: 3,
-            specific: 'Irisal',
-            reasonVi: 'Irisalis dùng Hệ Cỏ: phụ trách gieo hạt giống và thu hái toàn bộ các cây hái quả/hoa (dâu, nho, đậu, chanh, hạt dẻ...).',
-            reasonEn: 'Irisalis uses Grass: handles seed sowing and collects all fruit, berry, flower & nut crops without distraction.'
-        },
-        {
-            step: 3,
-            taskVi: 'Tưới nước',
-            taskEn: 'Watering',
-            plotsVi: `${totalPlots} ô đất`,
-            plotsEn: `${totalPlots} plots`,
-            workers: 'Piopiota (Đêm)',
-            count: '1×',
-            ability: 'Water',
-            level: 3,
-            specific: 'Piopiota',
-            reasonVi: 'Piopiota Đêm có 2 kỹ năng Tưới nước và Ám: chỉ tập trung tưới nước và phụ thu hoạch nông trại.',
-            reasonEn: 'Night Piopiota has Water and Dark skills: focuses primarily on watering and backs up farm harvest.'
-        },
-        {
-            step: 4,
-            taskVi: 'Gặt & Đốn gỗ/Nhựa (Ám)',
-            taskEn: 'Harvest: Reap & Log (Dark)',
-            plotsVi: 'Lúa mì, khoai, tre, gỗ, siro phong...',
-            plotsEn: 'Wheat, potato, bamboo, timber, maple syrup...',
-            workers: 'Pawney / Rookey',
-            count: '1×',
-            ability: 'Dark',
-            level: 4,
-            specific: 'Pawney',
-            reasonVi: 'Pawney / Rookey dùng Hệ Ám: gặt nông sản và đốn gỗ/khai thác siro phong, cao su; xong việc lập tức chuyển sang vận chuyển.',
-            reasonEn: 'Pawney / Rookey uses Dark: reaps crops and logs timber/maple syrup/rubber; immediately transitions to hauling.'
-        },
-        {
-            step: 5,
-            taskVi: 'Vận chuyển',
-            taskEn: 'Hauling',
-            plotsVi: 'Toàn bộ nông sản',
-            plotsEn: 'All crops',
-            workers: 'Pawney / Rookey',
-            count: '1×',
-            ability: 'Hauling',
-            level: 4,
-            specific: 'Pawney',
-            reasonVi: 'Pawney và Rookey là tốt nhất, khi không thu hoạch thì chỉ tập trung vận chuyển các sản phẩm khác.',
-            reasonEn: 'Pawney and Rookey are best: when not harvesting, they focus entirely on hauling all other products.'
-        }
-    ];
-
-    const rowsHtml = roles.map(r => {
-        const task = isVi ? r.taskVi : r.taskEn;
-        const plots = isVi ? r.plotsVi : r.plotsEn;
-        const reason = isVi ? r.reasonVi : r.reasonEn;
-        const avatar = renderAniimoWorkerCard(r.ability, r.level, '', true, r.specific, r.level >= 4);
-        const theme = ABILITY_THEMES[r.ability] || { color: '#888888', icon: '🐾', vi: r.ability };
-        const abilityName = isVi ? theme.vi : r.ability;
-
-        return `
-            <tr class="farming-crew-row">
-                <td class="crew-step-col">
-                    <span class="crew-step-badge">${r.step}</span>
-                </td>
-                <td class="crew-task-col">
-                    <div class="crew-task-name">${task}</div>
-                    <div class="crew-task-plots">${plots}</div>
-                </td>
-                <td class="crew-worker-col">
-                    <div class="crew-worker-wrap">
-                        ${avatar}
-                        <span class="crew-worker-name">${r.workers}</span>
-                    </div>
-                </td>
-                <td class="crew-count-col">
-                    <span class="crew-count-badge">${r.count}</span>
-                </td>
-                <td class="crew-ability-col">
-                    <span class="crew-ability-pill" style="--ability-color: ${theme.color}">
-                        <span class="elem-ico">${theme.icon}</span>
-                        <span class="elem-name">${abilityName} Lv.${r.level}</span>
-                    </span>
-                </td>
-                <td class="crew-reason-col">
-                    <div class="crew-reason-text">${reason}</div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    return `
-        <div class="farming-crew-summary-card">
-            <div class="farming-crew-head">
-                <div class="farming-crew-title-wrap">
-                    <span class="farming-crew-icon">🌾</span>
-                    <h3 class="farming-crew-title">${isVi ? 'Tổ Đội Đồng Áng Tập Trung' : 'Unified Farming Crew Summary'}</h3>
-                </div>
-                <div class="farming-crew-badges">
-                    ${plotsBadge}
-                    ${afkBadge}
-                    <span class="farming-crew-pill">👥 ${crewCount} ${isVi ? 'Aniimo' : 'workers'}</span>
-                </div>
-            </div>
-            <div class="farming-crew-table-wrapper">
-                <table class="farming-crew-table">
-                    <thead>
-                        <tr>
-                            <th class="th-step">#</th>
-                            <th class="th-task">${isVi ? 'Nhiệm vụ & Quy mô' : 'Task & Scale'}</th>
-                            <th class="th-worker">${isVi ? 'Aniimo' : 'Aniimo'}</th>
-                            <th class="th-count">${isVi ? 'Số lượng' : 'Count'}</th>
-                            <th class="th-ability">${isVi ? 'Hệ & Cấp' : 'Ability'}</th>
-                            <th class="th-reason">${isVi ? 'Lý do & Đặc tính vận hành' : 'Reason & Operational Logic'}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsHtml}
-                    </tbody>
-                </table>
-            </div>
-            <p class="farming-crew-footer-note">
-                💡 <em>${isVi ? 'Toàn bộ ô đất dùng chung 1 tổ đội luân phiên theo dây chuyền tuần hoàn. Không phân bổ riêng lẻ từng ô để tối ưu hóa slot đảo.' : 'All farm plots share one rotating crew pipeline. Workers are not assigned individually per plot to preserve island slots.'}</em>
-            </p>
-        </div>
-    `;
 }
 
 function aniimoLabel(step) {
@@ -7161,205 +2107,6 @@ function taskLabel(task, facility, tagged = false) {
     return `${ability} Lv.${task.level} · ${personality}${letter ? ` (${letter})` : ''}`;
 }
 
-function facilityPlanTable(rows, options = {}) {
-    return facilityPlanTableOf([{ rows }], options);
-}
-
-// One table over several labelled groups, e.g. a paired environment's three zones: each group's
-// rows follow a band naming it, so the column headers are written once.
-function facilityPlanTableOf(groups, options = {}) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const isFarm = options.isFarm || false;
-    const hasOverrides = facilityOverrides && facilityOverrides.length > 0;
-    const body = groups
-        .map(group => (group.label ? `<tr class="facility-plan-group"><td colspan="${isFarm ? 4 : 6}">${group.label}</td></tr>` : '') + planRows(group.rows, options))
-        .join('');
-
-    if (isFarm) {
-        return `
-            <div class="table-wrapper farming-plots-table-wrapper">
-                <table class="facility-plan-table farming-plots-table">
-                    <thead>
-                        <tr>
-                            <th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th>
-                            <th>${window.th ? window.th('th_count', 'Count') : 'Count'}</th>
-                            <th>${window.th ? window.th('th_producing', 'Producing') : 'Producing'}</th>
-                            <th>${window.th ? window.th('th_why', 'Why') : 'Why'}</th>
-                        </tr>
-                    </thead>
-                    <tbody>${body}</tbody>
-                </table>
-            </div>
-        `;
-    }
-
-    return `
-        <div class="table-wrapper worksheet-table-wrapper">
-            <div class="worksheet-toolbar">
-                <div class="worksheet-toolbar-left">
-                    <span class="worksheet-toolbar-title">⚡ Interactive Worksheet</span>
-                    <span class="worksheet-scroll-hint">${isVi ? '👉 Vuốt ngang để chỉnh Chế độ & xem Aniimo' : '👉 Swipe horizontally for Modes & Aniimo'}</span>
-                    <span id="fast-resolve-benchmark-badge" class="benchmark-badge" style="display: none;"></span>
-                </div>
-                <div class="worksheet-toolbar-actions">
-                    <button type="button" id="btn-reset-overrides" class="btn-reset-overrides" style="display: ${hasOverrides ? 'inline-flex' : 'none'};" onclick="window.resetWorksheetOverrides()" title="Hoàn tác toàn bộ can thiệp thủ công về thuật toán tự động tối ưu">
-                        ↺ ${isVi ? 'Tự động tối ưu' : 'Auto Optimize'}
-                    </button>
-                </div>
-            </div>
-            <table class="facility-plan-table">
-                <thead>
-                    <tr>
-                        <th>${window.th ? window.th('th_facility', 'Facility') : 'Facility'}</th>
-                        <th>${window.th ? window.th('th_count', 'Count') : 'Count'}</th>
-                        <th>${isVi ? 'Chế độ' : 'Mode'}</th>
-                        <th>${window.th ? window.th('th_producing', 'Producing') : 'Producing'}</th>
-                        <th>${window.th ? window.th('th_aniimo', 'Aniimo') : 'Aniimo'}</th>
-                        <th>${window.th ? window.th('th_why', 'Why') : 'Why'}</th>
-                    </tr>
-                </thead>
-                <tbody>${body}</tbody>
-            </table>
-        </div>
-    `;
-}
-
-function planRows(rows, options = {}) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const isFarm = options.isFarm || false;
-    const currentHomeLevel = selectedHomeLevel();
-    const emodeAvailable = currentHomeLevel >= 12;
-
-    return rows.map(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-
-        // Đối với ô đất canh tác (Nông trại, Rừng cây): loại bỏ Chế độ và Aniimo vì đã có Tổ Đội Đồng Áng
-        if (isFarm) {
-            return `
-                <tr class="status-${step.status}">
-                    <td data-label="Facility">
-                        <div class="facility-cell">
-                            ${renderFacilityIcon(baseFac)}
-                            <span class="facility-name-text">${getFacilityDisplayName(baseFac)}</span>
-                        </div>
-                    </td>
-                    <td data-label="Count">${step.facility_count}</td>
-                    <td data-label="Producing">
-                        <div class="item-cell">
-                            ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
-                            
-                        </div>
-                    </td>
-                    <td data-label="Why">${prettyReason(step.reason)}</td>
-                </tr>
-            `;
-        }
-
-        const isMine = baseFac === 'Mine';
-        const isWell = baseFac === 'Well';
-        const facDef = FACILITIES.find(f => f.name === baseFac);
-        const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);
-
-        // Xác định mode hiện tại:
-        const ovr = facilityOverrides.find(o => o.facility === baseFac);
-        let currentMode = step.mode;
-        if (!currentMode) {
-            if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
-                currentMode = 'electric';
-            } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
-                currentMode = 'prismana';
-            } else if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) {
-                currentMode = 'manual';
-            } else if (ovr) {
-                if (emodeAvailable && ovr.electric_count > 0) currentMode = 'electric';
-                else if (ovr.specialist_count > 0) currentMode = 'prismana';
-                else if (ovr.manual_count > 0) currentMode = 'manual';
-                else currentMode = 'manual';
-            } else if (emodeAvailable && step.is_emode !== false && supportsEmode && (lastEmodeCounts[baseFac] || 0) > 0 && !isMine && !isWell) {
-                currentMode = 'electric';
-            } else {
-                currentMode = 'manual';
-            }
-        }
-        step.mode = currentMode;
-
-        // Tính wattage badge:
-        const wattsPerUnit = emodeAvailable ? (FACILITY_POWER_WATTS[baseFac] || 0) : 0;
-        const totalWatts = (emodeAvailable && currentMode === 'electric') ? wattsPerUnit * step.facility_count : 0;
-        const powerBadge = totalWatts > 0 ? `<span class="facility-power-badge">⚡ ${totalWatts}W</span>` : '';
-
-        // Index của step trong lastPlan.coin_items
-        const stepIndex = (lastPlan?.coin_items || []).indexOf(step);
-
-        // Mode selector pills: TUYỆT ĐỐI KHÔNG CÒN "Mặc định"
-        let modeControls = '';
-        if (emodeAvailable && supportsEmode) {
-            // RV 12 trở đi: có 3 chế độ (Điện, Prismana, Thường) cho cơ sở hỗ trợ điện
-            modeControls = `
-                <div class="mode-selector-pills" data-fac="${baseFac}" data-step-index="${stepIndex}">
-                    <button type="button" class="mode-pill pill-electric ${currentMode === 'electric' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'electric', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chế độ điện' : 'Electric mode'}">⚡ ${isVi ? 'Điện' : 'Electric'}</button>
-                    <button type="button" class="mode-pill pill-specialist ${currentMode === 'prismana' || currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'prismana', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Prismana Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Prismana'}</button>
-                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Thủ công Cấp 3' : 'Manual Lv.3'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
-                </div>
-            `;
-        } else {
-            // RV 1 đến 11 HOẶC cơ sở không hỗ trợ điện (Nông trại, Rừng cây, Nhà Dewy, Giường cỏ mây, Lâu đài cát...): 2 nút (Prismana, Thường)
-            modeControls = `
-                <div class="mode-selector-pills" data-fac="${baseFac}" data-step-index="${stepIndex}">
-                    <button type="button" class="mode-pill pill-specialist ${currentMode === 'prismana' || currentMode === 'specialist' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'prismana', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Chuyên gia Prismana Lv.4' : 'Prismana Lv.4'}">🌟 ${isVi ? 'Prismana' : 'Prismana'}</button>
-                    <button type="button" class="mode-pill pill-manual ${currentMode === 'manual' ? 'active' : ''}" onclick="window.onWorksheetModeClick('${baseFac}', 'manual', ${step.facility_count}, '${currentMode}', this, ${stepIndex})" title="${isVi ? 'Thủ công Cấp 3' : 'Manual Lv.3'}">👤 ${isVi ? 'Thường' : 'Manual'}</button>
-                </div>
-            `;
-        }
-
-        return `
-            <tr class="status-${step.status}">
-                <td data-label="Facility">
-                    <div class="facility-cell">
-                        ${renderFacilityIcon(baseFac)}
-                        <span class="facility-name-text">${getFacilityDisplayName(baseFac)}</span>
-                        ${powerBadge}
-                    </div>
-                </td>
-                <td data-label="Count">
-                    <div class="facility-count-box">
-                        <span class="count-val">${step.facility_count}</span>
-                        ${(getOwnedFacilityCounts()[baseFac] > 1 && (supportsEmode || isMine || isWell)) ? `<button type="button" class="btn-partition-gear" onclick="window.openFacilityPartitionModal('${baseFac}')" title="${isVi ? 'Phân bổ số lượng theo chế độ (Điện / Prismana / Thường)' : 'Partition facility modes (Electric / Prismana / Manual)'}">⚙️</button>` : ''}
-                    </div>
-                </td>
-                <td data-label="Mode" class="mode-cell">${modeControls}</td>
-                <td data-label="Producing">
-                    <div class="item-cell">
-                        ${step.item_name ? `${renderItemIcon(step.item_name)}<span class="item-name-text">${prettyItem(step.item_name)}</span>` : '-'}
-                        
-                        ${(() => {
-                            if (!step.item_name || !step.cycle_time) return '';
-                            const uSec = step.units_per_second || (step.facility_count * (step.yield_amount || 1) / step.cycle_time);
-                            const uHour = Math.round(uSec * 3600);
-                            const rSec = step.rate_per_second || 0;
-                            const cHour = Math.round(rSec * 3600);
-                            return `
-                                <div class="item-cycle-info">
-                                    <span class="cycle-time-badge">⏱️ ${step.cycle_time.toFixed(1)}s</span> · <span class="rate-badge">📦 ${uHour.toLocaleString()}/h</span>${cHour > 0 ? ` · <span class="coins-badge">💰 ${formatNumber(cHour)}/h</span>` : ''}
-                                </div>
-                            `;
-                        })()}
-                    </div>
-                </td>
-                <td data-label="Aniimo">${aniimoLabel(step)}</td>
-                <td data-label="Why">${prettyReason(step.reason)}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// "Sowing", "Sowing and Collecting", "Reaping, Logging and Collecting".
-function listOf(items) {
-    if (items.length < 2) return items.join('');
-    return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
 
 
 // A growing environment named in its own colour.
@@ -7379,1996 +2126,291 @@ function whereText(g) {
         .join(', ');
 }
 
-let isRosterDetailsExpanded = false;
-
-window.toggleRosterDetails = function() {
-    isRosterDetailsExpanded = !isRosterDetailsExpanded;
-    const wrapper = document.getElementById('roster-details-wrapper');
-    const icon = document.getElementById('roster-toggle-icon');
-    const text = document.getElementById('roster-toggle-text');
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (wrapper) {
-        wrapper.style.display = isRosterDetailsExpanded ? 'block' : 'none';
-    }
-    if (icon) {
-        icon.textContent = isRosterDetailsExpanded ? '▼' : '▶';
-    }
-    if (text) {
-        text.textContent = isVi
-            ? (isRosterDetailsExpanded
-                ? '▲ Thu gọn danh sách chi tiết các nhóm công nhân'
-                : '👉 Bấm vào để hiện đầy đủ thông tin các nhóm công nhân ▼')
-            : (isRosterDetailsExpanded
-                ? '▲ Collapse worker group details'
-                : '👉 Click here to show full worker details for all groups ▼');
-    }
-};
-
-// What one Aniimo of a team row has to be: its level, then every personality it carries, each
-// with the letter the game shows. "Lv.4 · Judicious (J), Faithful (F)" is one Aniimo working a
-// Nimbus Bed and a Starfall Hammock, which it can because those never want opposites.
-function aniimoNeeds(g) {
-    if (g.environment) return g.label.slice(g.ability.length).trim();
-    if (g.specificWorker) {
-        return `Lv.${g.level} · <strong>${g.specificWorker}</strong>`;
-    }
-    const personalities = [...g.personalities]
-        .sort()
-        .map(name => `${name} (${personalityLetter(name)})`)
-        .join(', ');
-    return `Lv.${g.level}${personalities ? ` · ${personalities}` : ''}`;
-}
+const aniimoSummaryController = createAniimoSummaryController({
+    document,
+    window,
+    abilities: ABILITIES,
+    facilities: FACILITIES,
+    environmentBuildingAbility: ENVIRONMENT_BUILDING_ABILITY,
+    abilityThemes: ABILITY_THEMES,
+    renderRosterWorkerBadge,
+    renderRosterSummary,
+    selectedSetupTab,
+    selectedHomeLevel,
+    selectedAniimoSetup,
+    isSimpleMode,
+    getProductionAniimoCap,
+    getPowerPoleCount,
+    getPowerProfile,
+    calculatePowerWatts,
+    getLastEmodeCounts: () => lastEmodeCounts,
+    getFacilityOverrides: () => facilityOverrides,
+    getFacilityDisplayName,
+    prettyItem,
+    getFacilitySpecificWorker,
+    taskLabel,
+    opposedPersonality,
+    setLastBestTeam: team => rosterUIController.setLastBestTeam(team),
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+});
+aniimoSummaryController.attachGlobal();
 
 // The Aniimo team the shown plan needs, one row per distinct ability / level / personality.
 // A row asks for enough Aniimo to cover its work on average (a facility waiting on ingredients
 // frees its Aniimo), rounded up; facilities with a resident Aniimo (Sandcastle and the like) are
 // always busy, so they count one each.
 export function renderAniimoSummary(plan, options = {}) {
-    const isCustom = options.tab === 'custom' || (typeof selectedSetupTab === 'function' && selectedSetupTab() === 'custom');
-    if (isCustom) {
-        return renderRosterSummary(plan, options);
-    }
-    const container = document.getElementById('aniimo-summary');
-    const groups = new Map();
-    (plan.coin_items || []).forEach(step => {
-        const specificWorker = getFacilitySpecificWorker(step.facility, step.item_name, step.facility_level);
-        (step.aniimo_tasks || []).forEach(task => {
-            const key = specificWorker ? `${taskLabel(task, step.facility)} (${specificWorker})` : taskLabel(task, step.facility);
-            if (!groups.has(key)) {
-                const personality = task.personality_bonus
-                    ? FACILITIES.find(f => f.name === step.facility)?.personality ?? null
-                    : null;
-                groups.set(key, {
-                    label: key,
-                    ability: task.ability,
-                    level: task.level,
-                    bonus: task.personality_bonus,
-                    personality,
-                    busy: 0,
-                    where: new Map(),
-                    jobs: new Map(),
-                    specificWorker: specificWorker || null
-                });
-            }
-            const g = groups.get(key);
-            g.busy += task.busy;
-            // A growing job reads as the job itself, however many crops it covers.
-            if ((task.jobs || []).length) {
-                // Where a job happens matters: reaping is Farmland's, logging Woodland's.
-                task.jobs.forEach(job => {
-                    if (!g.jobs.has(job)) g.jobs.set(job, new Set());
-                    g.jobs.get(job).add(step.facility);
-                });
-                return;
-            }
-            const place = `${step.facility} (${prettyItem(step.item_name)})`;
-            g.where.set(place, (g.where.get(place) || 0) + step.facility_count);
-        });
-    });
-    // Environment buildings in use each keep an Aniimo busy (abilities confirmed in game; whether
-    // level or personality matters isn't known yet, so any level is shown).
-    const needsAniimo = (building, units, place) => {
-        const ability = ENVIRONMENT_BUILDING_ABILITY[building];
-        if (!ability || !units) return;
-        const key = `${ability} (environment)`;
-        if (!groups.has(key)) {
-            groups.set(key, { label: `${ability} any level`, ability, level: 1, bonus: false, busy: 0, where: new Map(), jobs: new Map(), environment: true });
-        }
-        const g = groups.get(key);
-        g.busy += units;
-        g.where.set(place, (g.where.get(place) || 0) + units);
-    };
-    // Two buildings placed to overlap report a zone each, all named after the first of them, so
-    // count the pair once and give each building its own Aniimo.
-    const pairUnits = new Map();
-    (plan.environment_assignments || []).forEach(a => {
-        if (a.partner) {
-            const key = `${a.building}|${a.partner[0]}`;
-            const seen = pairUnits.get(key);
-            pairUnits.set(key, { units: Math.max(seen ? seen.units : 0, a.units), modes: a.pair_modes || [a.mode, a.mode] });
-            return;
-        }
-        needsAniimo(a.building, a.units, `${a.building} (${a.mode})`);
-    });
-    pairUnits.forEach(({ units, modes }, key) => {
-        const [building, partner] = key.split('|');
-        needsAniimo(building, units, `${building} (${modes[0]})`);
-        needsAniimo(partner, units, `${partner} (${modes[1]})`);
-    });
-    const collapsedSummary = document.getElementById('aniimo-collapsed-summary');
-    if (groups.size === 0) {
-        container.innerHTML = '<p class="hint">Nothing in this plan needs an Aniimo.</p>';
-        collapsedSummary.textContent = 'No Aniimo needed.';
-        const count = document.getElementById('aniimo-count');
-        if (count) count.hidden = true;
-        document.getElementById('aniimo-abilities').innerHTML = '';
-        return;
-    }
-    // Each row gets its own Aniimo, which is the clearer team to keep. Only when that asks for
-    // more than the homeland holds does work that takes any level (the Farmland and Woodland jobs)
-    // move into another row's spare time, so a plot's watering is a job of its own where there's
-    // room for one.
-    //
-    // An Aniimo carries four personalities, one from each opposed pair, so one can hold the bonus
-    // at several facilities at once as long as none of them want opposites and there are hours
-    // left in its day. The team is the best combination that allows: each Aniimo is listed with
-    // every personality it has to have.
-    const assign = () => {
-        const rows = [...groups.values()]
-            .map(g => ({ ...g, where: new Map(g.where), jobs: new Map([...g.jobs].map(([job, at]) => [job, new Set(at)])) }))
-            .sort((a, b) => b.level - a.level || Number(b.bonus) - Number(a.bonus) || a.label.localeCompare(b.label));
-        const kept = [];
-        // One Aniimo can take another row's work when it has the ability at a high enough level,
-        // hours to spare, and nothing on it already wanting the opposite personality.
-        const holds = (host, g) => host.ability === g.ability && host.level >= g.level && host.spare >= g.busy - 1e-6
-            && (!g.personality || !host.personalities.has(opposedPersonality(g.personality)));
-        rows.forEach(g => {
-            // A facility with a resident Aniimo keeps it to itself.
-            const host = (g.environment || g.specificWorker) ? null : kept.find(k => !k.specificWorker && holds(k, g));
-            if (host) {
-                host.spare -= g.busy;
-                host.busy += g.busy;
-                if (g.personality) host.personalities.add(g.personality);
-                g.where.forEach((n, place) => host.where.set(place, (host.where.get(place) || 0) + n));
-                g.jobs.forEach((at, job) => {
-                    if (!host.jobs.has(job)) host.jobs.set(job, new Set());
-                    at.forEach(facility => host.jobs.get(job).add(facility));
-                });
-                return;
-            }
-            g.count = Math.max(1, Math.ceil(g.busy - 1e-6));
-            g.spare = g.count - g.busy;
-            g.personalities = new Set(g.personality ? [g.personality] : []);
-            kept.push(g);
-        });
-        return { kept, total: kept.reduce((sum, g) => sum + g.count, 1) }; // 1 for the Hauling row
-    };
-    const { kept } = assign();
-    if (selectedSetupTab() === 'best') lastBestTeam = kept;
-
-    // ------------------------------------------------------------------------
-    // STANDARDIZED 4-GROUP ROSTER REBUILD (Plan 09 v2)
-    // ------------------------------------------------------------------------
-    const homeLevel = selectedHomeLevel();
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const emodeAvailable = homeLevel >= 12;
-
-    // Helper: Xác định chế độ vận hành thực tế của step
-    const resolveStepMode = (step, baseFac) => {
-        if (step.mode) return step.mode;
-        const rawFac = step.facility || '';
-        if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) return 'electric';
-        if (step.is_manual || rawFac.includes('(Manual)') || (step.item_name && step.item_name.includes('__manual'))) return 'manual';
-        if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) return 'prismana';
-        const ovr = facilityOverrides.find(o => o.facility === baseFac);
-        if (ovr && ovr.target_mode) return ovr.target_mode;
-        return 'prismana';
-    };
-
-    // 1. Nhóm 1: Đồng áng (Farming Crew)
-    let totalFarmland = 0;
-    let totalWoodland = 0;
-    (plan.coin_items || []).forEach(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        const count = step.facility_count || 0;
-        if (baseFac === 'Farmland') totalFarmland += count;
-        if (baseFac === 'Woodland') totalWoodland += count;
-    });
-    const totalFarmPlots = totalFarmland + totalWoodland;
-
-    let farmingMembers = [];
-    let farmingPhysicalWorkers = [];
-    if (totalFarmPlots > 0) {
-        if (totalFarmPlots >= 30) {
-            // Nông trại lớn: 8 Aniimos vật lý, hiển thị 6 bước luân phiên
-            farmingMembers = [
-                { facility: isVi ? `Khai khẩn (${totalFarmPlots} ô đất)` : `Reclaiming (${totalFarmPlots} plots)`, worker: 'Gracewing (Sơn Lâm)', count: 2, ability: 'Earth', level: 2, desc: isVi ? 'Thổ Lv.2 · Chuyên tâm 100%' : 'Earth Lv.2 · 100% focused', specific: 'Gracewing' },
-                { facility: isVi ? `Gieo trồng (${totalFarmPlots} ô đất)` : `Sowing (${totalFarmPlots} plots)`, worker: 'Irisalis (Leafy phụ)', count: 2, ability: 'Grass', level: 3, desc: isVi ? 'Thảo Lv.3 · Gieo luân phiên' : 'Grass Lv.3 · Alternating sow', specific: 'Irisal' },
-                { facility: isVi ? `Tưới nước (${totalFarmPlots} ô × 2 đợt)` : `Watering (${totalFarmPlots} plots × 2)`, worker: 'Piopiota (Đêm) + Leafy', count: 2, ability: 'Water', level: 3, desc: isVi ? 'Thủy Lv.3, Ám Lv.2 · Tưới đệm' : 'Water Lv.3, Dark Lv.2', specific: 'Piopiota' },
-                { facility: isVi ? 'Gặt & Đốn gỗ/Nhựa (Ám)' : 'Harvest: Reap & Log (Dark)', worker: 'Pawney + Rookey', count: 2, ability: 'Dark', level: 4, desc: isVi ? 'Ám Lv.4 · Gặt nông sản & gỗ' : 'Dark Lv.4 · Harvest crops & logs', specific: 'Pawney' },
-                { facility: isVi ? 'Hái hoa/trái/hạt (Cỏ)' : 'Harvest: Collect (Grass)', worker: 'Irisalis (Leafy phụ)', count: isVi ? '2× (Kiêm nhiệm)' : '2× (Shared)', ability: 'Grass', level: 3, desc: isVi ? 'Thảo Lv.3 · Thu hái hoa quả' : 'Grass Lv.3 · Collect fruits', specific: 'Irisal', isShared: true },
-                { facility: isVi ? 'Vận chuyển về SU' : 'Hauling to Storage', worker: 'Pawney + Rookey', count: isVi ? '2-3× (Kiêm nhiệm)' : '2-3× (Shared)', ability: 'Hauling', level: 4, desc: isVi ? 'Khuân Vác Lv.4 · Đưa nông sản về kho' : 'Hauling Lv.4 · Haul to SU', specific: 'Pawney', isShared: true }
-            ];
-            farmingPhysicalWorkers = [
-                { ability: 'Earth', level: 2, count: 2, name: 'Gracewing (Sơn Lâm)', specific: 'Gracewing', desc: isVi ? 'Khai khẩn đất' : 'Tilling plots' },
-                { ability: 'Grass', level: 3, count: 1, name: 'Irisalis', specific: 'Irisal', desc: isVi ? 'Gieo hạt & Hái quả' : 'Sowing & picking' },
-                { ability: 'Grass', level: 3, count: 1, name: 'Leafy', specific: 'Leafy', desc: isVi ? 'Gieo hạt & Tưới phụ' : 'Backup sowing' },
-                { ability: 'Water', level: 3, count: 1, name: 'Piopiota (Đêm)', specific: 'Piopiota', desc: isVi ? 'Tưới nước đệm' : 'Buffer watering' },
-                { ability: 'Dark', level: 4, count: 2, name: 'Pawney', specific: 'Pawney', desc: isVi ? 'Gặt hái & Vận chuyển' : 'Harvest & hauling' },
-                { ability: 'Dark', level: 3, count: 1, name: 'Rookey', specific: 'Rookey', desc: isVi ? 'Đốn gỗ & Vận chuyển' : 'Logging & hauling' }
-            ];
-        } else {
-            // Nông trại nhỏ: 5 Aniimos
-            farmingMembers = [
-                { facility: isVi ? 'Khai khẩn' : 'Reclaiming', worker: 'Gracewing (Sơn Lâm)', count: 1, ability: 'Earth', level: 2, desc: isVi ? 'Thổ Lv.2 · Chuyên tâm 100%' : 'Earth Lv.2 · 100% focused', specific: 'Gracewing' },
-                { facility: isVi ? 'Gieo hạt & Hái quả' : 'Sowing & Fruit Pick', worker: 'Irisalis', count: 1, ability: 'Grass', level: 3, desc: isVi ? 'Thảo Lv.3 · Gieo & hái' : 'Grass Lv.3 · Sow & pick', specific: 'Irisal' },
-                { facility: isVi ? 'Tưới nước' : 'Watering', worker: 'Piopiota (Đêm)', count: 1, ability: 'Water', level: 3, desc: isVi ? 'Thủy Lv.3 · Tưới đệm' : 'Water Lv.3 · Fast buffer', specific: 'Piopiota' },
-                { facility: isVi ? 'Gặt & Đốn gỗ' : 'Harvesting & Logging', worker: 'Pawney / Rookey', count: 1, ability: 'Dark', level: 4, desc: isVi ? 'Ám Lv.4 · Gặt nông sản' : 'Dark Lv.4 · Harvest', specific: 'Pawney' },
-                { facility: isVi ? 'Vận chuyển' : 'Hauling', worker: 'Pawney / Rookey', count: 1, ability: 'Hauling', level: 3, desc: isVi ? 'Khuân Vác Lv.3 · Về kho' : 'Hauling Lv.3 · To storage', specific: 'Rookey' }
-            ];
-            farmingPhysicalWorkers = [
-                { ability: 'Earth', level: 2, count: 1, name: 'Gracewing (Sơn Lâm)', specific: 'Gracewing', desc: isVi ? 'Khai khẩn đất' : 'Tilling plots' },
-                { ability: 'Grass', level: 3, count: 1, name: 'Irisalis', specific: 'Irisal', desc: isVi ? 'Gieo hạt & Hái quả' : 'Sowing & picking' },
-                { ability: 'Water', level: 3, count: 1, name: 'Piopiota (Đêm)', specific: 'Piopiota', desc: isVi ? 'Tưới nước' : 'Watering' },
-                { ability: 'Dark', level: 4, count: 1, name: 'Pawney', specific: 'Pawney', desc: isVi ? 'Gặt & Đốn gỗ' : 'Harvesting' },
-                { ability: 'Hauling', level: 3, count: 1, name: 'Rookey', specific: 'Rookey', desc: isVi ? 'Vận chuyển' : 'Hauling' }
-            ];
-        }
-    }
-    const farmTotal = farmingPhysicalWorkers.reduce((sum, m) => sum + m.count, 0);
-
-    // 2. Nhóm 2: Trông Cơ Sở 24/24 & Khai Thác Thô (`stationaryMembers`)
-    const stationaryMembers = [];
-
-    // 2.1. Trực trụ điện (tính động theo tổng phụ tải điện)
-    const profile = getPowerProfile(homeLevel);
-    const provTag = profile.status === 'provisional' ? (isVi ? ' - Tạm thời' : ' - Provisional') : '';
-    const totalActiveWatts = calculatePowerWatts(lastEmodeCounts || {});
-    let effectiveGuardCount = 0;
-    if (totalActiveWatts > 0) {
-        effectiveGuardCount = typeof plan.guards === 'number' && plan.guards > 0
-            ? plan.guards
-            : (plan.guard_staffing ? plan.guard_staffing.reduce((sum, [, v]) => sum + v, 0) : getPowerPoleCount(homeLevel));
-    }
-    if (effectiveGuardCount > 0) {
-        const isPrismana = (selectedAniimoSetup() === 'specialist' || selectedAniimoSetup() === 'best');
-        const guardWorker = isPrismana ? 'Luminelle' : 'Blazen';
-        stationaryMembers.push({
-            facility: isVi ? `Trực trụ điện (Lưới ${profile.capacity}W${provTag})` : `Power Pole Guard (${profile.capacity}W Grid${provTag})`,
-            worker: guardWorker,
-            count: effectiveGuardCount,
-            ability: 'Lightning',
-            level: isPrismana ? 4 : 3,
-            desc: isVi ? `Trực lưới điện 24/7 (Phụ tải ${totalActiveWatts}W)` : `Maintains 24/7 grid (${totalActiveWatts}W load)`,
-            specific: guardWorker
-        });
-    }
-
-    // 2.2. Khu Mỏ & Giếng Nước (đếm chính xác 1:1 theo từng cơ sở thủ công)
-    (plan.coin_items || []).forEach(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (step.status !== 'producing') return;
-        const count = step.facility_count || 0;
-        if (count <= 0) return;
-
-        const mode = resolveStepMode(step, baseFac);
-        if (mode === 'electric') return; // Chạy điện = 0 Aniimo
-
-        if (baseFac === 'Mine') {
-            const isPrismana = (mode === 'prismana');
-            stationaryMembers.push({
-                facility: `${getFacilityDisplayName('Mine')} (${prettyItem(step.item_name)})`,
-                worker: isPrismana ? 'Waleetle' : 'Shrubclaw',
-                count: count,
-                ability: 'Earth',
-                level: isPrismana ? 4 : 3,
-                desc: isPrismana
-                    ? (isVi ? 'Khai thác quặng (Prismana Thổ Lv.4)' : 'Mining (Prismana Earth Lv.4)')
-                    : (isVi ? 'Khai thác quặng (Thủ công Thổ Lv.3)' : 'Mining (Manual Earth Lv.3)'),
-                specific: isPrismana ? 'Waleetle' : 'Shrubclaw'
-            });
-        } else if (baseFac === 'Well') {
-            const isPrismana = (mode === 'prismana');
-            stationaryMembers.push({
-                facility: `${getFacilityDisplayName('Well')} (${prettyItem(step.item_name)})`,
-                worker: isPrismana ? (isVi ? 'Thủy Prismana Lv.4' : 'Water Prismana Lv.4') : 'Aquata',
-                count: count,
-                ability: 'Water',
-                level: isPrismana ? 4 : 3,
-                desc: isPrismana
-                    ? (isVi ? 'Bơm nước (Prismana Thủy Lv.4)' : 'Pumping (Prismana Water Lv.4)')
-                    : (isVi ? 'Bơm nước (Thủ công Thủy Lv.3)' : 'Pumping (Manual Water Lv.3)'),
-                specific: isPrismana ? '' : 'Aquata'
-            });
-        }
-    });
-
-    // 2.3. Cơ sở thú cưng cố định (Resident Facilities)
-    const RESIDENT_SET = new Set([
-        'Tidewhisper Sandcastle',
-        'Dewy House',
-        'Nimbus Bed',
-        'Starfall Hammock',
-        'Floral Windmill'
-    ]);
-    (plan.coin_items || []).forEach(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (step.status !== 'producing' || !RESIDENT_SET.has(baseFac)) return;
-        const count = step.facility_count || 1;
-        if (count <= 0) return;
-        const specificWorker = getFacilitySpecificWorker(baseFac, step.item_name, step.facility_level);
-        const ability = step.aniimo ? step.aniimo.ability : (FACILITIES.find(f => f.name === baseFac)?.ability || 'Leisure');
-        const level = step.aniimo ? step.aniimo.level : 4;
-        stationaryMembers.push({
-            facility: `${getFacilityDisplayName(baseFac)}`,
-            worker: specificWorker || `${ability} Lv.${level}`,
-            count: count,
-            ability: ability,
-            level: level,
-            desc: `${prettyItem(step.item_name)} (${isVi ? 'Túc trực 24/7' : 'Resident 24/7'})`,
-            specific: specificWorker || ''
-        });
-    });
-
-    // 2.4. Thiết bị điều hòa khí hậu & chiếu sáng (Cooling Unit dùng đúng Hệ Băng 'Ice')
-    const pushEnvironmentWorker = (b, count, mode) => {
-        if (!count || count <= 0) return;
-        if (b === 'Heat Furnace') {
-            stationaryMembers.push({
-                facility: `${getFacilityDisplayName(b)} (${mode || 'Nhiệt'})`,
-                worker: 'Ignis',
-                count: count,
-                ability: 'Fire',
-                level: 3,
-                desc: isVi ? `Trực Lò Sưởi (${mode || 'Nhiệt'}) 24/7` : `Maintains Heat Furnace (${mode || 'Heat'}) 24/7`,
-                specific: 'Ignis'
-            });
-        } else if (b === 'Cooling Unit') {
-            stationaryMembers.push({
-                facility: `${getFacilityDisplayName(b)} (${mode || 'Lạnh'})`,
-                worker: isVi ? 'Băng Lv.3' : 'Ice Lv.3',
-                count: count,
-                ability: 'Ice',
-                level: 3,
-                desc: isVi ? `Trực Máy Làm Mát (${mode || 'Lạnh'}) 24/7` : `Maintains Cooling Unit (${mode || 'Cold'}) 24/7`,
-                specific: ''
-            });
-        } else if (b === 'Sunlamp') {
-            stationaryMembers.push({
-                facility: `${getFacilityDisplayName(b)}`,
-                worker: 'Lumik',
-                count: count,
-                ability: 'Light',
-                level: 3,
-                desc: isVi ? 'Trực Đèn Mặt Trời chiếu sáng 24/7' : 'Maintains Sunlamp lighting 24/7',
-                specific: 'Lumik'
-            });
-        }
-    };
-    const envPairUnits = new Map();
-    (plan.environment_assignments || []).forEach(a => {
-        if (a.partner) {
-            const key = `${a.building}|${a.partner[0]}`;
-            const seen = envPairUnits.get(key);
-            envPairUnits.set(key, {
-                units: Math.max(seen ? seen.units : 0, a.units || 0),
-                modes: a.pair_modes || [a.mode, a.mode]
-            });
-            return;
-        }
-        pushEnvironmentWorker(a.building, a.units || 0, a.mode);
-    });
-    envPairUnits.forEach(({ units, modes }, key) => {
-        const [building, partner] = key.split('|');
-        pushEnvironmentWorker(building, units, modes[0]);
-        pushEnvironmentWorker(partner, units, modes[1]);
-    });
-    const statTotal = stationaryMembers.reduce((sum, m) => sum + m.count, 0);
-
-    // 3. Nhóm 3: Gia Công Gỗ & Quặng (`processingMembers`)
-    const processingMembers = [];
-    (plan.coin_items || []).forEach(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (step.status !== 'producing') return;
-        const count = step.facility_count || 0;
-        if (count <= 0) return;
-        const mode = resolveStepMode(step, baseFac);
-        if (mode === 'electric') return;
-
-        if (baseFac === 'Woodworking Bench') {
-            const isPrismana = (mode === 'prismana');
-            processingMembers.push({
-                facility: getFacilityDisplayName(baseFac),
-                worker: isPrismana ? 'Fulmintis' : (isVi ? 'Thợ Mộc (Kỹ nghệ Lv.3)' : 'Carpenter (Artisanship Lv.3)'),
-                count: count,
-                ability: 'Artisanship',
-                level: isPrismana ? 4 : 3,
-                desc: isPrismana
-                    ? (isVi ? 'Cưa xẻ gỗ (Prismana Kỹ nghệ Lv.4)' : 'Woodworking (Prismana Lv.4)')
-                    : (isVi ? 'Cưa xẻ gỗ (Thủ công Kỹ nghệ Lv.3)' : 'Woodworking (Manual Lv.3)'),
-                specific: isPrismana ? 'Fulmintis' : ''
-            });
-        } else if (baseFac === 'Chimney Kiln') {
-            const isPrismana = (mode === 'prismana');
-            processingMembers.push({
-                facility: getFacilityDisplayName(baseFac),
-                worker: isPrismana ? 'Scorchhowl' : 'Ignis',
-                count: count,
-                ability: 'Fire',
-                level: isPrismana ? 4 : 3,
-                desc: isPrismana
-                    ? (isVi ? 'Nung gạch quặng (Prismana Hỏa Lv.4)' : 'Smelting (Prismana Fire Lv.4)')
-                    : (isVi ? 'Nung gạch quặng (Thủ công Hỏa Lv.3)' : 'Smelting (Manual Fire Lv.3)'),
-                specific: isPrismana ? 'Scorchhowl' : 'Ignis'
-            });
-        }
-    });
-    const procTotal = processingMembers.reduce((sum, m) => sum + m.count, 0);
-
-    // 4. Nhóm 4 (NHÓM MỚI): Sản Xuất & Chế Biến Thành Phẩm (`craftingMembers`)
-    // Gom các máy chế biến chạy thủ công theo ability để chia sẻ nhân lực (1 Aniimo phụ trách tối đa 2 máy cùng hệ)
-    const craftingPoolByAbility = new Map();
-    const EXCLUDED_FROM_CRAFTING = new Set([
-        'Farmland', 'Woodland', 'Mine', 'Well', 'Woodworking Bench', 'Chimney Kiln',
-        ...RESIDENT_SET
-    ]);
-
-    (plan.coin_items || []).forEach(step => {
-        const rawFac = step.facility || '';
-        const baseFac = rawFac.replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (step.status !== 'producing' || EXCLUDED_FROM_CRAFTING.has(baseFac)) return;
-        const count = step.facility_count || 0;
-        if (count <= 0) return;
-
-        const mode = resolveStepMode(step, baseFac);
-        if (mode === 'electric') return; // Chạy điện = 0 Aniimo
-
-        const facDef = FACILITIES.find(f => f.name === baseFac);
-        const ability = facDef?.ability || step.aniimo?.ability || 'Artisanship';
-        const isPrismana = (mode === 'prismana');
-
-        if (!craftingPoolByAbility.has(ability)) {
-            craftingPoolByAbility.set(ability, []);
-        }
-        craftingPoolByAbility.get(ability).push({
-            facility: baseFac,
-            item_name: step.item_name,
-            count: count,
-            isPrismana: isPrismana
-        });
-    });
-
-    const craftingMembers = [];
-    craftingPoolByAbility.forEach((machines, ability) => {
-        const totalMachines = machines.reduce((sum, m) => sum + m.count, 0);
-        if (totalMachines <= 0) return;
-
-        // 1 Aniimo kiêm nhiệm tối đa 2 máy chế biến cùng hệ
-        const neededWorkers = Math.ceil(totalMachines / 2);
-        const hasPrismana = machines.some(m => m.isPrismana);
-        const level = hasPrismana ? 4 : 3;
-
-        // Tên Aniimo đại diện theo hệ
-        let workerName = `${ability} Lv.${level}`;
-        let specific = '';
-        if (ability === 'Fire') {
-            workerName = hasPrismana ? 'Scorchhowl' : 'Ignis';
-            specific = workerName;
-        } else if (ability === 'Water') {
-            workerName = hasPrismana ? 'Piopiota (Đêm)' : 'Aquata';
-            specific = workerName;
-        } else if (ability === 'Artisanship') {
-            workerName = hasPrismana ? 'Fulmintis' : (isVi ? 'Thợ Thủ Công' : 'Artisan');
-            specific = hasPrismana ? 'Fulmintis' : '';
-        } else if (ability === 'Dark') {
-            workerName = hasPrismana ? 'Pawney' : 'Rookey';
-            specific = workerName;
-        }
-
-        // Tên các cơ sở
-        const uniqueFacs = [...new Set(machines.map(m => getFacilityDisplayName(m.facility)))];
-        const facSummary = uniqueFacs.join(' + ');
-
-        const desc = totalMachines > 1
-            ? (isVi ? `Kiêm nhiệm ${totalMachines} máy chế biến Hệ ${ability}` : `Handles ${totalMachines} ${ability} crafting units`)
-            : (isVi ? `Chế biến ${prettyItem(machines[0].item_name)}` : `Crafts ${prettyItem(machines[0].item_name)}`);
-
-        craftingMembers.push({
-            facility: `${facSummary} (${totalMachines} ${isVi ? 'máy' : 'units'})`,
-            worker: workerName,
-            count: neededWorkers,
-            ability: ability,
-            level: level,
-            desc: desc,
-            specific: specific
-        });
-    });
-    const craftTotal = craftingMembers.reduce((sum, m) => sum + m.count, 0);
-
-    // Tổng số công nhân đảo:
-    const finalTotal = farmTotal + statTotal + procTotal + craftTotal;
-
-    const homelandHolds = isSimpleMode() ? ANIIMO_MAX[selectedHomeLevel() - 1] : null;
-    const prodCap = isSimpleMode() ? getProductionAniimoCap() : null;
-    const cap = prodCap || homelandHolds;
-
-    const capNote = cap && finalTotal > cap
-        ? `<p class="hint small">${isVi
-            ? `Cần ${finalTotal} Aniimo, vượt quá giới hạn ${cap} của Vùng Sản Xuất (Homeland chứa tối đa ${homelandHolds}).`
-            : `That's ${finalTotal} Aniimo, more than the production zone cap of ${cap} (Homeland holds ${homelandHolds}).`}</p>`
-        : '';
-    const have = document.getElementById('aniimo-count-have');
-    const of = document.getElementById('aniimo-count-of');
-    const count = document.getElementById('aniimo-count');
-    if (have && of && count) {
-        have.textContent = finalTotal;
-        of.textContent = cap ?? '';
-        of.hidden = !cap;
-        count.hidden = false;
-        count.classList.toggle('over', !!cap && finalTotal > cap);
-        count.title = cap
-            ? (isVi
-                ? `${finalTotal} Aniimo cho kế hoạch này (Đồng áng: ${farmTotal} | Trông cơ sở: ${statTotal} | Gia công: ${procTotal} | Chế biến: ${craftTotal}); giới hạn Vùng Sản Xuất: ${cap} (tổng Homeland: ${homelandHolds})`
-                : `${finalTotal} Aniimo for this plan (Farm: ${farmTotal} | Stat: ${statTotal} | Proc: ${procTotal} | Craft: ${craftTotal}); production zone cap is ${cap} (Homeland holds ${homelandHolds})`)
-            : `${finalTotal} Aniimo for this plan`;
-    }
-    collapsedSummary.textContent = '';
-
-    // Cập nhật dải kỹ năng 12 hệ phía trên dựa trên cá thể vật lý thực tế
-    const needed = new Map(ABILITIES.map(a => [a.name, 0]));
-    [...farmingPhysicalWorkers, ...stationaryMembers, ...processingMembers, ...craftingMembers].forEach(m => {
-        needed.set(m.ability, (needed.get(m.ability) || 0) + m.count);
-    });
-
-    document.getElementById('aniimo-abilities').innerHTML = ABILITIES.map(a => {
-        const countNeeded = needed.get(a.name) || 0;
-        const zero = countNeeded === 0;
-        const allMembers = [...farmingPhysicalWorkers, ...stationaryMembers, ...processingMembers, ...craftingMembers].filter(m => m.ability === a.name);
-        const dots = allMembers.map(m => {
-            const tip = `${m.count > 1 ? `${m.count}× ` : ''}${m.name || m.worker} · ${m.desc || ''}`;
-            return renderRosterWorkerBadge(m.ability, m.level, m.count, tip, false, m.specific || '');
-        });
-        if (a.name === 'Hauling' && dots.length === 0) {
-            dots.push(renderRosterWorkerBadge('Hauling', '·', 1, isVi ? 'Rookey kiêm nhiệm đưa nông sản vào kho' : 'Rookey handles warehouse hauling', false, 'Rookey'));
-        }
-        const stack = dots.length ? `<div class="ability-stack">${dots.join('')}</div>` : '';
-        const aName = isVi && window.VI_ABILITIES && window.VI_ABILITIES[a.name] ? window.VI_ABILITIES[a.name] : a.name;
-        return `<div class="ability-col" style="--ability:${a.color}">
-            <div class="ability-cell${zero ? ' zero' : ''}" title="${aName}: ${a.about}">
-                <span class="ability-count">${countNeeded}</span><span class="ability-name">${aName}</span>
-            </div>${stack}</div>`;
-    }).join('');
-
-    // Render bảng phân 4 nhóm theo đúng 3 cột chuẩn
-    const renderMemberRow3Col = m => {
-        const badge = renderRosterWorkerBadge(m.ability, m.level, m.count, `${m.worker || m.name} · ${m.desc || ''}`, false, m.specific || '');
-        const workerDisplayName = m.worker || m.name;
-        const abTheme = ABILITY_THEMES[m.ability] || { color: '#888', icon: '🐾', vi: m.ability };
-        const abVi = isVi && window.VI_ABILITIES && window.VI_ABILITIES[m.ability] ? window.VI_ABILITIES[m.ability] : (abTheme.vi || m.ability);
-        const countDisplay = (typeof m.count === 'number') ? `${m.count}×` : m.count;
-
-        return `
-            <tr>
-                <td class="col-facility" data-label="${isVi ? 'Tên cơ sở / Nhiệm vụ' : 'Facility / Task'}">
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <strong>${m.facility}</strong>
-                        ${m.desc ? `<span class="hint small" style="font-size: 0.73rem; opacity: 0.85;">${m.desc}</span>` : ''}
-                    </div>
-                </td>
-                <td class="col-worker" data-label="${isVi ? 'Loại Aniimo' : 'Aniimo Worker'}">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        ${badge}
-                        <div>
-                            <div><strong>${workerDisplayName}</strong></div>
-                            <span class="crew-ability-pill" style="--ability-color: ${abTheme.color}; font-size: 0.68rem; padding: 1px 5px; border-radius: 4px;">
-                                <span>${abTheme.icon || '🐾'}</span>
-                                <span class="elem-name">${abVi} Lv.${m.level}</span>
-                            </span>
-                        </div>
-                    </div>
-                </td>
-                <td class="col-count" data-label="${isVi ? 'Số lượng' : 'Count'}">
-                    <span class="crew-count-badge" style="font-size: 0.82rem; padding: 0.15rem 0.5rem;">${countDisplay}</span>
-                </td>
-            </tr>
-        `;
-    };
-
-    const emptyRowHtml = (text) => `
-        <tr>
-            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 0.75rem; font-style: italic;">
-                ${text}
-            </td>
-        </tr>
-    `;
-
-    function mergeDuplicateMembers(members) {
-        if (!Array.isArray(members) || members.length <= 1) return members || [];
-        const merged = [];
-        const map = new Map();
-        for (const m of members) {
-            const key = `${m.facility}|${m.worker}|${m.ability}|${m.level}|${m.specific || ''}`;
-            if (map.has(key)) {
-                const existing = map.get(key);
-                existing.count = (existing.count || 0) + (m.count || 0);
-            } else {
-                const copy = { ...m };
-                map.set(key, copy);
-                merged.push(copy);
-            }
-        }
-        return merged;
-    }
-
-    const farmingRowsHtml = farmingMembers.length > 0
-        ? mergeDuplicateMembers(farmingMembers).map(renderMemberRow3Col).join('')
-        : emptyRowHtml(isVi ? 'Không có đất nông nghiệp và rừng cây cần vận hành.' : 'No active farm plots in this plan.');
-
-    const statRowsHtml = stationaryMembers.length > 0
-        ? mergeDuplicateMembers(stationaryMembers).map(renderMemberRow3Col).join('')
-        : emptyRowHtml(isVi ? 'Không có cơ sở đứng máy cố định 24/7 (mỏ/giếng chạy điện hoặc không có).' : 'No stationary or gathering units running manually.');
-
-    const procRowsHtml = processingMembers.length > 0
-        ? mergeDuplicateMembers(processingMembers).map(renderMemberRow3Col).join('')
-        : emptyRowHtml(isVi ? 'Không có bàn mộc hoặc lò nung thủ công (chạy điện hoặc không dùng).' : 'No woodworking or kilns running manually.');
-
-    const craftRowsHtml = craftingMembers.length > 0
-        ? mergeDuplicateMembers(craftingMembers).map(renderMemberRow3Col).join('')
-        : emptyRowHtml(isVi ? 'Không có cơ sở chế biến chạy thủ công (chạy điện hoặc không dùng).' : 'No crafting units running manually.');
-
-    const toggleIcon = isRosterDetailsExpanded ? '▼' : '▶';
-    const toggleText = isVi
-        ? (isRosterDetailsExpanded
-            ? '▲ Thu gọn danh sách chi tiết các nhóm công nhân'
-            : '👉 Bấm vào đây để hiện đầy đủ thông tin các nhóm công nhân ▼')
-        : (isRosterDetailsExpanded
-            ? '▲ Collapse worker group details'
-            : '👉 Click here to show full worker details for all groups ▼');
-
-    const toggleBarHtml = `
-        <div class="roster-table-toggle-bar" id="roster-table-toggle" onclick="window.toggleRosterDetails()" role="button" tabindex="0" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
-            <span class="roster-toggle-icon" id="roster-toggle-icon">${toggleIcon}</span>
-            <span class="roster-toggle-text" id="roster-toggle-text">${toggleText}</span>
-        </div>
-    `;
-
-    const bannerHtml = `
-        <div class="roster-groups-banner">
-            <div class="roster-group-card group-farming" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
-                <div class="roster-group-top">
-                    <span class="roster-group-label">🌾 ${isVi ? 'Nhóm 1: Đồng Áng' : 'Group 1: Farming'}</span>
-                    <span class="roster-group-count">${farmTotal}</span>
-                </div>
-                <p class="roster-group-desc">${isVi ? `${totalFarmPlots} ô đất · 🛡️ Dự phòng kép chống AFK` : `${totalFarmPlots} plots · 🛡️ Anti-AFK backup`}</p>
-            </div>
-            <div class="roster-group-card group-stationary" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
-                <div class="roster-group-top">
-                    <span class="roster-group-label">⛏️⚡ ${isVi ? 'Nhóm 2: Trông Cơ Sở & Mỏ' : 'Group 2: Stationary & Mine'}</span>
-                    <span class="roster-group-count">${statTotal}</span>
-                </div>
-                <p class="roster-group-desc">${isVi ? `${effectiveGuardCount} Trụ điện · Mỏ quặng · Giếng · Thú cưng · Điều hòa` : 'Mines · Wells · Power · Residents · Climate'}</p>
-            </div>
-            <div class="roster-group-card group-processing" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
-                <div class="roster-group-top">
-                    <span class="roster-group-label">🪵🔥 ${isVi ? 'Nhóm 3: Gia Công Gỗ/Quặng' : 'Group 3: Wood & Ore'}</span>
-                    <span class="roster-group-count">${procTotal}</span>
-                </div>
-                <p class="roster-group-desc">${isVi ? 'Bàn gia công gỗ · Lò ống khói thủ công' : 'Woodworking Bench · Chimney Kiln'}</p>
-            </div>
-            <div class="roster-group-card group-crafting" onclick="window.toggleRosterDetails()" style="cursor: pointer;" title="${isVi ? 'Bấm để mở / đóng bảng chi tiết các nhóm' : 'Click to toggle group detail table'}">
-                <div class="roster-group-top">
-                    <span class="roster-group-label">🍲 ${isVi ? 'Nhóm 4: Chế Biến Thành Phẩm' : 'Group 4: Processing & Craft'}</span>
-                    <span class="roster-group-count">${craftTotal}</span>
-                </div>
-                <p class="roster-group-desc">${isVi ? 'Nồi hầm · Bếp lửa · Thùng ủ (Kiêm nhiệm 2 máy/con)' : 'Simmering Pot · Stove · Keg (Shared 2 facs/worker)'}</p>
-            </div>
-        </div>
-    `;
-
-    container.innerHTML = `
-        ${bannerHtml}
-        ${toggleBarHtml}
-        <div class="table-wrapper roster-details-wrapper" id="roster-details-wrapper" style="display: ${isRosterDetailsExpanded ? 'block' : 'none'};">
-            <table class="facility-plan-table roster-3col-table">
-                <thead>
-                    <tr>
-                        <th class="col-facility">${isVi ? 'Tên cơ sở / Nhiệm vụ' : 'Facility / Task'}</th>
-                        <th class="col-worker">${isVi ? 'Loại Aniimo' : 'Aniimo Worker'}</th>
-                        <th class="col-count">${isVi ? 'Số lượng' : 'Count'}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="roster-group-header-row farming-header">
-                        <td colspan="3">🌾 ${isVi ? 'Nhóm 1: Tổ Đội Đồng Áng Luân Phiên' : 'Group 1: Unified Farming Crew'} (${farmTotal} Aniimo)</td>
-                    </tr>
-                    ${farmingRowsHtml}
-                    <tr class="roster-group-header-row stationary-header">
-                        <td colspan="3">⛏️⚡ ${isVi ? 'Nhóm 2: Trông Cơ Sở 24/24 & Khai Thác Thô' : 'Group 2: Stationary & Gathering Crew'} (${statTotal} Aniimo)</td>
-                    </tr>
-                    ${statRowsHtml}
-                    <tr class="roster-group-header-row processing-header">
-                        <td colspan="3">🪵🔥 ${isVi ? 'Nhóm 3: Chuyên Trách Gia Công Gỗ & Quặng' : 'Group 3: Wood & Ore Processing Crew'} (${procTotal} Aniimo)</td>
-                    </tr>
-                    ${procRowsHtml}
-                    <tr class="roster-group-header-row crafting-header">
-                        <td colspan="3">🍲 ${isVi ? 'Nhóm 4: Sản Xuất & Chế Biến Thành Phẩm (Kiêm nhiệm theo hệ)' : 'Group 4: Processing & Crafting Crew (Worksharing)'} (${craftTotal} Aniimo)</td>
-                    </tr>
-                    ${craftRowsHtml}
-                </tbody>
-            </table>
-        </div>
-        ${capNote}
-    `;
+    return aniimoSummaryController.render(plan, options);
 }
 
-// Splits one environment mode's rows across its individual building units. Unlike the old
-// preset-based version, each unit's exact facility-type capacity now comes straight from the
-// solver's own geometric packing (`assignment.layouts[i]`; see `FacilityPlacement` in
-// models.rs), not an evenly-divided share, since real per-building layouts aren't always
-// identical (e.g. one Cooling Unit might host Farmland+Woodland while another hosts only
-// Farmland). Still greedily fills each unit's per-facility-type capacity in row order, splitting
-// a single row across units when its count exceeds one unit's remaining capacity; the exact
-// split is arbitrary (any unit can host any plot of the crops sharing its mode), only the
-// per-unit totals (and the diagram's exact positions) are load-bearing.
-function splitByEnvironmentUnit(rows, assignmentsForMode) {
-    const units = [];
-    assignmentsForMode.forEach(a => {
-        (a.layouts || []).forEach(layout => {
-            const remaining = {};
-            layout.forEach(p => {
-                remaining[p.facility] = (remaining[p.facility] || 0) + 1;
-            });
-            units.push({ building: a.building, remaining, rows: [], layout, partner: a.partner || null, zone: a.zone ?? null, pairModes: a.pair_modes || null });
-        });
-    });
+const environmentRenderer = createEnvironmentRenderer({
+    environmentBuildingSize,
+    coverageRadius: ENVIRONMENT_COVERAGE_RADIUS,
+    modeColors: ENVIRONMENT_MODE_COLORS,
+    modeShade: ENVIRONMENT_MODE_SHADE,
+    facilityColors: ENVIRONMENT_FACILITY_COLORS,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+    tipAttrs,
+    getFacilityDisplayName,
+    getModeDisplayName,
+    prettyItem,
+});
 
-    rows.forEach(step => {
-        let remaining = step.facility_count;
-        for (const unit of units) {
-            if (remaining <= 0) break;
-            const available = unit.remaining[step.facility] || 0;
-            const take = Math.min(remaining, available);
-            if (take <= 0) continue;
-            unit.remaining[step.facility] -= take;
-            unit.rows.push({ ...step, facility_count: take });
-            remaining -= take;
-        }
-    });
+const facilityPlanViewController = createFacilityPlanViewController({
+    document,
+    window,
+    environmentModeOrder: ENVIRONMENT_MODE_ORDER,
+    environmentRenderer,
+    facilityCategories: FACILITY_CATEGORIES,
+    facilityCategoryByName: FACILITY_CATEGORY_BY_NAME,
+    facilities: FACILITIES,
+    facilityPowerWatts: FACILITY_POWER_WATTS,
+    selectedHomeLevel,
+    getFacilityOverrides: () => facilityOverrides,
+    getLastEmodeCounts: () => lastEmodeCounts,
+    getOwnedFacilityCounts,
+    getLastPlan: () => lastPlan,
+    renderFacilityIcon,
+    renderItemIcon,
+    getFacilityDisplayName,
+    prettyItem,
+    prettyReason,
+    formatNumber,
+    aniimoLabel,
+    isVietnamese: () => window.i18n && window.i18n.getLang() === 'vi',
+    splitEnvironmentRowsByUnit: (rows, assignmentsForMode) => splitEnvironmentRowsByUnitPolicy(rows, assignmentsForMode),
+    environmentModeColors: ENVIRONMENT_MODE_COLORS,
+});
 
-    // A building's geometric layout is capacity, not a production guarantee; a facility type can
-    // sit unused in a unit's coverage if there wasn't enough demand to fill every plot the fill
-    // loop above offered it. Drawing that unused capacity in the diagram would show the player
-    // squares they shouldn't actually place anything in (and that don't match this unit's own
-    // table), so trim `layout` down to just the placements this unit's `rows` actually accounted
-    // for, per facility type.
-    units.forEach(unit => {
-        const totalByFacility = {};
-        unit.layout.forEach(p => {
-            totalByFacility[p.facility] = (totalByFacility[p.facility] || 0) + 1;
-        });
-        const takenSoFar = {};
-        unit.layout = unit.layout.filter(p => {
-            const unused = unit.remaining[p.facility] || 0;
-            const used = (totalByFacility[p.facility] || 0) - unused;
-            takenSoFar[p.facility] = takenSoFar[p.facility] || 0;
-            if (takenSoFar[p.facility] < used) {
-                takenSoFar[p.facility]++;
-                return true;
-            }
-            return false;
-        });
-    });
-
-    return units.filter(u => u.rows.length > 0);
-}
-
-// Fixed color per environment-gated facility type, used by the layout diagram below; purely
-// categorical (not theme-dependent), so it stays distinguishable in both light and dark mode.
-const ENVIRONMENT_FACILITY_COLORS = {
-    'Farmland': '#8b5e34',
-    'Woodland': '#4caf50',
-    'Starfall Hammock': '#42a5f5',
-    'Tidewhisper Sandcastle': '#26c6da',
-    'Floral Windmill': '#ab47bc',
-    'Dewy House': '#ef8a80',
-};
-
-// Matches the confirmed geometry in src/coverage.rs: every environment building is a 2x2
-// footprint, radiating coverage as a square of side 2*radius centered on its own center.
-// Footprints, matching `ENVIRONMENT_BUILDING_SIZES` in coverage.rs: a Cooling Unit takes a 2x2
-// like a Farmland, a Heat Furnace and a Sunlamp a single tile. All three cover the same 9x9 from
-// their own center, so the smaller ones' squares land on tile lines and the Cooling Unit's sits
-// half a tile off.
-const ENVIRONMENT_BUILDING_SIZES = { 'Heat Furnace': 1.0, 'Cooling Unit': 2.0, 'Sunlamp': 1.0 };
-const DEFAULT_ENVIRONMENT_BUILDING_SIZE = 2.0;
-const environmentBuildingSize = name => ENVIRONMENT_BUILDING_SIZES[name] ?? DEFAULT_ENVIRONMENT_BUILDING_SIZE;
-const ENVIRONMENT_COVERAGE_RADIUS = 4.5;
-
-// Coverage tint for each growing environment, used to shade a building's coverage area.
-// Adequate's yellow carries further than the others at the same opacity, so it's laid on lighter.
-const ENVIRONMENT_MODE_SHADE = { Adequate: 0.55 };
-
-const ENVIRONMENT_MODE_COLORS = {
-    Warm: '#f59e0b',
-    Scorching: '#ef4444',
-    Cool: '#67e8f9',
-    Freeze: '#2563eb',
-    Adequate: '#facc15',
-};
-
-// Renders one building's layout as an SVG: faint one-tile gridlines, the building, its coverage
-// area shaded in the environment's color, and every plot the plan puts in it, nearest the
-// building first. `rows` are this building's plan rows; each plot is matched to one of them so
-// hovering a plot names its crop, and when one facility type grows more than one crop here (so
-// color alone can't tell them apart) each plot shows its crop's number from the legend.
-// Positions are the solver's own, in game tiles.
-// What each environment building does, drawn on it in the layout diagram, after the game's own
-// symbols: a flame for Warm and two for Scorching, a six-armed snowflake for Cool and two for
-// Freeze, a sun for Adequate. Paths rather than emoji, which some systems render in their own
-// colours.
-const ENVIRONMENT_ICON_INK = 'rgba(255, 255, 255, 0.92)';
-
-function flameIcon(cx, cy, size) {
-    const s = size;
-    return `<path d="M ${cx} ${cy - 0.62 * s}
-                     C ${cx + 0.12 * s} ${cy - 0.3 * s} ${cx + 0.42 * s} ${cy - 0.16 * s} ${cx + 0.4 * s} ${cy + 0.12 * s}
-                     C ${cx + 0.38 * s} ${cy + 0.42 * s} ${cx + 0.16 * s} ${cy + 0.6 * s} ${cx} ${cy + 0.6 * s}
-                     C ${cx - 0.16 * s} ${cy + 0.6 * s} ${cx - 0.4 * s} ${cy + 0.42 * s} ${cx - 0.4 * s} ${cy + 0.1 * s}
-                     C ${cx - 0.4 * s} ${cy - 0.1 * s} ${cx - 0.24 * s} ${cy - 0.18 * s} ${cx - 0.18 * s} ${cy - 0.36 * s}
-                     C ${cx - 0.1 * s} ${cy - 0.22 * s} ${cx - 0.04 * s} ${cy - 0.3 * s} ${cx} ${cy - 0.62 * s} Z"
-                   fill="${ENVIRONMENT_ICON_INK}" />`;
-}
-
-function snowflakeIcon(cx, cy, size) {
-    const arms = [0, 60, 120].map(angle => {
-        const radians = angle * Math.PI / 180;
-        const [dx, dy] = [Math.cos(radians) * 0.62 * size, Math.sin(radians) * 0.62 * size];
-        return `<line x1="${cx - dx}" y1="${cy - dy}" x2="${cx + dx}" y2="${cy + dy}" />`;
-    }).join('');
-    return `<g stroke="${ENVIRONMENT_ICON_INK}" stroke-width="${0.17 * size}" stroke-linecap="round">${arms}</g>`;
-}
-
-function sunIcon(cx, cy, size) {
-    const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(angle => {
-        const radians = angle * Math.PI / 180;
-        const [dx, dy] = [Math.cos(radians), Math.sin(radians)];
-        return `<line x1="${cx + dx * 0.42 * size}" y1="${cy + dy * 0.42 * size}"
-                      x2="${cx + dx * 0.64 * size}" y2="${cy + dy * 0.64 * size}" />`;
-    }).join('');
-    return `<circle cx="${cx}" cy="${cy}" r="${0.28 * size}" fill="${ENVIRONMENT_ICON_INK}" />
-            <g stroke="${ENVIRONMENT_ICON_INK}" stroke-width="${0.15 * size}" stroke-linecap="round">${rays}</g>`;
-}
-
-// A building's symbol, drawn to fit whatever footprint it has: a Heat Furnace and a Sunlamp sit
-// on one tile, so their symbols are half the size of a Cooling Unit's.
-function environmentBuildingIcon(building, mode, cx, cy) {
-    const scale = environmentBuildingSize(building) / 2;
-    // The stronger of a building's two modes shows its symbol twice, as the game does: the main
-    // one low and left, a smaller one off its top right, both clear of the building's edge.
-    const twice = draw => `${draw(cx - 0.12 * scale, cy + 0.14 * scale, 0.92 * scale)}${draw(cx + 0.38 * scale, cy - 0.32 * scale, 0.56 * scale)}`;
-    if (building === 'Heat Furnace') {
-        return mode === 'Scorching' ? twice(flameIcon) : flameIcon(cx, cy, scale);
-    }
-    if (building === 'Cooling Unit') {
-        return mode === 'Freeze' ? twice(snowflakeIcon) : snowflakeIcon(cx, cy, scale);
-    }
-    if (building === 'Sunlamp') {
-        return sunIcon(cx, cy, scale);
-    }
-    return '';
-}
-
-function renderEnvironmentDiagram(layout, mode, building, rows = [], unit = null, zones = null) {
-    if (!layout || layout.length === 0) return '';
-    const margin = 5;
-    const half = ENVIRONMENT_COVERAGE_RADIUS + margin;
-    const buildingSize = environmentBuildingSize(building);
-    const buildingCenter = buildingSize / 2;
-    // Centered on the building's own center (it sits at (0,0)-(size,size)), not world origin.
-    const viewMin = buildingCenter - half;
-    const viewSize = half * 2;
-    const coverageMin = buildingCenter - ENVIRONMENT_COVERAGE_RADIUS;
-    const coverageSize = ENVIRONMENT_COVERAGE_RADIUS * 2;
-    const tint = ENVIRONMENT_MODE_COLORS[mode] || '#9aa0a8';
-    // Two buildings placed to overlap: the plots shown are one of the three zones they make, in
-    // a frame with this building at the origin and its partner dx tiles along and dy tiles up.
-    const dx = unit && unit.partner ? unit.partner[1] : 0;
-    const dy = unit && unit.partner ? unit.partner[2] : 0;
-    const zone = unit && unit.partner ? unit.zone : null;
-    const partnerSize = unit && unit.partner ? environmentBuildingSize(unit.partner[0]) : buildingSize;
-    const partnerCenter = partnerSize / 2;
-    const partnerMin = {
-        x: partnerCenter - ENVIRONMENT_COVERAGE_RADIUS + dx,
-        y: partnerCenter - ENVIRONMENT_COVERAGE_RADIUS + dy,
-    };
-    const viewWidth = Math.max(viewSize, partnerMin.x + coverageSize + margin - viewMin);
-    const viewHeight = Math.max(viewSize, partnerMin.y + coverageSize + margin - viewMin);
-    // Each building covers its own 9x9 square; this zone is the part of them that gives this
-    // temperature: only the first's, only the second's, or where the two meet.
-    const modes = unit && unit.pairModes ? unit.pairModes : null;
-    const tintOf = m => ENVIRONMENT_MODE_COLORS[m] || '#9aa0a8';
-    const shadeOf = (m, opacity) => (opacity * (ENVIRONMENT_MODE_SHADE[m] ?? 1)).toFixed(3);
-    // Where the two coverage squares cross. It is always a rectangle; each building's own zone is
-    // its square with that rectangle taken out, which is an L unless the buildings line up.
-    const shared = {
-        x: Math.max(coverageMin, partnerMin.x),
-        y: Math.max(coverageMin, partnerMin.y),
-        w: Math.min(coverageMin, partnerMin.x) + coverageSize - Math.max(coverageMin, partnerMin.x),
-        h: Math.min(coverageMin, partnerMin.y) + coverageSize - Math.max(coverageMin, partnerMin.y),
-    };
-    const box = (x, y, w, h) => `M${x} ${y}h${w}v${h}h${-w}Z`;
-    // A zone as one path: the shared rectangle on its own, or a square with it cut out (two
-    // subpaths, which the even-odd rule reads as the difference).
-    const zonePath = z => {
-        if (z === 1) return box(shared.x, shared.y, shared.w, shared.h);
-        const own = z === 2 ? box(partnerMin.x, partnerMin.y, coverageSize, coverageSize)
-            : box(coverageMin, coverageMin, coverageSize, coverageSize);
-        return `${own}${box(shared.x, shared.y, shared.w, shared.h)}`;
-    };
-
-    // Gridlines like the game's: stronger on whole tiles, very faint on the quarter tiles
-    // facilities snap to.
-    const gridLines = [];
-    for (let t = Math.ceil(viewMin * 4) / 4; t <= viewMin + Math.max(viewWidth, viewHeight); t += 0.25) {
-        // Every other tile line is a major one, in step with the 2x2 buildings.
-        const cls = !Number.isInteger(t) ? 'quarter' : t % 2 === 0 ? 'tile major' : 'tile';
-        if (t <= viewMin + viewWidth) {
-            gridLines.push(`<line class="${cls}" x1="${t}" y1="${viewMin}" x2="${t}" y2="${viewMin + viewHeight}" />`);
-        }
-        if (t <= viewMin + viewHeight) {
-            gridLines.push(`<line class="${cls}" x1="${viewMin}" y1="${t}" x2="${viewMin + viewWidth}" y2="${t}" />`);
-        }
-    }
-
-    // Plots nearest the building first, each matched to a plan row of its facility type. On a
-    // shared map every zone matches its own rows to its own plots.
-    const distance = p => Math.hypot(p.x + p.size / 2 - buildingCenter, p.y + p.size / 2 - buildingCenter);
-    const matchCrops = (plots, plotRows) => {
-        const queue = {};
-        plotRows.forEach(r => {
-            if (!r.item_name) return;
-            (queue[r.facility] = queue[r.facility] || []).push({ item: r.item_name, left: r.facility_count });
-        });
-        return [...plots].sort((a, b) => distance(a) - distance(b)).map(p => {
-            const q = queue[p.facility];
-            while (q && q.length && q[0].left <= 0) q.shift();
-            if (!q || !q.length) return { ...p, crop: null };
-            q[0].left--;
-            return { ...p, crop: q[0].item };
-        });
-    };
-    const assigned = zones ? zones.flatMap(z => matchCrops(z.layout, z.rows)) : matchCrops(layout, rows);
-    const crops = [...new Set(assigned.map(p => `${p.facility}|${p.crop}`))];
-    const cropsPerFacility = {};
-    crops.forEach(key => {
-        const facility = key.split('|')[0];
-        cropsPerFacility[facility] = (cropsPerFacility[facility] || 0) + 1;
-    });
-    const numbered = Object.values(cropsPerFacility).some(n => n > 1);
-    const numberOf = key => crops.indexOf(key) + 1;
-
-    // A small inset keeps edge-touching plots visibly separate; purely cosmetic.
-    const inset = 0.08;
-    const rects = assigned.map(p => {
-        const color = ENVIRONMENT_FACILITY_COLORS[p.facility] || '#888888';
-        const size = p.size - inset * 2;
-        const initials = numbered && p.crop
-            ? `<text x="${p.x + p.size / 2}" y="${p.y + p.size / 2}" font-size="${Math.min(0.9, p.size * 0.4)}">${numberOf(`${p.facility}|${p.crop}`)}</text>`
-            : '';
-        return `<g class="env-plot" ${tipAttrs(getFacilityDisplayName(p.facility), { detail: p.crop ? prettyItem(p.crop) : '', color })}>
-            <rect x="${p.x + inset}" y="${p.y + inset}" width="${size}" height="${size}" rx="0.25" fill="${color}" fill-opacity="0.85" stroke="${color}" stroke-width="0.06" />${initials}</g>`;
-    }).join('');
-
-    const counts = {};
-    assigned.forEach(p => {
-        const key = `${p.facility}|${p.crop}`;
-        counts[key] = (counts[key] || 0) + 1;
-    });
-    // What the colours mean: the coverage, then each crop with how many plots it gets here.
-    const swatch = (color, label) => `
-        <span class="env-legend-item">
-            <span class="env-legend-swatch coverage" style="background:${color}33;border-color:${color}"></span>${label}
-        </span>`;
-    // On a shared map the heading already names both buildings and what they're set to; the
-    // legend only has to say what the middle is and which crop is which.
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const coverageLegend = modes
-        ? (zones
-            ? []
-            : [
-                swatch(tintOf(modes[0]), `${getFacilityDisplayName(building)}: ${getModeDisplayName(modes[0])}`),
-                swatch(tintOf(modes[1]), `${getFacilityDisplayName(unit.partner[0])}: ${getModeDisplayName(modes[1])}`),
-                swatch(tint, zone === 1
-                    ? (isVi ? `${getModeDisplayName(mode)} nơi cả hai bao phủ` : `${mode} where both reach`)
-                    : (isVi ? `${getModeDisplayName(mode)}, ô đất kế hoạch này` : `${mode}, this plan's plots`)),
-            ])
-        : [swatch(tint, isVi ? `Phạm vi ${getModeDisplayName(mode)}` : `${mode} coverage`)];
-    const legend = coverageLegend.concat(Object.entries(counts).map(([key, n]) => {
-        const [facility, crop] = key.split('|');
-        const facName = getFacilityDisplayName(facility);
-        // The number a plot carries in the diagram reads as part of the facility's name, as the
-        // plots themselves do: "Farmland 1: Sugarcane".
-        const named = `${facName}${numbered ? ` <b>${numberOf(key)}</b>` : ''}`;
-        const name = crop && crop !== 'null' ? `${named}: ${prettyItem(crop)}` : named;
-        return `
-        <span class="env-legend-item">
-            <span class="env-legend-swatch" style="background:${ENVIRONMENT_FACILITY_COLORS[facility] || '#888888'}"></span>${name} ×${n}
-        </span>`;
-    })).join('');
-
-    return `
-        <div class="env-diagram">
-            <svg viewBox="${viewMin} ${viewMin} ${viewWidth} ${viewHeight}" role="img" aria-label="${getFacilityDisplayName(building)} layout, ${getModeDisplayName(mode)} coverage">
-                <g class="env-grid">${gridLines.join('')}</g>
-                <rect x="${coverageMin}" y="${coverageMin}" width="${coverageSize}" height="${coverageSize}"
-                      fill="${modes ? tintOf(modes[0]) : tint}" fill-opacity="${shadeOf(modes ? modes[0] : mode, 0.12)}" />
-                ${modes ? `<rect x="${partnerMin.x}" y="${partnerMin.y}" width="${coverageSize}" height="${coverageSize}"
-                      fill="${tintOf(modes[1])}" fill-opacity="${shadeOf(modes[1], 0.12)}" />` : ''}
-                ${rects}
-                ${(zones || [{ mode, zone }]).map(z => {
-        const path = z.zone === null || z.zone === undefined
-            ? box(coverageMin, coverageMin, coverageSize, coverageSize)
-            : zonePath(z.zone);
-        const zoneTint = tintOf(z.mode);
-        return `<path class="env-coverage-top" d="${path}" fill-rule="evenodd"
-                      fill="${zoneTint}" fill-opacity="${shadeOf(z.mode, 0.3)}" stroke="${zoneTint}" stroke-opacity="0.9" stroke-dasharray="0.35,0.25" stroke-width="0.1" />`;
-    }).join('')}
-                ${modes ? `<rect x="${coverageMin}" y="${coverageMin}" width="${coverageSize}" height="${coverageSize}" fill="none"
-                      stroke="${tintOf(modes[0])}" stroke-opacity="0.55" stroke-width="0.07" />
-                    <rect x="${partnerMin.x}" y="${partnerMin.y}" width="${coverageSize}" height="${coverageSize}" fill="none"
-                      stroke="${tintOf(modes[1])}" stroke-opacity="0.55" stroke-width="0.07" />` : ''}
-                <g class="env-building" ${tipAttrs(getFacilityDisplayName(building), { detail: getModeDisplayName(modes ? modes[0] : mode), color: modes ? tintOf(modes[0]) : tint })}>
-                    <rect x="0.05" y="0.05" width="${buildingSize - 0.1}" height="${buildingSize - 0.1}" rx="0.3"
-                          fill="${modes ? tintOf(modes[0]) : tint}" stroke="currentColor" stroke-opacity="0.6" stroke-width="0.08" />
-                    ${environmentBuildingIcon(building, modes ? modes[0] : mode, buildingCenter, buildingCenter)}
-                </g>
-                ${unit && unit.partner ? `<g class="env-building" ${tipAttrs(getFacilityDisplayName(unit.partner[0]), { detail: getModeDisplayName(modes ? modes[1] : mode), color: tintOf(modes ? modes[1] : mode) })}>
-                    <rect x="${dx + 0.05}" y="${dy + 0.05}" width="${partnerSize - 0.1}" height="${partnerSize - 0.1}" rx="0.3"
-                          fill="${modes ? tintOf(modes[1]) : tint}" stroke="currentColor" stroke-opacity="0.6" stroke-width="0.08" />
-                    ${environmentBuildingIcon(unit.partner[0], modes ? modes[1] : mode, dx + partnerCenter, dy + partnerCenter)}
-                </g>` : ''}
-            </svg>
-            <div class="env-legend">${legend}</div>
-        </div>
-    `;
-}
-
-// Renders `plan.coin_items` (one row per facility+product; see `PlanStep` in models.rs). Rows
-// for a crop that needs a growing environment (Cool/Warm/Freeze/Scorching/Adequate) are pulled
-// out into their own "Environment: X" group first; regardless of whether they're grown on
-// Farmland or Woodland; so it's obvious at a glance which facilities share the same environment
-// building, instead of that connection being spelled out in each row's own text. When a mode
-// needs more than one building unit, that group splits into one table per unit (see
-// `splitByEnvironmentUnit`) so it's clear which crops go in which physical building. Everything
-// else falls back to the original per-facility-category grouping (FACILITY_CATEGORIES).
 function renderFacilityPlan(plan) {
-    const container = document.getElementById('facility-plan-container');
-    const steps = plan.coin_items || [];
+    return facilityPlanViewController.renderFacilityPlan(plan);
+}
+// Re-renders "Your Rate" from `lastPlan` at whichever unit is currently selected in the
+const rateDisplayController = createRateDisplayController({
+    document,
+    window,
+    getLastPlan: () => lastPlan,
+    getPlanContext: () => planContext,
+    getLastGoalResult: () => lastGoalResult,
+    rateUnitSeconds: RATE_UNIT_SECONDS,
+    currencyLabels: CURRENCY_LABELS,
+    seasonPointsLabel: SEASON.points,
+    formatRate,
+    prettyItem,
+    priorityLabel,
+    renderImprovements,
+    renderSeedTable,
+    renderLevelUp,
+    renderProductBreakdown,
+});
 
-    if (steps.length === 0) {
-        container.innerHTML = '<p class="hint">Nothing profitable to produce with the current facilities.</p>';
-        return;
-    }
-
-    const envGroups = new Map();
-    const ungatedSteps = [];
-    steps.forEach(step => {
-        if (step.environment) {
-            if (!envGroups.has(step.environment)) envGroups.set(step.environment, []);
-            envGroups.get(step.environment).push(step);
-        } else {
-            ungatedSteps.push(step);
-        }
-    });
-
-    const assignments = plan.environment_assignments || [];
-    // Split every mode's crops across the buildings covering them, then show one map per
-    // building: two that overlap share a single map, since they're one place on the homeland.
-    const byMode = new Map();
-    ENVIRONMENT_MODE_ORDER.filter(mode => envGroups.has(mode)).forEach(mode => {
-        byMode.set(mode, splitByEnvironmentUnit(envGroups.get(mode), assignments.filter(a => a.mode === mode)));
-    });
-    const pairs = new Map();
-    const singles = [];
-    byMode.forEach((units, mode) => {
-        units.forEach(unit => {
-            if (!unit.partner) {
-                singles.push({ mode, unit });
-                return;
-            }
-            const key = `${unit.building}|${unit.partner[0]}|${unit.partner[1]},${unit.partner[2]}`;
-            if (!pairs.has(key)) pairs.set(key, { unit, zones: [] });
-            pairs.get(key).zones.push({ mode, layout: unit.layout, rows: unit.rows, zone: unit.zone });
-        });
-    });
-
-    const pairSections = [...pairs.values()].map(({ unit, zones }) => {
-        zones.sort((a, b) => a.zone - b.zone);
-        const modes = unit.pairModes || [unit.mode, unit.mode];
-        const middle = zones.find(z => z.zone === 1)?.mode;
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        const overlapText = isVi ? 'Giao thoa' : 'Overlap';
-        return `
-            <div class="facility-category">
-                <h4 class="facility-category-title">${getFacilityDisplayName(unit.building)} ${modeTag(modes[0])}<span class="env-head-sep">|</span>${getFacilityDisplayName(unit.partner[0])} ${modeTag(modes[1])}${middle ? `<span class="env-head-sep">|</span>${overlapText} ${modeTag(middle)}` : ''}</h4>
-                <div class="env-unit">
-                    ${renderEnvironmentDiagram(zones.flatMap(z => z.layout), zones[0].mode, unit.building, zones.flatMap(z => z.rows), unit, zones)}
-                    <div class="env-unit-table">${facilityPlanTableOf(zones.map(z => ({ label: modeTag(z.mode), rows: z.rows })), { isFarm: true })}</div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const modeSections = ENVIRONMENT_MODE_ORDER.map(mode => {
-        const units = singles.filter(s => s.mode === mode).map(s => s.unit);
-        const isVi = window.i18n && window.i18n.getLang() === 'vi';
-        if (units.length === 0) {
-            // Crops wanting this mode that no building's map accounted for, if any: the units
-            // hold copies of each row, so compare by how many plots each one placed.
-            const placed = {};
-            (byMode.get(mode) || []).forEach(u => u.rows.forEach(r => {
-                placed[`${r.facility}|${r.item_name}`] = (placed[`${r.facility}|${r.item_name}`] || 0) + r.facility_count;
-            }));
-            const orphans = (envGroups.get(mode) || [])
-                .map(step => ({ ...step, facility_count: step.facility_count - (placed[`${step.facility}|${step.item_name}`] || 0) }))
-                .filter(step => step.facility_count > 0);
-            return orphans.length === 0 ? '' : `
-                <div class="facility-category">
-                    <h4 class="facility-category-title">${modeTag(mode)}</h4>
-                    ${facilityPlanTable(orphans, { isFarm: true })}
-                </div>`;
-        }
-        return `
-            <div class="facility-category">
-                <h4 class="facility-category-title">${getFacilityDisplayName(units[0].building)} ${modeTag(mode)}</h4>
-                ${units.map((unit, i) => `
-                    ${units.length > 1 ? `<p class="hint small">${getFacilityDisplayName(unit.building)} ${i + 1}</p>` : ''}
-                    <div class="env-unit">
-                        ${renderEnvironmentDiagram(unit.layout, mode, unit.building, unit.rows, unit)}
-                        <div class="env-unit-table">${facilityPlanTable(unit.rows, { isFarm: true })}</div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }).join('');
-    const environmentSections = pairSections + modeSections;
-
-    // 1. Tách riêng các ô đất nông trại & rừng cây không thuộc bộ phận điều hòa
-    const unconditionedFarmSteps = [];
-    const regularUngatedSteps = [];
-    ungatedSteps.forEach(step => {
-        const baseFac = (step.facility || '').replace(/ \(Manual\)$/, '').replace(/ \(Electric\)$/, '').replace(/ \(Prismana\)$/, '');
-        if (baseFac === 'Farmland' || baseFac === 'Woodland') {
-            unconditionedFarmSteps.push(step);
-        } else {
-            regularUngatedSteps.push(step);
-        }
-    });
-
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    // 2. Nhóm Đất trồng không thuộc bộ phận điều hòa (loại bỏ Chế độ và Aniimo, hiển thị 4 cột)
-    const activeFarmSteps = unconditionedFarmSteps.filter(step => step.status === 'producing' && Boolean(step.item_name));
-    let unconditionedFarmSection = '';
-    if (activeFarmSteps.length > 0) {
-        unconditionedFarmSection = `
-            <div class="facility-category unconditioned-farm-category">
-                <h4 class="facility-category-title">🌱 ${isVi ? 'Đất trồng không thuộc bộ phận điều hòa' : 'Unconditioned Farm & Tree Plots'}</h4>
-                ${facilityPlanTable(activeFarmSteps, { isFarm: true })}
-            </div>
-        `;
-    }
-
-    // 3. Phân bổ các cơ sở dùng Aniimo 24/7 và chế biến (tuyệt đối không còn Farmland hay Woodland ở đây)
-    const byCategory = new Map(FACILITY_CATEGORIES.map(c => [c, []]));
-    regularUngatedSteps.forEach(step => {
-        const category = FACILITY_CATEGORY_BY_NAME.get(step.facility) || 'Materials Processing';
-        if (!byCategory.has(category)) byCategory.set(category, []);
-        byCategory.get(category).push(step);
-    });
-
-    // 4. Thứ tự hiển thị: "Sản xuất gỗ và gạch quặng" NẰM TRÊN "Sản xuất nguyên liệu", sau cùng là "Cơ sở chế biến"
-    const PLAN_DISPLAY_CATEGORIES = [
-        {
-            titleVi: 'Sản xuất gỗ và gạch quặng',
-            titleEn: 'Wood & Ore Processing',
-            sourceCategories: ['Wood & Ore Processing']
-        },
-        {
-            titleVi: 'Sản xuất nguyên liệu',
-            titleEn: 'Materials Production',
-            sourceCategories: ['Materials', 'Aniimo Materials']
-        },
-        {
-            titleVi: 'Cơ sở chế biến',
-            titleEn: 'Processing Facilities',
-            sourceCategories: ['Materials Processing']
-        }
-    ];
-
-    const categorySections = PLAN_DISPLAY_CATEGORIES.map(cat => {
-        let categorySteps = [];
-        cat.sourceCategories.forEach(sc => {
-            const list = byCategory.get(sc) || [];
-            categorySteps.push(...list);
-        });
-        // Chỉ liệt kê cơ sở cần dùng, cái nào không dùng thì không show
-        categorySteps = categorySteps.filter(step => step.status === 'producing' && Boolean(step.item_name));
-        if (categorySteps.length === 0) return '';
-        const catName = isVi ? cat.titleVi : cat.titleEn;
-        return `
-            <div class="facility-category">
-                <h4 class="facility-category-title">${catName}</h4>
-                ${facilityPlanTable(categorySteps)}
-            </div>
-        `;
-    }).join('');
-
-    // Cấu trúc phân nhóm rõ ràng trong bảng phân bổ cơ sở:
-    // 1. Các bộ phận điều hòa (Environment sections)
-    // 2. Các đất trồng không thuộc bộ phận điều hòa (Unconditioned farm section)
-    // 3. Sản xuất gỗ & quặng -> Sản xuất nguyên liệu 24/7 -> Cơ sở chế biến
-    // (Tổ đội đồng áng đã được hiển thị tập trung tại thẻ 'Tổ đội công nhân' độc lập phía trên)
-    container.innerHTML = environmentSections + unconditionedFarmSection + categorySections;
+// Adapts current locale and strategy context to the pure priority-rate projection.
+function priorityRows(plan) {
+    return rateDisplayController.priorityRows(plan);
 }
 
 // Re-renders "Your Rate" from `lastPlan` at whichever unit is currently selected in the
-// `#rate-unit` dropdown; called after a fresh plan and again whenever the user switches units, so
-// switching units never needs a facility-allocation re-solve. `pickUnit` is for a fresh plan
-// only: it chooses the unit the plan reads best at. Switching units must never do that, or the
-// choice would be undone the moment it's made.
+// `#rate-unit` dropdown; called after a fresh plan and again whenever the user switches units.
 function updateRateDisplay(pickUnit = false) {
-    if (!lastPlan || !lastPlan.success) return;
-    const select = document.getElementById('rate-unit');
-    const rows = planContext && !planContext.levelUp ? priorityRows(lastPlan) : null;
-    // Step the unit up until the smallest rate reads at least 1 (Aniipods per hour, Rough Lumber
-    // per hour, not 0.01 per second); a plain coin rate only needs to read above zero.
-    const costRates = (lastPlan.level_up?.requirements || []).map(r => r.per_second);
-    const rates = (rows ? rows.map(r => r.perSecond) : costRates).filter(r => r > 1e-9);
-    const smallest = rates.length ? Math.min(...rates) : lastPlan.rate_per_second;
-    const least = rates.length ? 1 : 0.05;
-    while (pickUnit && smallest * RATE_UNIT_SECONDS[select.value].multiplier < least) {
-        const next = { second: 'minute', minute: 'hour', hour: 'day' }[select.value];
-        if (!next) break;
-        select.value = next;
-    }
-    const { multiplier, suffix } = RATE_UNIT_SECONDS[select.value] || RATE_UNIT_SECONDS.second;
-    const rateLine = document.getElementById('rate-line');
-    const table = document.getElementById('priority-rates');
-    if (!rows) {
-        if (select.closest('#priority-rates')) rateLine.appendChild(select);
-        const label = CURRENCY_LABELS[lastPlan.currency] || lastPlan.currency;
-        const points = lastPlan.season_points > 1e-12 ? ` + ${formatRate(lastPlan.season_points * multiplier)} ${SEASON.points}` : '';
-        document.getElementById('plan-rate').textContent = `${formatRate(lastPlan.rate_per_second * multiplier)} ${label}${points}${suffix}`;
-        document.getElementById('rate-label').textContent = 'Your Rate';
-        rateLine.style.display = '';
-        table.innerHTML = '';
-        return;
-    }
-    // Priorities: one row each, in the player's order, at the selected unit.
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const amount = formatRate;
-    const body = rows.map(r => {
-        const why = r.perSecond <= 1e-9 && r.missing ? `<span class="hint small">${r.missing}</span>` : '';
-        let made = '';
-        if (r.target === 'aniimo_exp') {
-            made = r.items.filter(([, n]) => n > 1e-9).map(([item, n]) => `${amount(n * multiplier)} ${prettyItem(item)}`).join(', ');
-        } else if (r.target === 'aniimo_food') {
-            const foodItems = r.items.filter(([, n]) => n > 1e-9).map(([item, n]) => `${amount(n * multiplier)} ${prettyItem(item)}`).join(', ');
-            const energyPct = Math.min(100, Math.round((r.perSecond / 7.5) * 100));
-            made = `${energyPct}% ${isVi ? 'định mức (7.5 Energy/s)' : 'quota (7.5 Energy/s)'}${foodItems ? ': ' + foodItems : ''}`;
-        }
-        let rateDisplay = '';
-        if (why) {
-            rateDisplay = 'none';
-        } else if (r.target === 'aniimo_food') {
-            rateDisplay = `${amount(r.perSecond * multiplier)} Energy${suffix}`;
-        } else {
-            rateDisplay = amount(r.perSecond * multiplier);
-        }
-        return `<tr${r.rank === 1 ? ' class="top"' : ''}>
-            <td>${r.rank ?? ''}</td>
-            <td>${r.label}</td>
-            <td>${rateDisplay}</td>
-            <td>${why || made}</td>
-        </tr>`;
-    }).join('');
-    const optimalBadge = lastPlan.proven_optimal === true
-        ? `<span class="priority-optimal-badge" title="${isVi ? 'Toàn bộ mục tiêu đã được chứng minh tối ưu toán học' : 'All priorities proven mathematically optimal'}">✓ ${isVi ? 'Tối ưu chuẩn xác' : 'Optimal'}</span>`
-        : '';
-    table.innerHTML = `
-        <table class="level-up-lines rate-table">
-            <thead><tr><th>#</th><th>${isVi ? 'Mục tiêu ưu tiên' : 'Priority'} ${optimalBadge}</th><th id="priority-rate-head"></th><th>${isVi ? 'Chi tiết sản xuất' : 'Details'}</th></tr></thead>
-            <tbody>${body}</tbody>
-        </table>`;
-    document.getElementById('priority-rate-head').appendChild(select);
-    document.getElementById('rate-label').textContent = isVi ? 'Tốc độ sản xuất' : 'Your Rates';
-    rateLine.style.display = 'none';
+    return rateDisplayController.updateRateDisplay(pickUnit);
 }
 
-// A Priorities plan's rate rows, in the player's order: each priority, then coins from what's
-// left if coins wasn't one of them. A priority the homeland can't make yet says why.
-function priorityRows(plan) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const missing = {
-        aniimo_exp: planContext?.hasPolisher ? null : (isVi ? 'Chưa sở hữu Dance Pad Polisher' : 'No Dance Pad Polisher yet'),
-        aniipods: planContext?.aniipod ? null : (isVi ? 'Chưa sở hữu Aniipod Maker' : 'No Aniipod Maker yet'),
-    };
-    const rows = (plan.priorities || []).map((p, i) => ({
-        rank: i + 1,
-        target: p.target,
-        label: priorityLabel(p.target, planContext?.aniipod),
-        perSecond: p.per_second,
-        items: p.items || [],
-        streams: p.streams || [],
-        missing: missing[p.target] || null,
-    }));
-    if (!rows.some(r => r.target === 'coins')) {
-        const coinLabel = isVi
-            ? (rows.length ? "Xu Gia Viên (từ năng lực còn lại)" : "Xu Gia Viên")
-            : (rows.length ? "Home Coins, from what's left" : "Home Coins");
-        rows.push({ rank: null, target: 'coins', label: coinLabel, perSecond: plan.rate_per_second, items: [], missing: null });
-    }
-    // During the season, points come with every season item sold, ranked or not.
-    if (plan.season_points != null && !rows.some(r => r.target === 'season_points')) {
-        rows.push({ rank: null, target: 'season_points', label: SEASON.points, perSecond: plan.season_points, items: [], missing: null });
-    }
-    return rows;
-}
-
-// Re-renders every rate-unit-dependent display ("Your Rate" and the Product Breakdown table's
-// Profit column) from the already-computed `lastPlan`/`lastGoalResult`; the `#rate-unit` change
-// listener target, so switching units never needs a re-solve.
+// Re-renders every rate-unit-dependent display from the already-computed `lastPlan`/`lastGoalResult`.
 function updateRateUnitDisplays() {
-    updateRateDisplay();
-    renderImprovements();
-    if (lastPlan && lastPlan.success) {
-        renderSeedTable(lastPlan);
-        renderLevelUp(lastPlan);
-    }
-    if (lastGoalResult) {
-        renderProductBreakdown(lastGoalResult);
-    }
+    return rateDisplayController.updateRateUnitDisplays();
 }
 
-// Render a successfully computed plan: rate summary + facility plan table. Goal-independent,
-// called once per Calculate click (or facility/currency/module change), not on every goal
-// keystroke.
+const tooltipController = createTooltipController({ document, window });
+tooltipController.attach();
+
+const insightsRenderer = createInsightsRenderer({
+    document,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+    selectedHomeLevel,
+    simpleSetup,
+    planContext: () => planContext,
+    levelUpCosts: LEVEL_UP_COSTS,
+    lastPlanInput: () => lastPlanInput,
+    lastEmodeCounts: () => lastEmodeCounts,
+    prettyItem,
+    perHour,
+    formatDuration,
+    formatRate,
+    getFacilityDisplayName,
+    getGeneratorCapacity,
+    calculatePowerWatts,
+    seasonActive: () => seasonActive(),
+    selectedSeasonDishes: () => selectedSeasonDishes,
+    buildWoodlandInsight,
+    buildProfitInsight,
+    buildFarmSupplyInsight,
+    buildRejectedInsight,
+    buildLogisticsInsight,
+});
+
+function renderInsights(plan) {
+    insightsRenderer.render(plan);
+}
+
+const planDisplayController = createPlanDisplayController({
+    document,
+    isVietnamese: () => !!(window.i18n && window.i18n.getLang() === 'vi'),
+    getRateUnitChosen: () => rateUnitChosen,
+    getPlanContext: () => planContext,
+    setUnverifiedRowKeys: value => { unverifiedRowKeys = value; },
+    renderInfeasibleExplanation,
+    updateRateDisplay,
+    renderGoalTargets,
+    renderInsights,
+    evaluatePlotsOptimization,
+    buildSolverResultViewModel,
+    prettyItem,
+    renderSeedTable,
+    renderLevelUp,
+    renderProfitBreakdown,
+    renderFacilityPlan,
+    renderHomelandLayout,
+    renderAniimoSummary,
+});
+
 export function displayPlan(plan) {
-    const resultsSection = document.getElementById('results-section');
-    const errorEl = document.getElementById('error-message');
-    const resultsContent = document.getElementById('results-content');
-    const goalSection = document.getElementById('goal-section');
-
-    resultsSection.style.display = 'block';
-
-    const infeasibleEl = document.getElementById('infeasible-explanation-section');
-
-    if (!plan.success) {
-        goalSection.style.display = 'none';
-        resultsContent.style.display = 'none';
-        if (errorEl) errorEl.style.display = 'none';
-        renderInfeasibleExplanation(plan);
-        return;
-    }
-
-    if (infeasibleEl) infeasibleEl.style.display = 'none';
-    if (errorEl) errorEl.style.display = 'none';
-    resultsContent.style.display = 'block';
-    resultsContent.classList.remove('setup-only');
-    // A level-up plan's own card says how long it takes; the goal is for coin plans.
-    goalSection.style.display = plan.level_up ? 'none' : 'block';
-
-    updateRateDisplay(!rateUnitChosen);
-    renderGoalTargets(plan);
-    renderInsights(plan);
-    evaluatePlotsOptimization(plan);
-
-    // Said only when the plan might not be the best: the solver ran out of time, or the backup
-    // planner made it.
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const explored = document.getElementById('plan-explored-hint');
-    const isTwoStage = plan.solver_source && plan.solver_source.includes('smart_two_stage');
-
-    if (isTwoStage) {
-        explored.style.display = 'block';
-        if (plan.proven_optimal === true) {
-            explored.textContent = isVi
-                ? '⚡ Tối ưu chuẩn xác cho cấu hình E-mode đã phân bổ (Heuristic Two-Stage; không cam kết tối ưu toàn cục mọi tổ hợp).'
-                : '⚡ Exact optimal for the selected E-mode allocation (Heuristic Two-Stage; global optimality across all permutations is not guaranteed).';
-        } else if (plan.proven_optimal === false && plan.upper_bound > 0) {
-            const gap = Math.max(0, (plan.upper_bound - plan.rate_per_second) / plan.upper_bound * 100);
-            explored.textContent = isVi
-                ? `Kế hoạch tốt nhất tìm thấy trong thời gian cho phép; mức tối đa lý thuyết của cấu hình này cao hơn tối đa ${gap.toFixed(1)}%.`
-                : `Best plan found in the time allowed; theoretical upper bound for this configuration is at most ${gap.toFixed(1)}% higher.`;
-        }
-    } else {
-        explored.style.display = plan.proven_optimal === true ? 'none' : '';
-        if (plan.proven_optimal === true) {
-            explored.textContent = '';
-        } else if (plan.proven_optimal === false && plan.upper_bound > 0) {
-            const gap = Math.max(0, (plan.upper_bound - plan.rate_per_second) / plan.upper_bound * 100);
-            explored.textContent = isVi
-                ? `Kế hoạch tối ưu nhất tìm thấy trong thời gian cho phép; mức tối đa lý thuyết cao hơn nhiều nhất ${gap.toFixed(1)}%.`
-                : `Best plan found in the time allowed; the best possible is at most ${gap.toFixed(1)}% higher.`;
-        } else {
-            const reason = plan.fallback_reason ? ` (${plan.fallback_reason})` : '';
-            explored.textContent = isVi
-                ? `Bộ giải chuẩn xác không thể hoàn tất${reason}, kế hoạch này được tạo từ bộ giải dự phòng. Tải lại trang thường sẽ giải quyết được.`
-                : `The exact planner couldn't run${reason}, so this plan comes from the backup planner and may not be the very best. Reloading the page usually fixes this.`;
-        }
-    }
-
-    // Solver Info & Benchmark Badges
-    const solverInfoEl = document.getElementById('plan-solver-info');
-    const solverBadgeEl = document.getElementById('plan-solver-badge');
-    const benchBadgeEl = document.getElementById('fast-resolve-benchmark-badge');
-
-    if (solverInfoEl && solverBadgeEl) {
-        if (plan.solver_source) {
-            solverInfoEl.style.display = 'flex';
-            if (isTwoStage) {
-                solverBadgeEl.textContent = isVi
-                    ? '⚡ Smart Two-Stage (Heuristic Allocation + Re-Solve Exact)'
-                    : '⚡ Smart Two-Stage (Heuristic Allocation + Exact Re-Solve)';
-                if (plan.benchmark_breakdown && benchBadgeEl) {
-                    const b = plan.benchmark_breakdown;
-                    benchBadgeEl.style.display = 'inline-flex';
-                    benchBadgeEl.textContent = isVi
-                        ? `⏱️ Base: ${b.t_base_solve}ms | Alloc: ${b.t_allocator}ms | Final: ${b.t_final_solve}ms | Tổng: ${b.t_total}ms`
-                        : `⏱️ Base: ${b.t_base_solve}ms | Alloc: ${b.t_allocator}ms | Final: ${b.t_final_solve}ms | Total: ${b.t_total}ms`;
-                }
-            } else if (plan.solver_source === 'fast_resolve_exact') {
-                solverBadgeEl.textContent = isVi ? '⚡ Exact Re-Solve' : '⚡ Exact Re-Solve';
-                if (benchBadgeEl && plan.elapsed_ms != null) {
-                    benchBadgeEl.style.display = 'inline-flex';
-                    benchBadgeEl.textContent = `⚡ ${plan.elapsed_ms}ms`;
-                }
-            } else if (plan.solver_source === 'base_plan_fallback') {
-                solverBadgeEl.textContent = isVi
-                    ? `⚠️ Dự phòng Base Plan (${plan.fallback_reason})`
-                    : `⚠️ Fallback to Base Plan (${plan.fallback_reason})`;
-                if (plan.benchmark_breakdown && benchBadgeEl) {
-                    benchBadgeEl.style.display = 'inline-flex';
-                    benchBadgeEl.textContent = `⏱️ ${plan.benchmark_breakdown.t_total}ms`;
-                }
-            } else {
-                solverBadgeEl.textContent = plan.solver_source;
-            }
-        } else {
-            solverInfoEl.style.display = 'none';
-        }
-    }
-
-    const unverifiedEl = document.getElementById('plan-unverified');
-    const unverified = plan.unverified || [];
-    unverifiedRowKeys = new Set(unverified.map(u => `${u.facility}|${u.item_name}`));
-    // Mọi công thức đã được cập nhật đầy đủ, ẩn vĩnh viễn cảnh báo unverified
-    unverifiedEl.style.display = 'none';
-
-    const skippedEl = document.getElementById('plan-skipped');
-    const skipped = planContext?.skipped || [];
-    skippedEl.style.display = skipped.length ? 'block' : 'none';
-    skippedEl.textContent = skipped.length
-        ? (isVi ? `Đang bỏ qua: ${skipped.map(prettyItem).join(', ')}.` : `Skipping ${skipped.map(prettyItem).join(', ')}.`)
-        : '';
-
-    renderSeedTable(plan);
-    renderLevelUp(plan);
-    renderProfitBreakdown(plan);
-    renderFacilityPlan(plan);
-    renderHomelandLayout(plan);
-    renderAniimoSummary(plan);
-    // The page stays where the player is; the results appear without scrolling to them.
+    return planDisplayController.displayPlan(plan);
 }
 
-// Render a time-to-goal result: Total Time / Amount Produced summary + Product Breakdown. Called
-// live on every goal-field keystroke once a plan exists; cheap, no facility-allocation re-solve.
+const goalDisplayController = createGoalDisplayController({
+    document,
+    setLastGoalResult: value => { lastGoalResult = value; },
+    formatDuration,
+    formatNumber,
+    renderProductBreakdown,
+    renderSeedsNeeded,
+    warn: (...args) => console.warn(...args),
+});
+
 function displayGoal(goalResult) {
-    if (!goalResult.success) {
-        lastGoalResult = null;
-        document.getElementById('total-time').textContent = '-';
-        document.getElementById('amount-produced').textContent = '-';
-        document.getElementById('product-breakdown-section').style.display = 'none';
-        document.getElementById('seeds-needed-section').style.display = 'none';
-        console.warn('Goal calculation failed:', goalResult.error);
-        return;
-    }
-
-    lastGoalResult = goalResult;
-    document.getElementById('total-time').textContent = goalResult.total_time_seconds > 0 ? formatDuration(goalResult.total_time_seconds) : '0m';
-    document.getElementById('amount-produced').textContent = formatNumber(goalResult.amount_produced);
-
-    renderProductBreakdown(goalResult);
-    renderSeedsNeeded(goalResult);
+    return goalDisplayController.displayGoal(goalResult);
 }
+
+const planSolveController = createPlanSolveController({
+    document,
+    isWasmReady: () => wasmReady,
+    showError,
+    getPlanRunId: () => planRunId,
+    nextPlanRunId: () => ++planRunId,
+    resetPlansBySetup: () => { plansBySetup = {}; },
+    resetRankingsBySetup: () => { rankingsBySetup = {}; },
+    stopRanking,
+    stopSetupSolve,
+    stopLayout,
+    solverClient,
+    restartWorker,
+    buildStrategyPlanInput,
+    isLevelUpStrategy,
+    levelUpTarget,
+    levelUpUnavailable,
+    getLevelUpStock: () => levelUpStock,
+    getLevelUpStockAmount,
+    wantsAniipods,
+    bestAniipod,
+    getSkippedRecipes: () => recipeFilterController.getSkippedRecipes(),
+    prettyItem,
+    isSimpleMode,
+    startProgress,
+    setStep,
+    renderProgress,
+    getProgress: () => progressController.getProgress(),
+    selectedAniimoSetup,
+    bestAniimoSetup,
+    aniimoInput,
+    selectedHomeLevel,
+    getUnlockedSpecial: () => unlockedSpecial,
+    getSelectedSeasonDishes: () => selectedSeasonDishes,
+    activePriorities,
+    seasonActive,
+    isRV20Endgame,
+    executePlanSolve,
+    callWorker,
+    solvePlanWithEmode,
+    allocateDynamicEmode,
+    getGeneratorCapacity,
+    getPowerGridRate,
+    getTargetEmodeWatts,
+    trialCountToPercent,
+    runPlanPruning,
+    integrateSeasonPlan,
+    normalizePlanFacilityCounts,
+    actualEmodeCounts,
+    setLastEmodeCounts: val => { lastEmodeCounts = val; },
+    setLastPlanInput: val => { lastPlanInput = val; },
+    setPlanContext: val => { planContext = val; },
+    setLastPlan: val => { lastPlan = val; },
+    finishSolveSteps,
+    setPlanForSetup: (setup, plan) => { plansBySetup[setup] = plan; },
+    getPlanForSetup: setup => plansBySetup[setup],
+    showSelectedPlan,
+    updatePowerGauge,
+});
 
 // Solve for the best achievable plan (facilities + currency + modules); the heavier computation,
 // triggered explicitly by the Calculate button or Enter in a facility/module field.
-async function runFindPlan() {
-    if (!wasmReady) {
-        showError('Optimizer not ready. Please wait...');
-        return;
-    }
-
-    const btn = document.getElementById('optimize-btn');
-    const btnText = btn.querySelector('.btn-text');
-    const btnLoading = btn.querySelector('.btn-loading');
-    const progressBar = document.getElementById('progress-bar-container');
-    const progressFill = document.getElementById('progress-bar-fill');
-    const progressCaption = document.getElementById('progress-bar-caption');
-
-    btn.disabled = true;
-    btnText.style.display = 'none';
-    btnLoading.style.display = 'inline';
-    // The progress card below the button follows each step; the bar only shows if the backup
-    // planner runs, since that one counts its trials.
-    progressBar.style.display = 'none';
-    progressCaption.style.display = 'none';
-    progressFill.style.width = '';
-
-    const runId = ++planRunId;
-    plansBySetup = {};
-    rankingsBySetup = {};
-    stopRanking();
-    stopSetupSolve();
-    stopLayout();
-    if (pendingWorkerRequests.size > 0) restartWorker();
-    try {
-        const input = buildStrategyPlanInput();
-        lastPlanInput = input;
-        planContext = {
-            levelUp: isLevelUpStrategy(),
-            target: levelUpTarget(),
-            unavailable: levelUpUnavailable(),
-            ready: !!(input.level_up && input.level_up.cost.every(([name, need]) => stockAmount(name) >= need)),
-            aniipod: wantsAniipods() ? bestAniipod() : null,
-            hasPolisher: (input.facilities['Dance Pad Polisher'] || []).some(t => t.count > 0),
-            // Only what the player skipped; locked special recipes are the default, not news.
-            skipped: [...skippedRecipes].sort((a, b) => prettyItem(a).localeCompare(prettyItem(b))),
-            simple: isSimpleMode(),
-        };
-        startProgress(input, runId);
-
-        // Runs in the worker (see worker.js); the main thread stays free to paint the progress
-        // bar above for however long this takes, instead of freezing. `onTrialProgress` receives
-        // the solver's own real, running trial-solve count after every trial solve; converted to
-        // a fill percentage by `trialCountToPercent` below.
-        // Only the backup planner reports progress (see worker.js); the exact planner is quick.
-        // Whichever Best the player has asked for; the other one waits until they switch to it.
-        const bestSetup = selectedAniimoSetup() === 'minimum' ? bestAniimoSetup() : selectedAniimoSetup();
-        Object.assign(input, aniimoInput(bestSetup));
-
-        const emodeSimpleOn = document.getElementById('emode-simple-on')?.checked ?? true;
-        const currentRv = selectedHomeLevel();
-        const useEmode = emodeSimpleOn && currentRv >= 12;
-
-        let bestPlan = null;
-        let finalEmodeCounts = {};
-
-        if (useEmode) {
-            const t0_total = performance.now();
-
-            // STEP 1: Base solve with Auto facilities defaulted to manual, preserving all fixed overrides
-            const t0_base = performance.now();
-            const originalOverrides = input.facility_overrides || [];
-            input.facility_overrides = originalOverrides;
-
-            // Preserve fixed-electric overrides in base solve; only Auto facilities remain manual
-            const baseFixedElectric = {};
-            for (const ovr of originalOverrides) {
-                if (ovr.electric_count > 0) {
-                    baseFixedElectric[ovr.facility] = ovr.electric_count;
-                }
-            }
-            input.emode_facility_counts = baseFixedElectric;
-            input.emode_facilities = Object.keys(baseFixedElectric);
-            input.power_grid_rate = Object.keys(baseFixedElectric).length > 0 ? getPowerGridRate() : 1.0;
-
-            const baseJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }), (count) => {
-                if (typeof count === 'object') {
-                    setStep(count.step, count.state, undefined, count.proven);
-                    return;
-                }
-                setStep('backup', 'start', `trial ${count}`);
-                progressBar.style.display = 'block';
-                progressFill.style.width = `${trialCountToPercent(count)}%`;
-            });
-            progressFill.style.width = '100%';
-            if (runId !== planRunId) return;
-
-            const basePlan = JSON.parse(baseJson);
-            const t_base = performance.now() - t0_base;
-
-            // STEP 2: Smart Two-Stage Allocator using basePlan, tiers, and user overrides
-            const t0_alloc = performance.now();
-            const generatorCapacity = getGeneratorCapacity();
-            const chosenRate = getPowerGridRate();
-            const targetWatts = getTargetEmodeWatts(generatorCapacity, chosenRate);
-            input.facility_overrides = originalOverrides;
-            let allocatedCounts = allocateDynamicEmode(basePlan, currentRv, targetWatts, {
-                overrides: originalOverrides,
-                powerGridRate: chosenRate,
-                productionAniimoCap: input.production_aniimo_cap,
-                facilities: input.facilities,
-                specialist_quotas: input.specialist_quotas
-            });
-            const t_alloc = performance.now() - t0_alloc;
-
-            const allocationValidationError = allocatedCounts.validation_error ? allocatedCounts.error : null;
-            if (allocationValidationError) {
-                // An invalid override must not discard a valid baseline plan. Show the
-                // baseline and expose why E-mode allocation was skipped in its status badge.
-                console.warn(`E-mode allocation skipped: ${allocationValidationError}`);
-                allocatedCounts = {};
-            }
-
-            input.required_emode_tiers = (currentRv >= 18)
-                ? ['Chimney Kiln', 'Woodworking Bench'].flatMap(facility => {
-                    const count = allocatedCounts[facility] || 0;
-                    if (count <= 0) return [];
-                    const tiers = input.facilities[facility] || [];
-                    const highest = Math.max(0, ...tiers.filter(tier => tier.count > 0).map(tier => tier.level || 1));
-                    return highest > 0 ? [{ facility, level: highest, count: Math.min(count, 1) }] : [];
-                })
-                : [];
-
-            if (Object.keys(allocatedCounts).length > 0) {
-                // STEP 3: Re-solve with optimal E-mode allocation and user's supply rate
-                const t0_final = performance.now();
-                input.emode_facilities = Object.keys(allocatedCounts);
-                input.emode_facility_counts = allocatedCounts;
-                input.emode_tier_counts = allocatedCounts._tier_counts || [];
-                input.power_grid_rate = chosenRate;
-
-                const emodeJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }));
-                if (runId !== planRunId) return;
-
-                const emodePlan = JSON.parse(emodeJson);
-                const t_final = performance.now() - t0_final;
-                const t_total = performance.now() - t0_total;
-
-                const emodeViable = emodePlan && emodePlan.success;
-
-                // Solver Floor Invariant Check: các priority không được giảm vượt quá tolerance (1e-4 * max(1, abs(baseRate)))
-                let violatesFloor = false;
-                if (emodeViable && basePlan && basePlan.priorities && emodePlan.priorities) {
-                    for (const basePrio of basePlan.priorities) {
-                        const emodePrio = emodePlan.priorities.find(p => p.target === basePrio.target);
-                        const baseRate = basePrio.per_second || 0;
-                        const emodeRate = emodePrio ? (emodePrio.per_second || 0) : 0;
-                        const prioTol = 1e-4 * Math.max(1, Math.abs(baseRate));
-                        if (emodeRate + prioTol < baseRate) {
-                            violatesFloor = true;
-                            console.warn(`[E-mode Invariant] Priority ${basePrio.target} dropped from ${baseRate} to ${emodeRate} (tolerance ${prioTol}); rolling back to baseline.`);
-                            break;
-                        }
-                    }
-                }
-
-                // Khi người dùng chủ động bật E-mode, mục tiêu là phân bổ điện và giải phóng thợ Aniimo.
-                // Tôn trọng kết quả phân bổ điện của solver, không rollback về 0W (Manual) chỉ vì chênh lệch coins!
-                if (emodeViable && !violatesFloor) {
-                    bestPlan = emodePlan;
-                    bestPlan.solver_source = 'smart_two_stage + exact_fixed_allocation';
-                    bestPlan.allocation_method = 'heuristic_two_stage';
-                    bestPlan.guard_eligibility = 'unverified';
-                    bestPlan.allocation_diagnostics = allocatedCounts._diagnostics || [];
-                    bestPlan.benchmark_breakdown = {
-                        t_base_solve: Math.round(t_base * 10) / 10,
-                        t_allocator: Math.round(t_alloc * 10) / 10,
-                        t_final_solve: Math.round(t_final * 10) / 10,
-                        t_total: Math.round(t_total * 10) / 10
-                    };
-                    finalEmodeCounts = allocatedCounts;
-                } else {
-                    const fallbackReason = !emodeViable
-                        ? (emodePlan?.error || 'emode_solve_infeasible')
-                        : (violatesFloor ? 'priority_floor_violation' : 'net_coins_dropped');
-                    console.warn(`Emode solve fell back to baseline: ${fallbackReason}`);
-                    bestPlan = basePlan;
-                    bestPlan.solver_source = 'base_plan_fallback';
-                    bestPlan.fallback_reason = fallbackReason;
-                    bestPlan.benchmark_breakdown = {
-                        t_base_solve: Math.round(t_base * 10) / 10,
-                        t_allocator: Math.round(t_alloc * 10) / 10,
-                        t_final_solve: Math.round(t_final * 10) / 10,
-                        t_total: Math.round(t_total * 10) / 10
-                    };
-                    finalEmodeCounts = {};
-                    input.emode_facilities = [];
-                    input.emode_facility_counts = {};
-                }
-            } else {
-                bestPlan = basePlan;
-                bestPlan.solver_source = allocationValidationError ? 'base_plan_fallback' : 'smart_two_stage + manual_only';
-                if (allocationValidationError) bestPlan.fallback_reason = allocationValidationError;
-                bestPlan.benchmark_breakdown = {
-                    t_base_solve: Math.round(t_base * 10) / 10,
-                    t_allocator: Math.round(t_alloc * 10) / 10,
-                    t_final_solve: 0,
-                    t_total: Math.round((performance.now() - t0_total) * 10) / 10
-                };
-                finalEmodeCounts = {};
-            }
-        } else {
-            // E-mode off or RV < 12: single manual solve
-            input.emode_facilities = [];
-            input.emode_facility_counts = {};
-            input.power_grid_rate = 1.0;
-
-            const bestJson = await callWorker('find_plan', JSON.stringify({ ...input, aniimo: bestSetup }), (count) => {
-                if (typeof count === 'object') {
-                    setStep(count.step, count.state, undefined, count.proven);
-                    return;
-                }
-                setStep('backup', 'start', `trial ${count}`);
-                progressBar.style.display = 'block';
-                progressFill.style.width = `${trialCountToPercent(count)}%`;
-            });
-            progressFill.style.width = '100%';
-            if (runId !== planRunId) return;
-            bestPlan = JSON.parse(bestJson);
-            finalEmodeCounts = {};
-        }
-
-        // STEP 4: Tự động loại bỏ các nguyên liệu thô/phụ có tỷ lệ doanh thu <= 2% (như Thạch hương, Ngôi sao, Muối biển khi không dùng)
-        // để giải phóng công nhân Aniimo và tránh đề xuất cơ sở sản xuất thô lãng phí nhân lực.
-        // Chạy multi-pass (tối đa 3 vòng) để triệt tiêu các nguyên liệu thô bị thừa sau khi chuỗi cấp cao bị cắt đứt.
-        // Ngoại lệ: Gạo xay/gạo xát (milled_rice) từ Cối xay Carousel là sản phẩm chế biến từ lúa nước dôi dư, đem bán là hợp lệ nên luôn giữ lại.
-        if (bestPlan && bestPlan.success && bestPlan.income_streams && bestPlan.rate_per_second > 0) {
-            const userPicks = new Set([
-                ...(unlockedSpecial || []),
-                ...(selectedSeasonDishes || []),
-                ...activePriorities()
-            ]);
-
-            // Nếu Lễ hội Trung Thu đang bật và có món cần Muối biển hoặc Kẹo đá, bảo vệ chúng khỏi auto-pruning
-            if (seasonActive()) {
-                if (selectedSeasonDishes.has('roasted_waxing_moon_pepper') || selectedSeasonDishes.has('harvest_platter') || selectedSeasonDishes.has('umbral_sweet_and_spicy_sauce')) {
-                    userPicks.add('sea_salt');
-                    userPicks.add('quick_sea_salt');
-                }
-                if (selectedSeasonDishes.has('moondew_radish_slices') || selectedSeasonDishes.has('harvest_platter')) {
-                    userPicks.add('rock_candy');
-                    userPicks.add('quick_rock_candy');
-                    userPicks.add('sugarcane');
-                    userPicks.add('fresh_water');
-                    userPicks.add('quick_fresh_water');
-                }
-                if (selectedSeasonDishes.has('umbral_hot_pot')) {
-                    userPicks.add('fresh_water');
-                    userPicks.add('quick_fresh_water');
-                }
-            }
-
-            // RV 20 Endgame: Tắt hoàn toàn pruning theo revenue share cho RV20 (Mục D3, Kế hoạch 05)
-            if (!isRV20Endgame()) {
-                const RAW_ANIIMO_MATERIALS = new Set([
-                    'aromathyst', 'quick_aromathyst',
-                    'star', 'quick_star',
-                    'sea_salt', 'quick_sea_salt', 'pearl',
-                    'wool', 'quick_wool', 'petals',
-                    'scales', 'quick_scales'
-                ]);
-
-                const shouldPruneItem = (itemName, share) => {
-                    const baseName = itemName.replace(/^quick_/, '');
-                    if (userPicks.has(itemName) || userPicks.has(baseName)) return false;
-
-                    // Gạo xát (milled_rice) là sản phẩm chế biến từ lúa nước dư thừa của cối xay, giữ lại dù <= 2%
-                    if (baseName === 'milled_rice') return false;
-
-                    // Chỉ prune nguyên liệu thô từ cơ sở Aniimo Materials bán trực tiếp <= 2% (Thạch hương, Ngôi sao, Muối biển khi không dùng)
-                    // để tránh đề xuất xây dựng cơ sở thô lãng phí nhân lực và đất.
-                    if (RAW_ANIIMO_MATERIALS.has(itemName) || RAW_ANIIMO_MATERIALS.has(baseName)) {
-                        return share <= 0.02;
-                    }
-
-                    // Tuyệt đối KHÔNG prune bừa bãi các sản phẩm chế biến dôi dư (nhân sâm khô, bột nhân sâm...)
-                    // vì chúng là mắt xích của các chuỗi chế biến cao cấp mà solver đang vận hành.
-                    return false;
-                };
-
-                for (let pass = 1; pass <= 3; pass++) {
-                    const totalRate = bestPlan.rate_per_second;
-                    if (!totalRate || totalRate <= 0) break;
-
-                    const lowShareItems = [];
-                    for (const stream of (bestPlan.income_streams || [])) {
-                        const share = stream.rate_per_second / totalRate;
-                        if (shouldPruneItem(stream.item_name, share)) {
-                            const baseName = stream.item_name.replace(/^quick_/, '');
-                            lowShareItems.push(stream.item_name);
-                            lowShareItems.push(baseName);
-                            lowShareItems.push(`quick_${baseName}`);
-                        }
-                    }
-
-                    const uniqueToPrune = [...new Set(lowShareItems)].filter(x => !(input.exclude || []).includes(x));
-                    if (uniqueToPrune.length === 0) break;
-
-                    const newExclusions = [...new Set([...(input.exclude || []), ...uniqueToPrune])];
-                    const prunedInput = { ...input, exclude: newExclusions };
-
-                    const prunedJson = await callWorker('find_plan', JSON.stringify({ ...prunedInput, aniimo: bestSetup }));
-                    if (runId !== planRunId) return;
-
-                    const prunedPlan = JSON.parse(prunedJson);
-                    // Kiểm tra: Kế hoạch mới phải khả thi, bảo toàn level-up (nếu có) và không làm mất bất kỳ món đặc biệt nào đang chạy mà user đã tích chọn
-                    const keepsUserSelections = [...(unlockedSpecial || [])].every(spec => {
-                        const wasInBest = (bestPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
-                        if (!wasInBest) return true;
-                        return (prunedPlan?.income_streams || []).some(s => s.item_name === spec || s.item_name.replace(/^quick_/, '') === spec);
-                    });
-
-                    // BẢO TOÀN INVARIANT: Coins ròng không được giảm và các priority không bị giảm
-                    const keepsCoins = (prunedPlan?.rate_per_second || 0) >= (bestPlan?.rate_per_second || 0) * (1.0 - 1e-4);
-                    const keepsPriorities = (bestPlan?.priorities || []).every(bp => {
-                        const pp = (prunedPlan?.priorities || []).find(p => p.target === bp.target);
-                        return bp.per_second <= 1e-6 || (pp && pp.per_second >= bp.per_second * (1.0 - 1e-4));
-                    });
-
-                    const prunedViable = prunedPlan && prunedPlan.success && (!planContext?.levelUp || Boolean(prunedPlan.level_up)) && keepsUserSelections && keepsCoins && keepsPriorities;
-                    if (prunedViable) {
-                        bestPlan = prunedPlan;
-                        input.exclude = newExclusions;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-
-        bestPlan = integrateSeasonPlan(bestPlan);
-        normalizePlanFacilityCounts(bestPlan);
-
-        if (useEmode) {
-            finalEmodeCounts = actualEmodeCounts(bestPlan);
-        } else {
-            finalEmodeCounts = {};
-        }
-        lastEmodeCounts = finalEmodeCounts;
-        lastPlanInput = input;
-        finishSolveSteps();
-        plansBySetup[bestSetup] = bestPlan;
-        showSelectedPlan();
-        updatePowerGauge(finalEmodeCounts);
-        // With no plan there's nothing to lay out or improve on.
-        const effectiveSuccess = plansBySetup[bestSetup].success;
-        if (!effectiveSuccess && progress) {
-            progress.steps.forEach(s => { if ((s.key === 'layout' || s.key === 'improve') && s.state === 'pending') s.state = 'skipped'; });
-            renderProgress();
-        }
-
-        // The Minimum setup solves after Best is already on screen; switching to it before it's
-        // done shows a short "still working" note until it arrives.
-        setStep('minimum', 'start');
-        callWorker('find_plan', JSON.stringify({ ...input, aniimo: 'minimum' }))
-            .then(json => {
-                if (runId !== planRunId) return;
-                setStep('minimum', 'done');
-                plansBySetup.minimum = normalizePlanFacilityCounts(integrateSeasonPlan(JSON.parse(json)));
-                if (selectedAniimoSetup() === 'minimum') showSelectedPlan();
-            })
-            .catch(error => {
-                if (runId !== planRunId) return;
-                setStep('minimum', 'fail');
-                console.error('Minimum Aniimo plan failed:', error);
-                plansBySetup.minimum = { success: false, error: `The Minimum team plan failed: ${error.message}` };
-                if (selectedAniimoSetup() === 'minimum') showSelectedPlan();
-            });
-    } catch (error) {
-        // A run a newer one cancelled leaves the screen to it.
-        if (runId !== planRunId) return;
-        if (progress) {
-            progress.steps.forEach(s => { if (s.state === 'running') s.state = 'fail'; else if (s.state === 'pending') s.state = 'skipped'; });
-            renderProgress();
-        }
-        console.error('Plan calculation error:', error);
-        lastPlan = null;
-        showError(`Plan calculation failed: ${error.message}`);
-    } finally {
-        if (runId !== planRunId) return;
-        btn.disabled = false;
-        btnText.style.display = 'inline';
-        btnLoading.style.display = 'none';
-        progressBar.style.display = 'none';
-        progressCaption.style.display = 'none';
-        progressFill.classList.remove('indeterminate');
-    }
+function runFindPlan() {
+    return planSolveController.runFindPlan();
 }
 
-// Compute time-to-goal against the already-computed `lastPlan`; cheap, safe to call on every
-// keystroke of the goal-amount fields. No-op until a plan exists.
+const timeToGoalController = createTimeToGoalController({
+    document,
+    getLastPlan: () => lastPlan,
+    getPlanContext: () => planContext,
+    getPriorityRows: priorityRows,
+    goalName,
+    parseNumber: floatOrDefault,
+    solveWorker: callWorker,
+    displayGoal,
+    renderGoalAlso,
+    timeToMake,
+    setLastGoalResult: value => { lastGoalResult = value; },
+    formatNumber,
+    logError: (...args) => console.error(...args),
+});
+
 async function runTimeToGoal() {
-    if (!lastPlan || !lastPlan.success || planContext?.levelUp) return;
-    const rows = priorityRows(lastPlan);
-    const chosen = rows.find(r => r.target === document.getElementById('goal-target').value) || rows[0];
-    const name = goalName(chosen);
-    document.getElementById('target-amount-label').textContent = `Target ${name}`;
-    document.getElementById('current-amount-label').textContent = `Current ${name}`;
-    document.getElementById('amount-produced-label').textContent = `${name} produced`;
-
-    const target = floatOrDefault(document.getElementById('target-amount').value, 0);
-    const current = floatOrDefault(document.getElementById('current-amount').value, 0);
-
-    if (chosen.target === 'coins') {
-        // Coins account for each product's start-up delay and list what's sold along the way.
-        try {
-            const resultJson = await callWorker('time_to_reach', JSON.stringify({ plan: lastPlan, target, current }));
-            const result = JSON.parse(resultJson);
-            displayGoal(result);
-            renderGoalAlso(rows, chosen, result.success ? result.total_time_seconds : null, result);
-        } catch (error) {
-            console.error('Goal calculation error:', error);
-        }
-        return;
-    }
-    // Anything else waits on each item's first batch too (see `madeBy`). The breakdown covers
-    // that long.
-    const needed = Math.max(0, target - current);
-    const seconds = needed <= 0 ? 0 : chosen.perSecond <= 1e-12 ? null : timeToMake(chosen, needed);
-    if (seconds === null) {
-        lastGoalResult = null;
-        document.getElementById('total-time').textContent = chosen.missing || 'Not made by this plan';
-        document.getElementById('amount-produced').textContent = '-';
-        document.getElementById('product-breakdown-section').style.display = 'none';
-        document.getElementById('seeds-needed-section').style.display = 'none';
-        renderGoalAlso(rows, chosen, null);
-        return;
-    }
-    try {
-        const result = JSON.parse(await callWorker('time_to_reach', JSON.stringify({ plan: lastPlan, seconds })));
-        displayGoal(result);
-        document.getElementById('amount-produced').textContent = formatNumber(Math.round(needed));
-        renderGoalAlso(rows, chosen, seconds, result);
-    } catch (error) {
-        console.error('Goal calculation error:', error);
-    }
+    return timeToGoalController.runTimeToGoal();
 }
 
-// How much of a rates row the plan has made after `seconds`: each item counts from its first batch
-// on (see `production_over` in optimizer.rs, which does the same for Home Coins). Season points
-// not ranked as a priority come from the income streams, which carry each item's points.
 function madeBy(row, seconds) {
-    const streams = row.streams?.length ? row.streams
-        : row.target === 'season_points'
-            ? (lastPlan?.income_streams || []).map(s => [(s.points || 0) * s.units_per_second, s.lead_time_seconds])
-            : [[row.perSecond, 0]];
-    return streams.reduce((sum, [rate, lead]) => sum + rate * Math.max(0, seconds - lead), 0);
+    return calculateMadeBy(row, seconds, lastPlan);
 }
 
-// Seconds until the plan has made `needed` of a rates row, or null if it never does.
 function timeToMake(row, needed) {
-    let lo = 0;
-    let hi = 3600;
-    while (madeBy(row, hi) < needed) {
-        hi *= 2;
-        if (hi > 1e10) return null;
-    }
-    for (let i = 0; i < 100; i++) {
-        const mid = (lo + hi) / 2;
-        if (madeBy(row, mid) >= needed) hi = mid; else lo = mid;
-    }
-    return hi;
+    return calculateTimeToMake(row, needed, lastPlan);
 }
-
 // What else the plan makes by the time the goal is met, e.g. "4.6M Home Coins, 39 Aniipod Mega",
 // each counted from its first batch as the goal itself is.
 function renderGoalAlso(rows, chosen, seconds, result) {
     const el = document.getElementById('goal-also');
-    const made = r => r.target === 'coins' && result?.success ? result.amount_produced : madeBy(r, seconds);
-    const also = seconds > 0
-        ? rows.filter(r => r !== chosen && r.perSecond > 1e-12)
-            .map(r => `${formatNumber(Math.floor(made(r)))} ${goalName(r)}`)
-        : [];
-    el.style.display = also.length ? 'block' : 'none';
-    el.innerHTML = also.length ? `<span>By then you'll also have:</span> <strong>${also.join(', ')}</strong>` : '';
+    const view = buildGoalAlsoViewModel({ rows, chosen, seconds, result, madeBy, goalName, formatNumber });
+    el.style.display = view.display;
+    el.innerHTML = view.html;
 }
 
 // --- Facility recipe reference modal ----------------------------------------------------
@@ -9377,276 +2419,46 @@ function renderGoalAlso(rows, chosen, seconds, result) {
 // possible to unlock. Recipe data comes from `get_all_items()` (see wasm.rs), which dumps every
 // `ProductionItem` unfiltered.
 
-const RECIPE_MODULE_LABELS = {
-    ecological_module: 'Ecological Module',
-    kitchen_module: 'Kitchen Module',
-    resource_detector: 'Resource Detector',
-    crafting_module: 'Crafting Module',
-};
+const recipeTableRenderer = createRecipeTableRenderer({
+    facilities: FACILITIES,
+    facilityCategories: FACILITY_CATEGORIES,
+    specialNames: SPECIAL_NAMES,
+    seasonName: SEASON.name,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+    getI18n: () => window.i18n,
+    prettyItem,
+    escapeText,
+    getFacilityDisplayName,
+    formatNumber,
+    abilityTag,
+    bestAniimoLevel,
+});
 
-const VI_JOB_STEPS = {
-    'Sowing': 'Gieo hạt',
-    'Watering': 'Tưới nước',
-    'Reaping': 'Thu hoạch',
-    'Logging': 'Đốn gỗ',
-    'Collecting': 'Thu thập'
-};
+const recipeSearchController = createRecipeSearchController({
+    document,
+    getLanguage: () => window.i18n && window.i18n.getLang() === 'vi' ? 'vi' : 'en',
+});
 
-const VI_PERSONALITIES = {
-    'Instinctive': 'Bản năng',
-    'Practical': 'Thực tế',
-    'Energetic': 'Nhiệt huyết',
-    'Nimble': 'Nhanh nhẹn',
-    'Faithful': 'Trung thành',
-    'Tenacious': 'Kiên trì',
-    'Playful': 'Nghịch ngợm',
-    'Judicious': 'Cẩn trọng'
-};
+const facilitiesModalController = createFacilitiesModalController({
+    document,
+    window,
+    callWorker,
+    isWasmReady: () => wasmReady,
+    recipeTableRenderer,
+    recipeSearchController,
+});
+facilitiesModalController.attachGlobal();
 
-// Cached after the first render, since the underlying data never changes for a given wasm build.
-let recipesRendered = false;
-
-// Mirrors the Rust `format_time` helper in wasm.rs (hours/minutes/seconds, dropping leading
-// zero units) so times read the same way here as they would in-game.
-function formatRecipeTime(seconds) {
-    const total = Math.round(seconds);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const secs = total % 60;
-    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
-    if (minutes > 0) return `${minutes}m ${secs}s`;
-    return `${secs}s`;
-}
-
-function formatRecipeInputs(recipe) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (recipe.raw_materials && recipe.raw_materials.length > 0) {
-        const amounts = recipe.required_amount || [];
-        return recipe.raw_materials
-            .map((mat, i) => `${amounts[i] ?? '?'}× ${prettyItem(mat)}`)
-            .join(', ');
-    }
-    if (recipe.cost && recipe.cost > 0) {
-        return isVi ? `Chi phí hạt: ${recipe.cost} Xu Gia Viên` : `Plant cost: ${recipe.cost} Home Coins`;
-    }
-    return '-';
-}
-
-function formatRecipeYield(recipe) {
-    let text = `${recipe.yield_amount}`;
-    if (recipe.byproduct) {
-        const [name, amount] = recipe.byproduct;
-        text += ` <span class="hint small">(+${amount} ${prettyItem(name)})</span>`;
-    }
-    return text;
-}
-
-// "Fire Lv.2+, best Lv.4 Practical": the minimum ability level a recipe accepts, then the best
-// Aniimo for it. Crops and trees list the ability of each job (sowing, reaping and so on).
-function formatRecipeAniimo(recipe, facility) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (!recipe.aniimo) {
-        const jobs = [];
-        (recipe.jobs || []).forEach(job => {
-            const last = jobs[jobs.length - 1];
-            // Watering is listed once per time it happens; show it as one job done twice.
-            if (last && last.job[0] === job[0]) last.times += 1;
-            else jobs.push({ job, times: 1 });
-        });
-        if (jobs.length === 0) return '-';
-        return `<span class="job-list">${jobs.map(({ job: [step, ability, level], times }) => {
-            const stepName = window.i18n ? window.i18n.getJobStepDisplayName(step) : (isVi && VI_JOB_STEPS[step] ? VI_JOB_STEPS[step] : step);
-            return `<span class="job"><span class="job-step">${stepName}${times > 1 ? ` &times;${times}` : ''}</span> ${abilityTag(ability)}${level > 1 ? ` Lv.${level}+` : ''}</span>`;
-        }).join('')}</span>`;
-    }
-    const [ability, minLevel] = recipe.aniimo;
-    const persName = facility.personality ? (window.i18n ? window.i18n.getPersonalityDisplayName(facility.personality) : facility.personality) : '';
-    const best = isVi
-        ? `Tối ưu Lv.${bestAniimoLevel(ability)}${persName ? ' ' + persName : ''}`
-        : `best Lv.${bestAniimoLevel(ability)}${facility.personality ? ' ' + facility.personality : ''}`;
-    return `<span>${abilityTag(ability)} Lv.${minLevel}+<span class="recipe-best">${best}</span></span>`;
-}
-
-// "44 Home Coins", or what a level-up material is for.
-function formatRecipeSell(recipe) {
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (recipe.sell_currency === 'none') return `<span class="hint small">${isVi ? 'Nâng cấp RV' : 'RV level-ups'}</span>`;
-    return `${formatNumber(recipe.sell_value)} ${isVi ? 'Xu Gia Viên' : (recipe.sell_value === 1 ? 'Home Coin' : 'Home Coins')}`;
-}
-
-function formatRecipeModule(recipe) {
-    if (!recipe.module_requirement) return '-';
-    const [name, level] = recipe.module_requirement;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const label = window.i18n ? window.i18n.getModuleDisplayName(name) : (RECIPE_MODULE_LABELS[name] || name);
-    return `${label} Lv.${level}`;
-}
-
-// Renders one table per facility (grouped into category sections, same grouping/order as the
-// facility input cards), each listing every recipe available at that facility sorted by required
-// level then name.
 function renderRecipeTables(recipes) {
-    const container = document.getElementById('facilities-modal-container');
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-
-    const VI_CATEGORIES = {
-        'Materials': 'Nguyên Liệu',
-        'Environment': 'Môi Trường',
-        'Aniimo Materials': 'Nguyên Liệu Aniimo',
-        'Wood & Ore Processing': 'Gia Công Gỗ & Quặng',
-        'Materials Processing': 'Chế Biến Nguyên Liệu'
-    };
-
-    const thItem = isVi ? 'Vật phẩm' : 'Item';
-    const thLevel = isVi ? 'Cấp' : 'Level';
-    const thInputs = isVi ? 'Nguyên liệu' : 'Inputs';
-    const thYield = isVi ? 'Sản lượng' : 'Yield';
-    const thTime = isVi ? 'Thời gian' : 'Time';
-    const thSell = isVi ? 'Giá bán' : 'Sell';
-    const thModule = isVi ? 'Mô-đun' : 'Module';
-    const thAniimo = isVi ? 'Aniimo' : 'Aniimo';
-    const tipTime = isVi
-        ? 'Thời gian phát triển của cây trồng và cây lấy gỗ (mỗi lần tưới nước giảm 1/8 thời gian còn lại, tối đa 2 lần). Với các xưởng chế biến và cơ sở thu thập, thời gian hiển thị khối lượng công việc (Workload): ở 100% Hiệu suất, máy hoàn thành 1 khối lượng công việc/giây. Với Chế độ điện (⚡ E-mode), máy tự vận hành theo thời gian cơ bản mà không cần Aniimo.'
-        : 'Grow time for crops and trees, before watering takes an eighth off it twice. Everything else lists workload: at 100% Efficiency a processor gets through one workload a second, a gathering facility 1.25 on a level-2 recipe and 1.5 on a level-3 one. An Aniimo at the level a recipe needs works at 100%; higher levels are faster, up to level 4. E-mode runs without Aniimo workers.';
-    const tipAniimo = isVi
-        ? 'Cấp độ kỹ năng tối thiểu để chế tạo, cùng với Aniimo tối ưu nhất (Lv.4 với tính cách tương thích tăng +20% tốc độ). Đối với cây trồng/lâm nghiệp, hiển thị kỹ năng cần cho từng công đoạn (Gieo hạt, Tưới nước, Thu hoạch...).'
-        : 'The lowest ability level that can make this, and the best Aniimo for it: level 4, the top, with the facility\'s personality (+20% speed). For crops and trees, the ability each job needs, in order.';
-
-    const byFacility = new Map();
-    recipes.forEach(r => {
-        if (!byFacility.has(r.facility)) byFacility.set(r.facility, []);
-        byFacility.get(r.facility).push(r);
-    });
-    byFacility.forEach(list => {
-        list.sort((a, b) => a.facility_level - b.facility_level || a.name.localeCompare(b.name));
-    });
-
-    container.innerHTML = FACILITY_CATEGORIES.map(category => {
-        const facilitiesInCategory = FACILITIES.filter(f => f.category === category && byFacility.has(f.name));
-        if (facilitiesInCategory.length === 0) return '';
-        const catTitle = isVi && VI_CATEGORIES[category] ? VI_CATEGORIES[category] : category;
-
-        const tables = facilitiesInCategory.map(f => {
-            // `data-label` names each cell when rows stack on phones; empty cells are left out there.
-            const cell = (label, value) => `<td data-label="${label}"${value === '-' ? ' class="empty"' : ''}>${value}</td>`;
-            const rows = byFacility.get(f.name).map(r => {
-                const searchText = [r.name, prettyItem(r.name), f.name, getFacilityDisplayName(f.name), ...(r.raw_materials || [])].join(' ');
-                return `
-                <tr class="facility-recipe-row${r.verified === false ? ' unverified' : ''}" data-search-text="${escapeText(searchText)}">
-                    <td class="recipe-name">${prettyItem(r.name)}${SPECIAL_NAMES.has(r.name) ? ` <span class="tag special" title="${isVi ? 'Cần tiền tệ hiếm để mở khóa' : 'Takes a rare currency to unlock'}">${isVi ? 'đặc biệt' : 'special'}</span>` : ''}${r.season ? ` <span class="tag special" title="${SEASON.name} only">${isVi ? 'mùa vụ' : 'season'}</span>` : ''}${r.verified === false ? ` <span class="info-icon" data-tooltip="${isVi ? 'Chưa kiểm chứng trong game' : 'Not yet checked in game.'}">?</span>` : ''}</td>
-                    ${cell(thLevel, r.facility_level)}
-                    ${cell(thInputs, formatRecipeInputs(r))}
-                    ${cell(thYield, formatRecipeYield(r))}
-                    ${cell(thTime, r.workload ? `${r.workload} workload${r.emode_base_time ? ` <span class="tag emode-tag-small" title="${isVi ? 'Thời gian gốc Chế độ điện: ' : 'E-mode base time: '}${formatRecipeTime(r.emode_base_time)}">⚡${formatRecipeTime(r.emode_base_time)}</span>` : ''}` : formatRecipeTime(r.production_time))}
-                    ${cell(thSell, formatRecipeSell(r))}
-                    ${cell(thModule, formatRecipeModule(r))}
-                    ${cell(thAniimo, formatRecipeAniimo(r, f))}
-                </tr>
-            `;
-            }).join('');
-
-            return `
-                <div class="facility-recipe-table">
-                    <h4>${getFacilityDisplayName(f.name)}</h4>
-                    <div class="table-wrapper">
-                        <table class="recipe-table">
-                            <thead>
-                                <tr>
-                                    <th>${thItem}</th>
-                                    <th>${thLevel}</th>
-                                    <th>${thInputs}</th>
-                                    <th>${thYield}</th>
-                                    <th>${thTime} <span class="info-icon" data-tooltip="${tipTime}">?</span></th>
-                                    <th>${thSell}</th>
-                                    <th>${thModule}</th>
-                                    <th>${thAniimo} <span class="info-icon" data-tooltip="${tipAniimo}">?</span></th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        return `
-            <div class="facility-category">
-                <h4 class="facility-category-title">${catTitle}</h4>
-                ${tables}
-            </div>
-        `;
-    }).join('');
-
-    filterFacilityRecipeTables();
+    facilitiesModalController.renderRecipeTables(recipes);
 }
 
-function normalizedRecipeSearchText(value) {
-    return String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase();
-}
-
-function filterFacilityRecipeTables() {
-    const input = document.getElementById('facilities-recipe-search');
-    const container = document.getElementById('facilities-modal-container');
-    const empty = document.getElementById('facilities-search-empty');
-    if (!input || !container || !empty) return;
-
-    const query = normalizedRecipeSearchText(input.value.trim());
-    let visibleRows = 0;
-    container.querySelectorAll('.facility-recipe-table').forEach(table => {
-        let hasVisibleRow = false;
-        table.querySelectorAll('.facility-recipe-row').forEach(row => {
-            const matches = !query || normalizedRecipeSearchText(row.dataset.searchText).includes(query);
-            row.hidden = !matches;
-            hasVisibleRow ||= matches;
-            if (matches) visibleRows++;
-        });
-        table.hidden = !hasVisibleRow;
-    });
-    container.querySelectorAll('.facility-category').forEach(category => {
-        category.hidden = !category.querySelector('.facility-recipe-table:not([hidden])');
-    });
-
-    empty.hidden = visibleRows > 0;
-    empty.textContent = query
-        ? (window.i18n && window.i18n.getLang() === 'vi' ? 'Không tìm thấy công thức phù hợp.' : 'No matching recipes found.')
-        : '';
-}
-
-window.showFacilities = async function () {
-    document.getElementById('facilitiesModal').classList.add('show');
-    if (recipesRendered) return;
-    if (!wasmReady) {
-        document.getElementById('facilities-loading-hint').textContent = 'Optimizer not ready. Please wait...';
-        return;
-    }
-    try {
-        const recipesJson = await callWorker('get_all_items');
-        const recipes = JSON.parse(recipesJson);
-        renderRecipeTables(recipes);
-        recipesRendered = true;
-        document.getElementById('facilities-loading-hint').style.display = 'none';
-    } catch (error) {
-        console.error('Failed to load recipe data:', error);
-        document.getElementById('facilities-loading-hint').textContent = 'Failed to load recipe data. Please refresh the page.';
-    }
-}
-
-window.closeFacilities = function () {
-    document.getElementById('facilitiesModal').classList.remove('show');
-}
-
-window.closeFacilitiesOnBackdrop = function (event) {
-    if (event.target.id === 'facilitiesModal') {
-        closeFacilities();
-    }
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
+// --- Application Bootstrap & Event Wiring ------------------------------------------------
+export function bootstrapApp() {
     if (!document.getElementById('optimize-btn') && !document.getElementById('home-level')) {
         return; // Running in headless context or benchmark.html
     }
-    document.getElementById('facilities-recipe-search')?.addEventListener('input', filterFacilityRecipeTables);
+    recipeSearchController.attach();
     const savedData = readStorage();
     initFacilityTiers(savedData);
     renderFacilityCards();
@@ -9666,7 +2478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSpecialRecipes();
     attachSeasonHandlers();
     attachRosterHandlers();
-    attachLayoutHandlers();
+    homelandUIController.attachHandlers();
     attachPriorityHandlers();
     showAniimoSetup();
     applyConfigMode();
@@ -9676,9 +2488,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initWasm();
 
     setInterval(updateSeasonTitleCountdown, 30000);
-    document.getElementById('optimize-btn').addEventListener('click', runFindPlan);
-    document.getElementById('clear-saved-btn').addEventListener('click', clearSavedInputs);
-    document.getElementById('rate-unit').addEventListener('change', () => {
+    document.getElementById('optimize-btn')?.addEventListener('click', runFindPlan);
+    document.getElementById('clear-saved-btn')?.addEventListener('click', clearSavedInputs);
+    document.getElementById('rate-unit')?.addEventListener('change', () => {
         rateUnitChosen = true;
         updateRateUnitDisplays();
     });
@@ -9698,35 +2510,13 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.setAttribute('aria-expanded', String(expanded));
         document.getElementById('insights-content').hidden = !expanded;
     });
-    const setupPanel = document.getElementById('aniimo-setup-panel');
-    if (setupPanel) {
-        setupPanel.addEventListener('change', event => {
-            const { name, value, checked } = event.target;
-            const unheardOf = event.target.dataset?.confirm;
-            if (unheardOf && checked) {
-                const ok = window.confirm(
-                    `No level-${value} ${unheardOf} Aniimo is known in the game yet. Plan as though you have one?`
-                );
-                if (!ok) {
-                    showAniimoSetup();
-                    return;
-                }
-            }
-            if (name?.startsWith('level-')) {
-                aniimoLevels[name.slice('level-'.length)] = Number(value);
-            } else {
-                return;
-            }
-            saveInputsToStorage();
-            switchAniimoSetup();
-        });
-    }
+    aniimoSetupUIController.attachAniimoSetupHandlers();
 
     // Goal fields update live; no need to re-run the facility-allocation solve just because the
     // goal amount changed.
-    document.getElementById('target-amount').addEventListener('input', runTimeToGoal);
-    document.getElementById('current-amount').addEventListener('input', runTimeToGoal);
-    document.getElementById('goal-target').addEventListener('change', runTimeToGoal);
+    document.getElementById('target-amount')?.addEventListener('input', runTimeToGoal);
+    document.getElementById('current-amount')?.addEventListener('input', runTimeToGoal);
+    document.getElementById('goal-target')?.addEventListener('change', runTimeToGoal);
 
     // Allow Enter key to trigger a full plan recalculation; but not in the goal fields, which
     // already update live on every keystroke via the listeners above. Facility tier inputs are
@@ -9742,579 +2532,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-});
-
-// --- Hover tips --------------------------------------------------------------------------
-// One card for hover tips, shown at once instead of after the browser's delay. Diagram pieces
-// carry `data-tip` (see `tipAttrs`); anything else with a `title` shows it in the same card, the
-// title moved aside so the browser's own tip doesn't show as well. (The info icons' `data-tooltip`
-// is a CSS tip of its own; see style.css.)
-const tipCard = document.createElement('div');
-tipCard.className = 'tip-card';
-tipCard.setAttribute('role', 'tooltip');
-tipCard.hidden = true;
-document.body.appendChild(tipCard);
-let tipTarget = null;
-const TIP_SELECTOR = '[data-tip], [data-tip-text], [title]';
-
-// The attributes for a diagram piece's tip: its name, then what it's doing and its numbers.
-function tipAttrs(title, { detail = '', stats = '', color = '' } = {}) {
-    const attr = (name, value) => value ? ` ${name}="${escapeText(value)}"` : '';
-    const label = [title, detail, stats].filter(Boolean).join(', ');
-    return `data-tip="${escapeText(title)}"${attr('data-tip-detail', detail)}${attr('data-tip-stats', stats)}${attr('data-tip-color', color)} aria-label="${escapeText(label)}"`;
 }
 
-function showTip(el) {
-    // A title set since the last hover replaces the one kept aside.
-    if (el.hasAttribute('title')) {
-        const text = el.getAttribute('title');
-        el.removeAttribute('title');
-        el.dataset.tipText = text;
-        if (!el.hasAttribute('aria-label')) el.setAttribute('aria-description', text);
-    }
-    if (!el.dataset.tip && !el.dataset.tipText) return hideTip();
-    const line = (className, text) => {
-        const div = document.createElement('div');
-        div.className = className;
-        div.textContent = text;
-        return tipCard.appendChild(div);
-    };
-    tipCard.replaceChildren();
-    tipCard.classList.toggle('has-swatch', !!el.dataset.tipColor);
-    if (el.dataset.tip) {
-        const title = line('tip-title', el.dataset.tip);
-        if (el.dataset.tipColor) {
-            const swatch = document.createElement('span');
-            swatch.className = 'tip-swatch';
-            swatch.style.background = el.dataset.tipColor;
-            title.prepend(swatch);
-        }
-        if (el.dataset.tipDetail) line('tip-detail', el.dataset.tipDetail);
-        if (el.dataset.tipStats) line('tip-stats', el.dataset.tipStats);
-    } else {
-        line('tip-text', el.dataset.tipText);
-    }
-    tipTarget = el;
-    tipCard.hidden = false;
-}
-
-function hideTip() {
-    tipTarget = null;
-    tipCard.hidden = true;
-}
-
-// Above the point, centered on it and kept on screen; below it where there's no room above.
-function placeTip(x, y, below = y) {
-    const margin = 12;
-    const { width, height } = tipCard.getBoundingClientRect();
-    const left = Math.min(Math.max(margin, x - width / 2), window.innerWidth - width - margin);
-    const top = y - height - 14 >= margin ? y - height - 14 : Math.min(below + 18, window.innerHeight - height - margin);
-    tipCard.style.left = `${left}px`;
-    tipCard.style.top = `${top}px`;
-}
-
-document.addEventListener('pointerover', (e) => {
-    const el = e.target.closest?.(TIP_SELECTOR);
-    if (!el) return hideTip();
-    if (el !== tipTarget || el.hasAttribute('title')) showTip(el);
-    if (tipTarget) placeTip(e.clientX, e.clientY);
-});
-document.addEventListener('pointermove', (e) => {
-    if (!tipTarget) return;
-    if (!tipTarget.isConnected) return hideTip();
-    placeTip(e.clientX, e.clientY);
-}, { passive: true });
-// A tap's tip stays until the next tap; a mouse's goes when it leaves.
-document.addEventListener('pointerout', (e) => {
-    if (e.pointerType !== 'touch' && tipTarget && !tipTarget.contains(e.relatedTarget)) hideTip();
-});
-document.addEventListener('focusin', (e) => {
-    const el = e.target.closest?.(TIP_SELECTOR);
-    if (!el || !e.target.matches(':focus-visible')) return;
-    showTip(el);
-    const box = el.getBoundingClientRect();
-    if (tipTarget) placeTip(box.left + box.width / 2, box.top, box.bottom);
-});
-document.addEventListener('focusout', hideTip);
-window.addEventListener('scroll', hideTip, { passive: true, capture: true });
-
-
-// Bảng phân tích đối trọng (Rival Analysis) cho các sản phẩm chủ lực và đối thủ cạnh tranh trực tiếp
-const RECIPE_RIVAL_INSIGHTS = {
-    'cranberry_chocolate': {
-        rival: 'strawberry_cream_puff',
-        rivalNameVi: 'Bánh Su Kem Dâu Tây',
-        rivalNameEn: 'Strawberry Cream Puff',
-        facility: 'Blazing Stove',
-        facilityVi: 'Bếp Lò Rực Rửa',
-        reasonVi: (ctx) => {
-            if (ctx.allocated < ctx.total) {
-                return `${ctx.facName} (sở hữu ${ctx.total} cơ sở): Solver chỉ sử dụng <strong>${ctx.allocated} cơ sở</strong> cho <strong>Sô-cô-la Nam Việt Quất</strong> (${ctx.idle} cơ sở để trống). Do quỹ đất Nông trại và Vườn ươm dồn tối đa cho cây lấy gỗ ép nâng cấp RV 19 và Cacao, nguồn nguyên liệu chỉ đủ vận hành ${ctx.allocated} lò. Solver không dùng lò còn lại làm Bánh Su Kem Dâu Tây vì việc gánh thêm 16 Dâu tây + Bột mì tinh chế + Dầu dừa sẽ làm phân mảnh đất và làm chậm tiến độ nâng cấp.`;
-            }
-            return `${ctx.facName} (${ctx.total > 1 ? `sở hữu ${ctx.total} cơ sở` : 'chỉ có 1 cơ sở'}): Solver dồn toàn bộ ${ctx.total > 1 ? `cả ${ctx.total} cơ sở` : 'công suất'} cho <strong>Sô-cô-la Nam Việt Quất</strong> (giá bán 13.480 coin vs 5.650 coin của Bánh su kem). Đồng thời, chuỗi Sô-cô-la tận dụng trực tiếp quả Cacao từ Vườn ươm (đang trồng Cacao lấy 122 vụn gỗ/cây để nâng cấp RV 19), trong khi Bánh su kem đòi hỏi 16 Dâu tây + Bột mì tinh chế + Dầu dừa sẽ làm phân tán diện tích Đất nông nghiệp.`;
-        },
-        reasonEn: (ctx) => {
-            if (ctx.allocated < ctx.total) {
-                return `The ${ctx.facNameEn} (${ctx.total} units owned): The solver operates only <strong>${ctx.allocated} unit</strong> for <strong>Cranberry Chocolate</strong> (leaving ${ctx.idle} idle). Farmland and Woodland plots prioritize RV 19 timber and Cocoa, yielding ingredients for only ${ctx.allocated} stove. The remaining stove is not used for Strawberry Cream Puff because requiring 16 Strawberries + Refined Flour + Coconut Oil would fragment farmland.`;
-            }
-            return `The ${ctx.facNameEn} (${ctx.total > 1 ? `${ctx.total} units owned` : 'only 1 unit'}): The solver allocates all ${ctx.total > 1 ? `${ctx.total} units` : 'available capacity'} to <strong>Cranberry Chocolate</strong> (sell value 13,480 coins vs 5,650 coins for Cream Puff). Furthermore, Cranberry Chocolate synergizes with Cocoa harvested from Woodland (planted for 122 Wood Blocks/tree toward RV 19), whereas Cream Puff requires 16 Strawberries + Refined Flour + Coconut Oil, fragmenting Farmland plots.`;
-        }
-    },
-    'strawberry_cream_puff': {
-        rival: 'cranberry_chocolate',
-        rivalNameVi: 'Sô-cô-la Nam Việt Quất',
-        rivalNameEn: 'Cranberry Chocolate',
-        facility: 'Blazing Stove',
-        facilityVi: 'Bếp Lò Rực Rửa',
-        reasonVi: (ctx) => `${ctx.facName} có ${ctx.total}/${ctx.total} cơ sở. Solver chọn phân bổ cho <strong>Bánh Su Kem Dâu Tây</strong> vì nhịp độ cung ứng Dâu tây và Bột mì phù hợp với cấu hình đất nông nghiệp hiện tại, không đòi hỏi chuỗi Cacao phức tạp.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} has ${ctx.total}/${ctx.total} units available. Strawberry Cream Puff is selected because the strawberry and flour supply rhythm matches current farmland allocations without requiring complex cocoa chains.`
-    },
-    'strawberry_candy': {
-        rival: 'rich_grape_compote',
-        rivalNameVi: 'Mứt Nho Đậm Đà / Thạch Rau Câu',
-        rivalNameEn: 'Rich Grape Compote / Jello',
-        facility: 'Blazing Stove',
-        facilityVi: 'Bếp Lò Rực Rửa',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) ưu tiên tối đa cho <strong>Kẹo Dâu Tây</strong> (giá 6.840 coin) đem lại tỷ suất lợi nhuận ròng trên thời gian nướng cao nhất cấp 4, vượt trội hơn so với Mứt nho (5.050 coin) hay Thạch rau câu.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) prioritizes <strong>Strawberry Candy</strong> (6,840 coins), yielding the highest net profit per baking second at Tier 4, far surpassing Grape Compote (5,050 coins) and Jello.`
-    },
-    'ginseng_chestnut_cake': {
-        rival: 'walnut_cake',
-        rivalNameVi: 'Bánh Óc Chó / Hạt Dẻ Rang Đường',
-        rivalNameEn: 'Walnut Cake / Sugar Roasted Chestnuts',
-        facility: 'Blazing Stove',
-        facilityVi: 'Bếp Lò Rực Rửa',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Bánh Hạt Dẻ Nhân Sâm</strong> nhờ tạo sự cộng hưởng hoàn hảo giữa Nhân Sâm (Nông trại) và Hạt Dẻ (Vườn ươm Cấp 4 đang trồng lấy 47 vụn gỗ lên RV 14). Bánh óc chó đòi hỏi Nước gạo làm quá tải Cối Xay và Nồi Hầm mà không tối ưu được phụ phẩm Hạt dẻ sẵn có.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) selects <strong>Ginseng Chestnut Cake</strong> by perfectly pairing Farmland Ginseng with Woodland Chestnuts (harvested from Tier 4 trees for 47 Wood Blocks to reach RV 14). Walnut Cake requires Rice Drink, overburdening Mills without leveraging available chestnut byproducts.`
-    },
-    'sugar_roasted_chestnuts': {
-        rival: 'tanghulu',
-        rivalNameVi: 'Kẹo Hồ Lô Dâu Tây',
-        rivalNameEn: 'Tanghulu',
-        facility: 'Blazing Stove',
-        facilityVi: 'Bếp Lò Rực Rửa',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Hạt Dẻ Rang Đường</strong> (2.470 coin) thay vì Kẹo hồ lô (2.260 coin) vì tận dụng trực tiếp Hạt Dẻ thu hoạch từ Vườn ươm Cấp 4 (nguồn cung cấp vụn gỗ nâng cấp), giảm tải nhu cầu chiếm đất của Dâu tây tại Nông trại.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) picks <strong>Sugar Roasted Chestnuts</strong> (2,470 coins) over Tanghulu (2,260 coins) to directly absorb Chestnuts from Tier 4 Woodland (the wood block driver), sparing Farmland plots.`
-    },
-    'ginseng_porridge': {
-        rival: 'ginseng_powder',
-        rivalNameVi: 'Bột Nhân Sâm bán thô',
-        rivalNameEn: 'Raw Ginseng Powder',
-        facility: 'Simmering Pot',
-        facilityVi: 'Nồi Hầm',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) dồn toàn lực nấu <strong>Cháo Nhân Sâm</strong> vì giá trị gia tăng trên mỗi củ sâm và nhân công cao áp đảo so với việc xay bán bột sâm thô, đồng thời tạo ra dòng doanh thu coin/giờ lớn nhất toàn đảo.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) commits fully to <strong>Ginseng Porridge</strong> because net value per crop and worker second vastly exceeds selling raw powder, powering the island's primary coin stream.`
-    },
-    'plain_rice_porridge': {
-        rival: 'rose_concentrate',
-        rivalNameVi: 'Cốt Hoa Hồng / Cơm Nắm Hoa Đào',
-        rivalNameEn: 'Rose Concentrate / Cherry Blossom Rice Ball',
-        facility: 'Simmering Pot',
-        facilityVi: 'Nồi Hầm',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) ưu tiên <strong>Cháo Gạo Thanh Đạm</strong> kết hợp Gạo và Nước giếng sạch có chu kỳ nấu nhanh, tối đa hóa công suất Nồi hầm mà không làm phân mảnh diện tích đất canh tác sang Hoa hồng hay Hoa đào.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) prioritizes <strong>Plain Rice Porridge</strong> using Milled Rice and Well Water for rapid cycle times, maximizing Pot throughput without fragmenting Farmland into roses or blossoms.`
-    },
-    'coconut_cookie': {
-        rival: 'maple_candy_star',
-        rivalNameVi: 'Kẹo Ngôi Sao / Bánh Mì Hoa',
-        rivalNameEn: 'Maple Candy Star / Flower Bread',
-        facility: 'Claw Game Cooker',
-        facilityVi: 'Bàn Nướng',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Bánh Quy Dừa</strong> (3.700 coin) vì tận dụng nguồn Dừa Nạo từ Vườn ươm Dừa (Cấp 5-6) và Bột mì tinh chế, đem lại doanh thu ổn định hơn việc tiêu tốn Ngôi sao hiếm.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) selects <strong>Coconut Cookie</strong> (3,700 coins) by combining Shredded Coconut from Woodland palms and Refined Flour, offering reliable output without burning scarce Stars.`
-    },
-    'rose_shortbread': {
-        rival: 'apple_tart',
-        rivalNameVi: 'Bánh Táo / Khoai Nướng Đường Phong',
-        rivalNameEn: 'Apple Tart / Maple Roasted Potatoes',
-        facility: 'Claw Game Cooker',
-        facilityVi: 'Bàn Nướng',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Bánh Quy Hoa Hồng</strong> (1.310 coin) đem lại biên lợi nhuận ròng trên giờ cao hơn hẳn Bánh táo (590 coin) hay Khoai nướng (850 coin).`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) selects <strong>Rose Shortbread</strong> (1,310 coins), delivering substantially higher net hourly return than Apple Tart (590 coins) or Roasted Potatoes (850 coins).`
-    },
-    'premium_bread': {
-        rival: 'roasted_soybeans',
-        rivalNameVi: 'Đậu Nành Rang Muối Biển',
-        rivalNameEn: 'Roasted Soybeans',
-        facility: 'Claw Game Cooker',
-        facilityVi: 'Bàn Nướng',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Bánh Mì Thượng Hạng</strong> kết hợp Bột mì và Nước giếng, cân bằng hoàn hảo giữa diện tích Lúa mì và công suất Cối xay.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) prioritizes <strong>Premium Bread</strong> combining Wheatmeal and Well Water, achieving balanced throughput between Wheat plots and Mill capacity.`
-    },
-    'coconut_cooler': {
-        rival: 'cranberry_juice',
-        rivalNameVi: 'Nước Ép Nam Việt Quất / Ca-cao Nóng',
-        rivalNameEn: 'Cranberry Juice / Hot Cocoa',
-        facility: 'Bouncy Brew Keg',
-        facilityVi: 'Thùng Bia Nảy Nảy',
-        reasonVi: (ctx) => {
-            if (ctx.allocated < ctx.total) {
-                return `${ctx.facName} (sở hữu ${ctx.total} cơ sở): Solver huy động <strong>${ctx.allocated} cơ sở</strong> nấu <strong>Nước Dừa Mát Lạnh</strong> (1.650 coin, ủ nhanh 54s điện) để tận dụng quả Dừa thu hoạch từ Vườn ươm cấp 6; ${ctx.idle} cơ sở còn lại được để trống nhằm tránh tranh chấp Nam việt quất hoặc làm các loại đồ uống phụ kém hiệu quả.`;
-            }
-            return `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Nước Dừa Mát Lạnh</strong> (1.650 coin) với chu kỳ ủ siêu nhanh (54s điện), tận dụng nguồn Dừa dồi dào từ Vườn ươm cấp 6 để tạo dòng tiền phụ trợ mà không tranh chấp Nam việt quất với Bếp lò.`;
-        },
-        reasonEn: (ctx) => {
-            if (ctx.allocated < ctx.total) {
-                return `The ${ctx.facNameEn} (${ctx.total} units owned): The solver operates <strong>${ctx.allocated} unit</strong> for <strong>Coconut Cooler</strong> (1,650 coins, fast 54s brew) leveraging harvested Woodland coconuts; ${ctx.idle} unit is kept idle to avoid competing for Cranberries or running sub-optimal drink recipes.`;
-            }
-            return `The ${ctx.facNameEn} (${ctx.facCountTextEn}) operates <strong>Coconut Cooler</strong> (1,650 coins) with ultra-fast brew cycles (54s on electric), converting abundant Woodland coconuts into secondary income without competing for Cranberries needed at the Stove.`;
-        }
-    },
-    'potato_chips': {
-        rival: 'dried_lemon_slices',
-        rivalNameVi: 'Chanh Sấy / Táo Sấy',
-        rivalNameEn: 'Dried Lemon / Apple Slices',
-        facility: 'Jukebox Dryer',
-        facilityVi: 'Máy Sấy Hộp Nhạc',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chuyên canh <strong>Khoai Tây Chiên</strong> để hấp thụ toàn bộ sản lượng Khoai tây thu hoạch từ Nông trại có tưới nước, giải quyết nút thắt chế biến nhanh nhất đảo.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) dedicates capacity to <strong>Potato Chips</strong> to absorb the flood of watered Farmland potatoes, clearing the island's highest-velocity crop.`
-    },
-    'shell_ornament': {
-        rival: 'bamboo_ware',
-        rivalNameVi: 'Đồ Tre / Tượng Gỗ',
-        rivalNameEn: 'Bamboo Ware / Wood Sculpture',
-        facility: 'Crafting Table',
-        facilityVi: 'Bàn Chế Tạo',
-        reasonVi: (ctx) => `${ctx.facName} (${ctx.facCountTextVi}) chọn <strong>Trang Sức Vỏ Sò</strong> (1.190 coin) kết hợp Vỏ sò từ Mỏ và Chỉ bông, đem lại doanh thu vượt trội so với các đồ gỗ thô sơ.`,
-        reasonEn: (ctx) => `The ${ctx.facNameEn} (${ctx.facCountTextEn}) chooses <strong>Shell Ornament</strong> (1,190 coins) combining Mine Shells with Cotton Thread, far out-earning primitive woodwork.`
-    }
-};
-
-// Dynamically generates the "Why this Plan? & Insights" rationale in the right sidebar
-function renderInsights(plan) {
-    const container = document.getElementById('insights-content');
-    if (!container) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    if (!plan || !plan.success) {
-        container.innerHTML = `<p class="hint">${isVi ? 'Chưa có kế hoạch được tính toán. Nhấn "Tìm kế hoạch tối ưu" để xem phân tích chuyên sâu.' : 'No plan calculated yet. Click "Generate the best plan" to see optimization insights.'}</p>`;
-        return;
-    }
-
-    const producing = (plan.coin_items || []).filter(s => s.status === 'producing');
-
-    // Thu thập tất cả các item thực tế đang được sản xuất hoặc bán trong kế hoạch
-    const activeItemNames = new Set();
-    for (const s of producing) {
-        if (s.item_name) {
-            activeItemNames.add(s.item_name);
-            activeItemNames.add(s.item_name.replace(/^quick_/, ''));
-            const base = s.item_name.replace(/__(specialist|manual)$/, '').replace(/^quick_/, '');
-            activeItemNames.add(base);
-        }
-    }
-    for (const s of (plan.income_streams || [])) {
-        if ((s.units_per_second || 0) > 0 && s.item_name) {
-            activeItemNames.add(s.item_name);
-            activeItemNames.add(s.item_name.replace(/^quick_/, ''));
-            const base = s.item_name.replace(/__(specialist|manual)$/, '').replace(/^quick_/, '');
-            activeItemNames.add(base);
-        }
-    }
-
-    // 1. Real top revenue streams from plan.income_streams (sorted by rate_per_second descending)
-    const streams = (plan.income_streams || []).filter(s => (s.units_per_second || 0) > 0);
-    const sortedStreams = [...streams].sort((a, b) => (b.rate_per_second || 0) - (a.rate_per_second || 0));
-    const totalCoinRate = plan.rate_per_second || 0;
-    const totalHourlyCoins = Math.round(totalCoinRate * 3600);
-    const unitRateDisplay = formatRate(totalCoinRate);
-
-    const homeLevel = selectedHomeLevel();
-    const { facilities: setupFacilities } = simpleSetup(homeLevel);
-    const woodlandTier = setupFacilities['Woodland']?.[0]?.level || 1;
-
-    // Wood block yield by Woodland facility tier (from data/woodland.csv byproduct_yield)
-    const WOOD_YIELDS_BY_TIER = { 1: 1, 2: 8, 3: 21, 4: 47, 5: 75, 6: 122 };
-    const maxYieldPerTree = WOOD_YIELDS_BY_TIER[woodlandTier] || 47;
-    const lowerTierMaxYield = WOOD_YIELDS_BY_TIER[woodlandTier - 1] || 1;
-
-    // Lower tier tree examples by current woodland tier
-    const lowerTierTreesExampleVi = {
-        2: 'Liễu',
-        3: 'Liễu, Tre, Chanh',
-        4: 'Liễu, Tre, Anh đào, Táo',
-        5: 'Liễu, Tre, Hạt dẻ, Quả óc chó',
-        6: 'Liễu, Tre, Cao su, Cây dừa'
-    }[woodlandTier] || 'Liễu, Tre';
-
-    const lowerTierTreesExampleEn = {
-        2: 'Willow',
-        3: 'Willow, Bamboo, Lemon',
-        4: 'Willow, Bamboo, Cherry Blossom, Apple',
-        5: 'Willow, Bamboo, Chestnut, Walnut',
-        6: 'Willow, Bamboo, Rubber, Coconut'
-    }[woodlandTier] || 'Willow, Bamboo';
-
-    // 2. Farmland distribution
-    const farmSteps = producing.filter(s => s.facility === 'Farmland');
-    const farmPlotsByCrop = {};
-    for (const s of farmSteps) {
-        if (s.item_name) {
-            farmPlotsByCrop[s.item_name] = (farmPlotsByCrop[s.item_name] || 0) + (s.facility_count || 1);
-        }
-    }
-    const farmSummaryParts = Object.entries(farmPlotsByCrop).map(([crop, count]) => `${count} ô ${prettyItem(crop)}`);
-    const farmSummary = farmSummaryParts.join(', ') || (isVi ? 'Đất nông nghiệp' : 'Farmland');
-
-    // 3. Woodland distribution
-    const woodlandSteps = producing.filter(s => s.facility === 'Woodland');
-    const woodlandPlotsByCrop = {};
-    for (const s of woodlandSteps) {
-        if (s.item_name) {
-            woodlandPlotsByCrop[s.item_name] = (woodlandPlotsByCrop[s.item_name] || 0) + (s.facility_count || 1);
-        }
-    }
-    const woodlandSummaryParts = Object.entries(woodlandPlotsByCrop).map(([crop, count]) => `${count} cây ${prettyItem(crop)}`);
-    const woodlandSummary = woodlandSummaryParts.join(', ');
-    const totalTrees = Object.values(woodlandPlotsByCrop).reduce((sum, n) => sum + n, 0);
-    const totalHourlyWood = totalTrees * maxYieldPerTree * 2; // 2 harvests/hr with watering
-
-    // 4. Level-up context
-    const hasLevelUp = !!(plan.level_up && planContext?.levelUp);
-    const targetRv = planContext?.target || (plan.level_up ? homeLevel + 1 : null);
-    const levelUpReport = plan.level_up;
-    const levelUpDurationText = levelUpReport ? formatDuration(levelUpReport.seconds) : '';
-
-    // Identify target RV wood material requirement
-    const targetRvReqs = LEVEL_UP_COSTS[targetRv]?.items || [];
-    const targetWoodItemEntry = targetRvReqs.find(([name]) =>
-        ['wood_block', 'rough_lumber', 'standard_planks', 'laminated_beams', 'densified_timber_component'].includes(name)
-    );
-    const targetWoodItemKey = targetWoodItemEntry ? targetWoodItemEntry[0] : (targetRv <= 6 ? 'wood_block' : targetRv <= 10 ? 'rough_lumber' : targetRv <= 14 ? 'standard_planks' : targetRv <= 18 ? 'laminated_beams' : 'densified_timber_component');
-    const targetWoodItemName = prettyItem(targetWoodItemKey);
-    const woodCostRow = (levelUpReport?.requirements || []).find(r => r.name === targetWoodItemKey || r.name.includes(targetWoodItemKey));
-    const woodItemHourly = woodCostRow ? perHour(woodCostRow.per_second) : '';
-
-    const hasWoodland = woodlandSteps.length > 0;
-
-    // CARD 1: Core Profit Driver (What was selected & Why)
-    const titleProfit = isVi ? '🎯 Đã chọn: Nguồn lợi nhuận cốt lõi' : '🎯 Selected: Core Profit Drivers';
-    const streamBullets = [];
-    if (sortedStreams.length > 0) {
-        const top1 = sortedStreams[0];
-        const top1Name = prettyItem(top1.item_name);
-        const top1Hourly = Math.round(top1.rate_per_second * 3600);
-        const top1Pct = totalHourlyCoins > 0 ? Math.round((top1Hourly / totalHourlyCoins) * 100) : 0;
-        const top1FacRaw = top1.facility ? top1.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
-        const top1Fac = getFacilityDisplayName(top1FacRaw);
-        const top1UnitsHr = perHour(top1.units_per_second);
-        streamBullets.push(isVi
-            ? `• <strong>${top1Name}</strong> tại <strong>${top1Fac}</strong> là trụ cột lợi nhuận số 1: sản xuất <strong>${top1UnitsHr}/giờ</strong>, đem về <strong>${top1Hourly.toLocaleString()} coin / giờ</strong> (chiếm <strong>${top1Pct}%</strong> tổng doanh thu).`
-            : `• <strong>${top1Name}</strong> at <strong>${top1Fac}</strong> is the #1 profit driver: producing <strong>${top1UnitsHr}/hr</strong>, yielding <strong>${top1Hourly.toLocaleString()} coins/hour</strong> (<strong>${top1Pct}%</strong> share).`
-        );
-    }
-    if (sortedStreams.length > 1) {
-        const top2 = sortedStreams[1];
-        const top2Name = prettyItem(top2.item_name);
-        const top2Hourly = Math.round(top2.rate_per_second * 3600);
-        const top2Pct = totalHourlyCoins > 0 ? Math.round((top2Hourly / totalHourlyCoins) * 100) : 0;
-        const top2FacRaw = top2.facility ? top2.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
-        const top2Fac = getFacilityDisplayName(top2FacRaw);
-        streamBullets.push(isVi
-            ? `• <strong>${top2Name}</strong> tại <strong>${top2Fac}</strong> là nguồn thu lớn thứ 2: đem về <strong>${top2Hourly.toLocaleString()} coin / giờ</strong> (${top2Pct}%).`
-            : `• <strong>${top2Name}</strong> at <strong>${top2Fac}</strong> is #2: earning <strong>${top2Hourly.toLocaleString()} coins/hour</strong> (${top2Pct}%).`
-        );
-    }
-    if (sortedStreams.length > 2) {
-        const top3 = sortedStreams[2];
-        const top3Hourly = Math.round(top3.rate_per_second * 3600);
-        const top3Pct = totalHourlyCoins > 0 ? Math.round((top3Hourly / totalHourlyCoins) * 100) : 0;
-        if (top3Pct >= 5) {
-            const top3Name = prettyItem(top3.item_name);
-            const top3FacRaw = top3.facility ? top3.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '') : '';
-            const top3Fac = getFacilityDisplayName(top3FacRaw);
-            streamBullets.push(isVi
-                ? `• <strong>${top3Name}</strong> tại <strong>${top3Fac}</strong> đóng góp <strong>${top3Hourly.toLocaleString()} coin / giờ</strong> (${top3Pct}%).`
-                : `• <strong>${top3Name}</strong> at <strong>${top3Fac}</strong> contributes <strong>${top3Hourly.toLocaleString()} coins/hour</strong> (${top3Pct}%).`
-            );
-        }
-    }
-
-    const descProfit = streamBullets.join('<br>') +
-        `<br>• <strong>${isVi ? 'Tổng sản lượng Homeland:' : 'Total Homeland output:'}</strong> đạt <strong>${totalHourlyCoins.toLocaleString()} ${isVi ? 'coin / giờ' : 'coins/hour'}</strong> (${unitRateDisplay}).<br>` +
-        `<em><strong>${isVi ? 'Tại sao chọn:' : 'Why selected:'}</strong> ${isVi
-            ? `Có tỷ suất lợi nhuận ròng trên nguyên liệu và thời gian gia công cao nhất trong toàn bộ các công thức đã mở khóa tại RV ${homeLevel}.`
-            : `Highest net coin yield per processing second and ingredient cost among all unlocked recipes at RV ${homeLevel}.`}</em>`;
-
-    // CARD 2: Farmland & Supply Chain Strategy (What & Why)
-    const titleFarm = isVi ? '🌾 Đã chọn: Chiến lược nông trại & Chuỗi cung ứng' : '🌾 Selected: Farmland & Supply Strategy';
-    
-    // Tìm các chuỗi chế biến hạ nguồn trực tiếp từ nông sản/lâm sản
-    const downstreamSteps = producing.filter(s => s.facility !== 'Farmland' && s.facility !== 'Woodland' && s.item_name);
-    const downstreamTargetNames = [...new Set(downstreamSteps.map(s => {
-        const facRaw = s.facility ? s.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() : '';
-        const facName = getFacilityDisplayName(facRaw);
-        const itmName = prettyItem(s.item_name);
-        const rateText = s.units_per_second ? ` (${perHour(s.units_per_second)}/h)` : '';
-        return `<strong>${facName}</strong> (${itmName}${rateText})`;
-    }))].slice(0, 3);
-
-    let supplyChainDesc = '';
-    if (downstreamTargetNames.length > 0) {
-        supplyChainDesc = isVi
-            ? `Cung cấp trực tiếp cho chuỗi chế biến: ${downstreamTargetNames.join(', ')}.`
-            : `Directly feeds downstream processing: ${downstreamTargetNames.join(', ')}.`;
-    }
-
-    const descFarm = isVi
-        ? `Bố trí <strong>${farmSummary}</strong>.<br>` +
-          (supplyChainDesc ? `${supplyChainDesc}<br>` : '') +
-          `<em><strong>Tại sao chọn:</strong> Nhờ Aniimo tưới nước giảm 25% thời gian sinh trưởng (2 vụ/giờ), chuỗi cây trồng được tối ưu theo thời gian thu hoạch và khả năng hấp thụ nguyên liệu trực tiếp của các cơ sở chế biến trên đảo (đồng bộ công suất, không gây dư thừa tồn đọng kho bãi hay thiếu hụt nguyên liệu).</em>`
-        : `Deployed <strong>${farmSummary}</strong>.<br>` +
-          (supplyChainDesc ? `${supplyChainDesc}<br>` : '') +
-          `<em><strong>Why selected:</strong> With Aniimo watering cutting growth time by 25% (2 cycles/hr), crop mix is calibrated to watered harvest timings and downstream processing throughput (zero idle waste or raw material starvation).</em>`;
-
-    // CARD 3: Level-up Progression (if applicable)
-    let cardLevelUpHtml = '';
-    if (hasLevelUp && targetRv) {
-        const titleLevelUp = isVi ? `🚀 Đã chọn: Tiến độ nâng cấp RV ${targetRv} & Lâm nghiệp` : `🚀 Selected: RV ${targetRv} Progression & Woodland`;
-        const woodRateText = woodItemHourly ? `<strong>${woodItemHourly} ${targetWoodItemName} / giờ</strong>` : `<strong>${targetWoodItemName}</strong>`;
-        const descLevelUp = isVi
-            ? `Mục tiêu hoàn thành trong <strong>${levelUpDurationText || 'kế hoạch tối ưu'}</strong>.<br>` +
-            `• Vườn ươm bố trí <strong>${woodlandSummary || `${totalTrees} cây cấp cao nhất`}</strong>.<br>` +
-            `<em><strong>Tại sao chọn:</strong> Khóa Vườn ươm ở cây cấp cao nhất (Cấp ${woodlandTier}) để tối đa hóa <strong>${maxYieldPerTree} Vụn gỗ / cây / vụ</strong> (~${totalHourlyWood.toLocaleString()} vụn gỗ/giờ nhờ 2 vụ/h có tưới nước). Nguồn gỗ này duy trì Bàn mộc ép liên tục ${woodRateText}, giải quyết nút thắt chậm nhất để cán đích RV ${targetRv} sớm nhất.</em>`
-            : `Target RV ${targetRv} completion in <strong>${levelUpDurationText || 'optimal time'}</strong>.<br>` +
-            `• Woodland deployed with <strong>${woodlandSummary || `${totalTrees} top-tier trees`}</strong>.<br>` +
-            `<em><strong>Why selected:</strong> Locked strictly to highest unlocked trees (Tier ${woodlandTier}) for max <strong>${maxYieldPerTree} Wood Blocks/tree/cycle</strong> (~${totalHourlyWood.toLocaleString()} blocks/hr via watered 2 cycles/hr). Feeds Woodworking Bench to craft ${woodRateText}, clearing the longest bottleneck to RV ${targetRv}.</em>`;
-        cardLevelUpHtml = `
-            <div class="insight-item insight-selected">
-                <div class="insight-label">${titleLevelUp}</div>
-                <div class="insight-desc">${descLevelUp}</div>
-            </div>`;
-    }
-
-    // CARD 4: WHY ALTERNATIVES WERE REJECTED (Tailored strictly according to contrastive rival analysis)
-    const titleRejected = isVi ? '🚫 Tại sao không chọn các phương án khác?' : '🚫 Why Alternatives Were Rejected';
-    const rejectedBullets = [];
-
-    // 1. Woodland lower-tier tree rejection (Giữ nguyên ăn khớp với mục tiêu nâng cấp)
-    if (hasWoodland && hasLevelUp && woodlandTier > 1) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Không trồng cây cấp thấp ở Vườn ươm:</strong> Cây cấp thấp (${lowerTierTreesExampleVi}...) chỉ cho từ 1 đến ${lowerTierMaxYield} vụn gỗ/ô (thấp hơn nhiều so với ${maxYieldPerTree} vụn gỗ của cây Cấp ${woodlandTier} cao nhất), sẽ làm sụt giảm sản lượng ${targetWoodItemName} và kéo dài thời gian lên RV ${targetRv}.`);
-        } else {
-            rejectedBullets.push(`<strong>No lower-tier Woodland trees:</strong> Lower-tier trees (${lowerTierTreesExampleEn}...) yield only 1–${lowerTierMaxYield} wood blocks vs ${maxYieldPerTree} from top Tier ${woodlandTier}, severely throttling ${targetWoodItemName} output and delaying RV ${targetRv}.`);
-        }
-    }
-
-    // 2. Contrastive Rival Analysis: Phân tích đối lập trực tiếp (tại sao chọn món này mà không chọn món kia)
-    const processedRivals = new Set();
-    for (const stream of sortedStreams.slice(0, 3)) {
-        const itemKey = stream.item_name.replace(/^quick_/, '').replace(/__(specialist|manual)$/, '');
-        const rivalInfo = RECIPE_RIVAL_INSIGHTS[itemKey];
-        if (rivalInfo && !activeItemNames.has(rivalInfo.rival) && !processedRivals.has(rivalInfo.rival)) {
-            processedRivals.add(rivalInfo.rival);
-            
-            // Lấy số lượng cơ sở thực tế mở khóa và số cơ sở thực tế đang tham gia sản xuất
-            let totalFacCount = 1;
-            try {
-                const facSetup = simpleSetup(homeLevel).facilities[rivalInfo.facility];
-                totalFacCount = facSetup?.[0]?.count || 1;
-            } catch (e) {
-                totalFacCount = 1;
-            }
-
-            const producingFacSteps = producing.filter(s => {
-                const rawFac = s.facility ? s.facility.replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() : '';
-                return rawFac === rivalInfo.facility;
-            });
-            const allocatedFacCount = producingFacSteps.reduce((sum, s) => sum + (s.facility_count || 1), 0);
-            const idleFacCount = Math.max(0, totalFacCount - allocatedFacCount);
-
-            const ctx = {
-                total: totalFacCount,
-                allocated: allocatedFacCount,
-                idle: idleFacCount,
-                homeLevel,
-                facName: rivalInfo.facilityVi,
-                facNameEn: rivalInfo.facility,
-                facCountTextVi: totalFacCount > 1 ? `sở hữu ${totalFacCount} cơ sở` : `chỉ có 1 cơ sở duy nhất`,
-                facCountTextEn: totalFacCount > 1 ? `${totalFacCount} units owned` : `only 1 unit available`
-            };
-
-            const reasonViText = typeof rivalInfo.reasonVi === 'function' ? rivalInfo.reasonVi(ctx) : rivalInfo.reasonVi;
-            const reasonEnText = typeof rivalInfo.reasonEn === 'function' ? rivalInfo.reasonEn(ctx) : rivalInfo.reasonEn;
-
-            if (isVi) {
-                rejectedBullets.push(`<strong>Không làm ${rivalInfo.rivalNameVi} (${rivalInfo.facilityVi}):</strong> ${reasonViText}`);
-            } else {
-                rejectedBullets.push(`<strong>No ${rivalInfo.rivalNameEn} (${rivalInfo.facility}):</strong> ${reasonEnText}`);
-            }
-        }
-    }
-
-    // 3. Harvest Moon event dish prioritization (if festival active)
-    if (seasonActive() && selectedSeasonDishes.size > 0) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Ưu tiên công thức Lễ hội Trung thu:</strong> Khóa các ô nông trại chuyên dụng cho Củ cải và Ớt sự kiện để gom nguyên liệu đổi thưởng mùa vụ, chủ động chấp nhận điều chỉnh nhẹ doanh thu coin thuần túy để hoàn thành nhiệm vụ sự kiện.`);
-        } else {
-            rejectedBullets.push(`<strong>Prioritizing Harvest Moon dishes:</strong> Dedicated plots reserved for festival crops to farm event rewards, intentionally trading off pure coin optimization for season progression.`);
-        }
-    }
-
-    // 4. Idle facilities
-    const idleCount = (plan.coin_items || []).filter(s => s.status === 'not_needed' || s.status === 'idle').length;
-    if (idleCount > 0) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Các cơ sở chế biến để trống (${idleCount}):</strong> Bộ giải LP đã loại bỏ các công thức phụ có biên lợi nhuận thấp để dồn trọn vẹn nhân công Aniimo và điện năng cho chuỗi sản phẩm chủ lực.`);
-        } else {
-            rejectedBullets.push(`<strong>Idle processing facilities (${idleCount}):</strong> The LP simplex solver pruned low-margin secondary recipes to concentrate worker labor and watts on peak-profit drivers.`);
-        }
-    }
-
-    // Fallback nếu không có bullet nào
-    if (rejectedBullets.length === 0) {
-        if (isVi) {
-            rejectedBullets.push(`<strong>Toàn bộ cơ sở và công thức được tối ưu hóa:</strong> Không có chuỗi phụ nào bị loại bỏ; tất cả tài nguyên đất đai, máy móc và nhân công đều đang vận hành ở công suất tối ưu.`);
-        } else {
-            rejectedBullets.push(`<strong>Fully optimized setup:</strong> No viable chains pruned; all available land, machines, and worker labor are operating at peak efficiency.`);
-        }
-    }
-
-    const descRejected = `<ul class="insight-bullets">${rejectedBullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
-
-    // CARD 5: Power & Logistics
-    const titleLogistics = isVi ? '⚡ Vận hành điện lưới & Hậu cần đa kho' : '⚡ Power Grid & Multi-SU Logistics';
-    const suCount = parseInt(document.getElementById('layout-su-count')?.value || '3', 10);
-    const emodeMachinesCount = producing
-        .filter(s => s.is_emode || (s.facility && s.facility.includes('(Electric)')))
-        .reduce((sum, s) => sum + (s.facility_count || 1), 0);
-    const emodeActive = emodeMachinesCount > 0 || (lastPlanInput?.emode_facility_counts && Object.values(lastPlanInput.emode_facility_counts).some(c => c > 0));
-    let emodeDetail = isVi ? 'Đang vận hành ở Chế độ thủ công tiêu chuẩn với Aniimo.' : 'Operating in Standard Manual Mode.';
-    if (emodeActive) {
-        const genWatts = getGeneratorCapacity();
-        const activeWatts = calculatePowerWatts(emodeMachinesCount > 0 ? lastEmodeCounts : (lastPlanInput?.emode_facility_counts || {}));
-        const countDisplay = emodeMachinesCount > 0 ? emodeMachinesCount : Object.values(lastPlanInput?.emode_facility_counts || {}).reduce((a, b) => a + b, 0);
-        emodeDetail = isVi
-            ? `Đã kích hoạt Chế độ điện trên <strong>${countDisplay} máy móc & cơ sở</strong> (${activeWatts}W / ${genWatts}W), giải phóng Aniimo chuyển sang <strong>Tưới nước nông trại/lâm nghiệp</strong> (giúp tăng 25% tốc độ phát triển toàn đảo).`
-            : `Electric Mode active on <strong>${countDisplay} machines & facilities</strong> (${activeWatts}W / ${genWatts}W), freeing Aniimo workers for <strong>island-wide crop watering</strong> (25% faster growth).`;
-    }
-    const suDetail = isVi
-        ? `Homeland bố trí <strong>${suCount} Kho lưu trữ phân tán (SU)</strong> (Nông trại, Xưởng, Trung tâm), giúp giảm ~58% quãng đường di chuyển của Aniimo.`
-        : `Homeland deployed with <strong>${suCount} distributed Storage Units</strong>, cutting Aniimo hauling walk-time by ~58%.`;
-    const descLogistics = `• ${emodeDetail}<br>• ${suDetail}`;
-
-    container.innerHTML = `
-        <div class="insight-item insight-selected">
-            <div class="insight-label">${titleProfit}</div>
-            <div class="insight-desc">${descProfit}</div>
-        </div>
-        <div class="insight-item insight-selected">
-            <div class="insight-label">${titleFarm}</div>
-            <div class="insight-desc">${descFarm}</div>
-        </div>
-        ${cardLevelUpHtml}
-        <div class="insight-item insight-logistics">
-            <div class="insight-label">${titleLogistics}</div>
-            <div class="insight-desc">${descLogistics}</div>
-        </div>
-        <div class="insight-item insight-rejected">
-            <div class="insight-label">${titleRejected}</div>
-            <div class="insight-desc">${descRejected}</div>
-        </div>
-    `;
-}
-// React dynamically to language changes without losing state or re-running the solver
-window.addEventListener('languageChanged', () => {
-    recipesRendered = false;
+export function handleLanguageChanged() {
+    facilitiesModalController.reset();
     if (typeof renderFacilityCards === 'function') {
         renderFacilityCards();
     }
@@ -10330,4 +2551,7 @@ window.addEventListener('languageChanged', () => {
             displayGoal(lastGoalResult);
         }
     }
-});
+}
+
+document.addEventListener('DOMContentLoaded', bootstrapApp);
+window.addEventListener('languageChanged', handleLanguageChanged);
