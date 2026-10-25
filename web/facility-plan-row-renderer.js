@@ -31,6 +31,10 @@ export function buildFacilityPlanRows(options) {
             } else if (options.emodeAvailable && step.is_emode !== false && supportsEmode && (options.lastEmodeCounts[facility] || 0) > 0 && !isMine && !isWell) mode = 'electric';
             else mode = 'manual';
         }
+        step.mode = mode;
+        step.is_emode = (mode === 'electric');
+        step.is_specialist = (mode === 'prismana');
+        step.is_manual = (mode === 'manual');
         modeUpdates.push({ step, mode });
 
         const wattsPerUnit = options.emodeAvailable ? (options.powerWatts[facility] || 0) : 0;

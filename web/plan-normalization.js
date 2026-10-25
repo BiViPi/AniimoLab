@@ -1,5 +1,7 @@
 // Normalizes worker plan rows for per-unit mode controls and worksheet revenue display.
 // Page state and game configuration are injected so this transformation can be tested alone.
+import { updateStepTimingAndCapacity } from './step-timing.js?v=aniimolab_v125';
+
 export function normalizePlanFacilityCounts(plan, deps) {
     if (!plan || !Array.isArray(plan.coin_items)) return plan;
 
@@ -43,7 +45,7 @@ export function normalizePlanFacilityCounts(plan, deps) {
             for (let i = 0; i < count; i++) {
                 let unitMode = initialMode;
                 if (override) unitMode = takeModeForFacility(baseFac, unitMode, emodeAvailable);
-                newSteps.push({
+                const unitStep = {
                     ...step,
                     facility_count: 1,
                     mode: unitMode,
@@ -54,7 +56,13 @@ export function normalizePlanFacilityCounts(plan, deps) {
                     rate_per_second: step.rate_per_second != null ? step.rate_per_second / count : null,
                     busy_units: step.busy_units != null ? step.busy_units / count : 1,
                     aniimo: step.aniimo ? { ...step.aniimo } : null,
+                };
+                updateStepTimingAndCapacity(unitStep, unitMode, {
+                    recipeMap: deps.getRecipeMap?.() || (typeof window !== 'undefined' ? window.ALL_RECIPES_MAP : null),
+                    powerGridRate: deps.getPowerGridRate ? deps.getPowerGridRate() : 1.2,
+                    homeLevel: deps.selectedHomeLevel ? deps.selectedHomeLevel() : 20,
                 });
+                newSteps.push(unitStep);
             }
         } else {
             newSteps.push(step);

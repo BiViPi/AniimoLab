@@ -1,5 +1,5 @@
 import { buildFacilityPlanTableMarkup as defaultBuildFacilityPlanTableMarkup } from './facility-plan-table-renderer.js?v=aniimolab_v1';
-import { buildFacilityPlanRows as defaultBuildFacilityPlanRows } from './facility-plan-row-renderer.js?v=aniimolab_v1';
+import { buildFacilityPlanRows as defaultBuildFacilityPlanRows } from './facility-plan-row-renderer.js?v=aniimolab_v2';
 import { buildFacilityPlanMarkup as defaultBuildFacilityPlanMarkup } from './facility-plan-renderer.js?v=aniimolab_v1';
 
 export const DEFAULT_ENVIRONMENT_MODE_COLORS = {

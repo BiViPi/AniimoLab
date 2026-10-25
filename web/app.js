@@ -25,7 +25,7 @@ import {
     adjustFacilityPartitionCounts,
     getFacilityPartitionCounts,
 } from './emode-policy.js?v=aniimolab_v63';
-import { createEmodeSettingsController, createPowerGaugeController, createWorksheetModeController, worksheetFixedPlanLines, worksheetOverridesFromLines as buildWorksheetOverridesFromLines } from './emode-controller.js?v=aniimolab_v65';
+import { createEmodeSettingsController, createPowerGaugeController, createWorksheetModeController, worksheetFixedPlanLines, worksheetOverridesFromLines as buildWorksheetOverridesFromLines } from './emode-controller.js?v=aniimolab_v66';
 import { createSolverClient } from './solver-client.js?v=aniimolab_v59';
 import { executePlanSolve } from './plan-solve-runner.js?v=aniimolab_v1';
 import { createFastResolveController } from './fast-resolve-controller.js?v=aniimolab_v1';
@@ -49,7 +49,7 @@ import { buildGoalAlsoViewModel } from './goal-also-renderer.js?v=aniimolab_v1';
 import { createAniimoSetupController } from './plan-controller.js?v=aniimolab_v53';
 import { runPlanPruning } from './plan-pruning.js?v=aniimolab_v2';
 import { solvePlanWithEmode } from './emode-solve-pipeline.js?v=aniimolab_v1';
-import { normalizePlanFacilityCounts as normalizePlanFacilityCountsModule } from './plan-normalization.js?v=aniimolab_v1';
+import { normalizePlanFacilityCounts as normalizePlanFacilityCountsModule } from './plan-normalization.js?v=aniimolab_v2';
 import { buildStrategyPlanInput as buildStrategyPlanInputModule } from './plan-strategy.js?v=aniimolab_v1';
 import { createPlanInputBuilder } from './plan-input.js?v=aniimolab_v1';
 import {
@@ -507,6 +507,7 @@ const worksheetModeController = createWorksheetModeController({
     getFacilityLevel,
     calculatePowerWatts,
     updatePowerGauge,
+    getRecipeMap: () => (window.ALL_RECIPES_MAP || null),
     showSelectedPlan,
     showInvariantWarning,
     setButtonMode: (button, mode) => {
@@ -1894,6 +1895,8 @@ export function normalizePlanFacilityCounts(plan) {
         lastEmodeCounts,
         createWorksheetModeQuotaTracker,
         getOwnedFacilityCounts,
+        getRecipeMap: () => (window.ALL_RECIPES_MAP || null),
+        getPowerGridRate,
     });
 }
 
@@ -2035,9 +2038,7 @@ function aniimoLabel(step) {
     // Xác định chế độ hiện tại của step
     const ovr = facilityOverrides.find(o => o.facility === baseFac);
     let mode = step.mode;
-    if (!mode) {
-        mode = ovr && ovr.target_mode;
-    }
+    if (mode === 'specialist') mode = 'prismana';
     if (!mode) {
         if (emodeAvailable && (step.is_emode || rawFac.includes('(Electric)'))) {
             mode = 'electric';
@@ -2046,10 +2047,10 @@ function aniimoLabel(step) {
         } else if (step.is_specialist || rawFac.includes('(Prismana)') || (step.item_name && step.item_name.includes('__specialist'))) {
             mode = 'prismana';
         } else if (ovr) {
-            if (emodeAvailable && ovr.electric_count > 0) mode = 'electric';
-            else if (ovr.specialist_count > 0) mode = 'prismana';
-            else if (ovr.manual_count > 0) mode = 'manual';
-            else mode = 'prismana';
+            if (emodeAvailable && ovr.electric_count > 0 && ovr.specialist_count === 0 && ovr.manual_count === 0) mode = 'electric';
+            else if (ovr.specialist_count > 0 && ovr.electric_count === 0 && ovr.manual_count === 0) mode = 'prismana';
+            else if (ovr.manual_count > 0 && ovr.electric_count === 0 && ovr.specialist_count === 0) mode = 'manual';
+            else mode = ovr.target_mode || 'manual';
         } else {
             const facDef = FACILITIES.find(f => f.name === baseFac);
             const supportsEmode = emodeAvailable && (facDef?.supportsEmode ?? false);

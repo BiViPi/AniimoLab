@@ -304,3 +304,59 @@ test('switching an electric worksheet row to Prismana updates row, overrides, an
         target_mode: 'prismana', electric_count: 0, specialist_count: 1, manual_count: 0,
     }]);
 });
+
+test('onWorksheetModeClick calculates flexible cycle_time and rate for prismana and manual without hardcoding', async () => {
+    const mockRecipeMap = new Map([
+        ['malt_sugar', { name: 'malt_sugar', facility: 'Simmering Pot', workload: 243, emode_base_time: 162, aniimo: ['Fire', 3], yield_amount: 1 }],
+    ]);
+    const plan = {
+        success: true,
+        coin_items: [{
+            facility: 'Simmering Pot (Electric)', item_name: 'malt_sugar', facility_count: 1,
+            status: 'producing', mode: 'electric', is_emode: true,
+            is_specialist: false, is_manual: false, cycle_time: 135.0,
+        }],
+    };
+    let displayedPlan = null;
+    const controller = createWorksheetModeController({
+        facilities: FACILITIES,
+        residentFacilities: new Set(),
+        getPlan: () => plan,
+        setPlan: value => Object.assign(plan, value),
+        setEmodeCounts: () => {},
+        setOverrides: () => {},
+        getHomeLevel: () => 18,
+        getGeneratorCapacity: () => 600,
+        getPowerGridRate: () => 1.2,
+        getTargetEmodeWatts,
+        getSpecialistQuotas: () => ({}),
+        getFacilityLevel: () => 4,
+        calculatePowerWatts: () => 0,
+        updatePowerGauge: () => {},
+        showSelectedPlan: () => { displayedPlan = structuredClone(plan); },
+        showInvariantWarning: () => {},
+        setButtonMode: () => {},
+        setResetButtonVisible: () => {},
+        isVietnamese: () => true,
+        alert: () => {},
+        getRecipeMap: () => mockRecipeMap,
+    });
+
+    // 1. Chuyển sang Prismana -> Malt sugar cycle time giảm xuống 67.5s (53/h)
+    await controller.onWorksheetModeClick('Simmering Pot', 'prismana', 1, 'electric', null, 0);
+    assert.equal(displayedPlan.coin_items[0].mode, 'prismana');
+    assert.equal(displayedPlan.coin_items[0].cycle_time, 67.5);
+    assert.equal(Math.round(displayedPlan.coin_items[0].units_per_second * 3600), 53);
+
+    // 2. Chuyển sang Thường (Manual) -> Malt sugar cycle time tăng lên 202.5s (18/h)
+    await controller.onWorksheetModeClick('Simmering Pot', 'manual', 1, 'prismana', null, 0);
+    assert.equal(displayedPlan.coin_items[0].mode, 'manual');
+    assert.equal(displayedPlan.coin_items[0].cycle_time, 202.5);
+    assert.equal(Math.round(displayedPlan.coin_items[0].units_per_second * 3600), 18);
+
+    // 3. Chuyển lại sang Điện (Electric) -> Malt sugar cycle time là 135.0s (27/h)
+    await controller.onWorksheetModeClick('Simmering Pot', 'electric', 1, 'manual', null, 0);
+    assert.equal(displayedPlan.coin_items[0].mode, 'electric');
+    assert.equal(displayedPlan.coin_items[0].cycle_time, 135.0);
+    assert.equal(Math.round(displayedPlan.coin_items[0].units_per_second * 3600), 27);
+});

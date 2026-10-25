@@ -1,4 +1,5 @@
 import { allocateConfiguredEmodeFacilities, getWorksheetStepMode, setWorksheetStepMode } from './emode-policy.js?v=aniimolab_v63';
+import { updateStepTimingAndCapacity } from './step-timing.js?v=aniimolab_v125';
 
 export function createEmodeSettingsController(deps) {
     const document = deps.document;
@@ -393,11 +394,11 @@ export function createWorksheetModeController(deps) {
         deps.setResetButtonVisible(true);
 
         try {
-            if (step.is_emode) {
-                step.cycle_time = Math.round((step.cycle_time || 60) / 1.2 * 10) / 10;
-            } else if (prevMode === 'electric') {
-                step.cycle_time = Math.round((step.cycle_time || 50) * 1.2 * 10) / 10;
-            }
+            updateStepTimingAndCapacity(step, targetMode, {
+                recipeMap: deps.getRecipeMap?.() || (typeof window !== 'undefined' ? window.ALL_RECIPES_MAP : null),
+                powerGridRate: deps.getPowerGridRate ? deps.getPowerGridRate() : 1.2,
+                homeLevel: deps.getHomeLevel ? deps.getHomeLevel() : 20,
+            });
             deps.showSelectedPlan();
         } catch (error) {
             deps.logError('In-place worksheet update:', error);

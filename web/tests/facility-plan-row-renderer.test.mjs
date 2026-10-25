@@ -66,3 +66,30 @@ test('farming rows omit mode and Aniimo cells while preserving crop and reason c
     assert.doesNotMatch(result.html, /mode-selector-pills|Worker/);
     assert.deepEqual(result.modeUpdates, []);
 });
+
+test('row renderer assigns step.mode before invoking aniimoLabel and renders separate worker cards and rates', () => {
+    const step1 = { facility: 'Simmering Pot', facility_count: 1, item_name: 'cocoa_spread', status: 'producing', mode: 'prismana', cycle_time: 90.0, units_per_second: 1 / 90 };
+    const step2 = { facility: 'Simmering Pot', facility_count: 1, item_name: 'malt_sugar', status: 'producing', mode: 'manual', cycle_time: 202.5, units_per_second: 1 / 202.5 };
+    
+    const aniimoCalls = [];
+    const result = buildFacilityPlanRows(makeOptions({
+        rows: [step1, step2],
+        aniimoLabel: step => {
+            aniimoCalls.push({ item: step.item_name, mode: step.mode });
+            return `<span class="worker-${step.mode}">Worker ${step.mode}</span>`;
+        },
+    }));
+
+    // aniimoLabel nhận chính xác step.mode của từng dòng thay vì bị đè thành electric
+    assert.deepEqual(aniimoCalls, [
+        { item: 'cocoa_spread', mode: 'prismana' },
+        { item: 'malt_sugar', mode: 'manual' },
+    ]);
+    assert.match(result.html, /worker-prismana/);
+    assert.match(result.html, /worker-manual/);
+    // Thời gian và sản lượng riêng biệt
+    assert.match(result.html, /90\.0s/);
+    assert.match(result.html, /40\/h/);
+    assert.match(result.html, /202\.5s/);
+    assert.match(result.html, /18\/h/);
+});
