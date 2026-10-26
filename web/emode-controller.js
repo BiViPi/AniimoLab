@@ -1,4 +1,4 @@
-import { allocateConfiguredEmodeFacilities, getWorksheetStepMode, setWorksheetStepMode } from './emode-policy.js?v=aniimolab_v63';
+import { allocateConfiguredEmodeFacilities, getWorksheetStepMode, setWorksheetStepMode } from './emode-policy.js?v=aniimolab_v64';
 import { updateStepTimingAndCapacity } from './step-timing.js?v=aniimolab_v125';
 
 export function createEmodeSettingsController(deps) {
@@ -324,37 +324,60 @@ export function worksheetOverridesFromLines(lines, { facilities, residentFacilit
 }
 
 export function createWorksheetModeController(deps) {
-    async function onWorksheetModeClick(facility, requestedMode, _stepCount, _currentModeParam, clickedBtn, stepIndex) {
+    async function onWorksheetModeClick(facility, requestedMode, _stepCount, currentModeParam, clickedBtn, stepIndex, targetItemName) {
         const currentPlan = deps.getPlan();
         if (!currentPlan || !currentPlan.success) return;
         let targetMode = requestedMode === 'specialist' ? 'prismana' : requestedMode;
+        if (!['electric', 'prismana', 'manual'].includes(targetMode)) return;
         if (targetMode === 'electric' && deps.getHomeLevel() < 12) return;
 
         const baseFac = (facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
         const maxWatts = deps.getTargetEmodeWatts(deps.getGeneratorCapacity(), deps.getPowerGridRate());
-        deps.setButtonMode(clickedBtn, targetMode);
 
         const originalPlan = JSON.parse(JSON.stringify(currentPlan));
         const steps = currentPlan.coin_items || [];
-        const step = typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < steps.length
+        let step = (typeof stepIndex === 'number' && stepIndex >= 0 && stepIndex < steps.length)
             ? steps[stepIndex]
-            : steps.find(item => (item.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim() === baseFac && item.status === 'producing');
-        if (!step) return;
+            : null;
+
+        const cleanTargetItem = (targetItemName || '').replace(/__(specialist|manual)$/, '');
+        const matchesTargetStep = candidate => {
+            if (!candidate || candidate.status !== 'producing') return false;
+            const fac = (candidate.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+            if (fac !== baseFac) return false;
+            if (cleanTargetItem) {
+                const cleanCandidateItem = (candidate.item_name || '').replace(/__(specialist|manual)$/, '');
+                if (cleanCandidateItem !== cleanTargetItem) return false;
+            }
+            return true;
+        };
+
+        if (!matchesTargetStep(step)) {
+            step = steps.find(item =>
+                matchesTargetStep(item) &&
+                (!currentModeParam || getWorksheetStepMode(item) === currentModeParam)
+            ) || steps.find(item => matchesTargetStep(item)) || null;
+        }
+
+        if (!step) {
+            if (typeof deps.logError === 'function') {
+                deps.logError('Cannot find target worksheet step for mode update:', {
+                    facility,
+                    baseFac,
+                    requestedMode,
+                    currentModeParam,
+                    stepIndex,
+                    targetItemName
+                });
+            }
+            return;
+        }
 
         const prevMode = getWorksheetStepMode(step);
+
         Object.assign(step, setWorksheetStepMode(step, targetMode));
 
         const fixedLines = worksheetFixedPlanLines(currentPlan);
-        const homeLevel = deps.getHomeLevel();
-        if (homeLevel >= 18 && homeLevel <= 19
-            && ['Chimney Kiln', 'Woodworking Bench'].includes(baseFac)
-            && targetMode !== 'electric'
-            && !fixedLines.some(line => line.facility === baseFac && line.mode === 'electric')) {
-            deps.setPlan(originalPlan);
-            deps.setButtonMode(clickedBtn, prevMode);
-            deps.showInvariantWarning(baseFac, 'Ở RV18–19 cần giữ ít nhất một Lò Ống Khói và một Bàn Gia Công Gỗ chạy điện.');
-            return;
-        }
 
         const quotas = deps.getSpecialistQuotas() || {};
         const lockedSpecialists = fixedLines.filter(line => line.facility === baseFac && line.mode === 'prismana')
@@ -376,11 +399,11 @@ export function createWorksheetModeController(deps) {
         if (targetMode === 'electric' && projectedWatts > maxWatts) {
             deps.setPlan(originalPlan);
             deps.setButtonMode(clickedBtn, prevMode);
-            const message = deps.isVietnamese()
+            const message = deps.isVietnamese && deps.isVietnamese()
                 ? `Thao tác này đã vượt quá công suất cho phép của lưới điện! Cần tổng ${projectedWatts}W nhưng giới hạn an toàn hiện tại là ${maxWatts}W.`
                 : `This action exceeds the allowed power grid capacity! Required ${projectedWatts}W but safe limit is ${maxWatts}W.`;
-            deps.alert(message);
-            deps.showInvariantWarning(baseFac, message);
+            if (typeof deps.alert === 'function') deps.alert(message);
+            if (typeof deps.showInvariantWarning === 'function') deps.showInvariantWarning(baseFac, message);
             return;
         }
 
@@ -399,9 +422,23 @@ export function createWorksheetModeController(deps) {
                 powerGridRate: deps.getPowerGridRate ? deps.getPowerGridRate() : 1.2,
                 homeLevel: deps.getHomeLevel ? deps.getHomeLevel() : 20,
             });
-            deps.showSelectedPlan();
+            deps.setPlan(currentPlan);
+            deps.setButtonMode(clickedBtn, targetMode);
         } catch (error) {
-            deps.logError('In-place worksheet update:', error);
+            deps.setPlan(originalPlan);
+            deps.setButtonMode(clickedBtn, prevMode);
+            if (typeof deps.logError === 'function') {
+                deps.logError('In-place worksheet update failed:', error);
+            }
+            return;
+        }
+
+        try {
+            deps.showSelectedPlan();
+        } catch (renderError) {
+            if (typeof deps.logError === 'function') {
+                deps.logError('Secondary view render error after worksheet mode update:', renderError);
+            }
         }
 
     }

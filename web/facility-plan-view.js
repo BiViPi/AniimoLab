@@ -1,6 +1,6 @@
 import { buildFacilityPlanTableMarkup as defaultBuildFacilityPlanTableMarkup } from './facility-plan-table-renderer.js?v=aniimolab_v1';
-import { buildFacilityPlanRows as defaultBuildFacilityPlanRows } from './facility-plan-row-renderer.js?v=aniimolab_v2';
-import { buildFacilityPlanMarkup as defaultBuildFacilityPlanMarkup } from './facility-plan-renderer.js?v=aniimolab_v1';
+import { buildFacilityPlanRows as defaultBuildFacilityPlanRows } from './facility-plan-row-renderer.js?v=aniimolab_v4';
+import { buildFacilityPlanMarkup as defaultBuildFacilityPlanMarkup } from './facility-plan-renderer.js?v=aniimolab_v3';
 
 export const DEFAULT_ENVIRONMENT_MODE_COLORS = {
     Warm: '#f59e0b',
@@ -87,7 +87,25 @@ export function createFacilityPlanViewController({
             lastEmodeCounts,
             powerWatts: facilityPowerWatts,
             ownedFacilityCounts: ownedCounts,
-            stepIndex: step => (lastPlan?.coin_items || []).indexOf(step),
+            stepIndex: step => {
+                const list = lastPlan?.coin_items || [];
+                const idx = list.indexOf(step);
+                if (idx >= 0) return idx;
+                const baseFac = (step.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+                const cleanItem = (step.item_name || '').replace(/__(specialist|manual)$/, '');
+                const exactMatch = list.findIndex(s => {
+                    const sFac = (s.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+                    const sItem = (s.item_name || '').replace(/__(specialist|manual)$/, '');
+                    return sFac === baseFac && sItem === cleanItem &&
+                        (s.mode === step.mode || (step.mode === 'prismana' && s.is_specialist) || (step.mode === 'manual' && s.is_manual) || (step.mode === 'electric' && s.is_emode));
+                });
+                if (exactMatch >= 0) return exactMatch;
+                return list.findIndex(s => {
+                    const sFac = (s.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+                    const sItem = (s.item_name || '').replace(/__(specialist|manual)$/, '');
+                    return sFac === baseFac && sItem === cleanItem;
+                });
+            },
             renderFacilityIcon,
             renderItemIcon,
             getFacilityDisplayName,

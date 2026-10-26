@@ -106,7 +106,8 @@ export function buildFacilityPlanMarkup(plan, options) {
 
     const byCategory = new Map(facilityCategories.map(category => [category, []]));
     regularUngatedSteps.forEach(step => {
-        const category = facilityCategoryByName.get(step.facility) || 'Materials Processing';
+        const baseFacility = (step.facility || '').replace(/ \((Manual|Electric|Prismana)\)$/, '').trim();
+        const category = facilityCategoryByName.get(baseFacility) || facilityCategoryByName.get(step.facility) || 'Materials Processing';
         if (!byCategory.has(category)) byCategory.set(category, []);
         byCategory.get(category).push(step);
     });

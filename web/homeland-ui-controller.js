@@ -1,5 +1,5 @@
 import { buildLayoutFlows, createHomelandLogisticsSimulation } from './homeland-logistics-simulation.js';
-import { createHomelandLayoutView, createHomelandPiecesBuilder } from './homeland-layout-view.js';
+import { createHomelandLayoutView, createHomelandPiecesBuilder } from './homeland-layout-view.js?v=aniimolab_v3';
 import { createHomelandLayoutWorkerController } from './homeland-layout-controller.js';
 import { createHomelandLayoutInteractionController } from './homeland-layout-interaction.js';
 

@@ -24,7 +24,7 @@ export function normalizePlanFacilityCounts(plan, deps) {
 
         const count = step.facility_count || 1;
         const hasFacilityOverride = deps.facilityOverrides.some(override => override.facility === baseFac);
-        if (isProcessingFacility && (count > 1 || hasFacilityOverride)) {
+        if (isProcessingFacility && (count >= 1 || hasFacilityOverride)) {
             modified = true;
             let initialMode = step.mode;
             if (!initialMode) {
@@ -36,17 +36,23 @@ export function normalizePlanFacilityCounts(plan, deps) {
                     initialMode = 'prismana';
                 } else if (emodeAvailable && step.is_emode !== false && facDef?.supportsEmode && (deps.lastEmodeCounts[baseFac] || 0) > 0) {
                     initialMode = 'electric';
-                } else {
+                } else if (hasFacilityOverride) {
                     initialMode = 'prismana';
+                } else {
+                    initialMode = 'manual';
                 }
             }
 
             const override = deps.facilityOverrides.find(item => item.facility === baseFac);
             for (let i = 0; i < count; i++) {
-                let unitMode = initialMode;
-                if (override) unitMode = takeModeForFacility(baseFac, unitMode, emodeAvailable);
+                let unitMode = step.mode || initialMode;
+                if (!step.mode && override) {
+                    unitMode = takeModeForFacility(baseFac, unitMode, emodeAvailable);
+                }
+                const facSuffix = unitMode === 'electric' ? 'Electric' : (unitMode === 'prismana' ? 'Prismana' : 'Manual');
                 const unitStep = {
                     ...step,
+                    facility: `${baseFac} (${facSuffix})`,
                     facility_count: 1,
                     mode: unitMode,
                     is_emode: unitMode === 'electric',

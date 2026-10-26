@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createEmodeSettingsController, createFacilityPartitionController, createPowerGaugeController, createWorksheetModeController } from '../emode-controller.js';
 import { FACILITIES, getFacilityUnitWatts } from '../facility-config.js';
-import { getTargetEmodeWatts } from '../emode-policy.js';
+import { getTargetEmodeWatts, createWorksheetModeQuotaTracker } from '../emode-policy.js';
+import { buildFacilityPlanRows } from '../facility-plan-row-renderer.js';
+import { normalizePlanFacilityCounts } from '../plan-normalization.js';
 
 function fakeElement(properties = {}) {
     const listeners = new Map();
@@ -359,4 +361,434 @@ test('onWorksheetModeClick calculates flexible cycle_time and rate for prismana 
     assert.equal(displayedPlan.coin_items[0].mode, 'electric');
     assert.equal(displayedPlan.coin_items[0].cycle_time, 135.0);
     assert.equal(Math.round(displayedPlan.coin_items[0].units_per_second * 3600), 27);
+});
+
+test('onWorksheetModeClick correctly switches Woodworking Bench from manual to prismana updating timing and rates', async () => {
+    const mockRecipeMap = new Map([
+        ['rough_lumber', { name: 'rough_lumber', facility: 'Woodworking Bench', workload: 34, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+        ['laminated_beams', { name: 'laminated_beams', facility: 'Woodworking Bench', workload: 41, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+    ]);
+    const plan = {
+        success: true,
+        coin_items: [
+            { facility: 'Woodworking Bench (Electric)', item_name: 'laminated_beams', facility_count: 1, status: 'producing', mode: 'electric', cycle_time: 22.5, units_per_second: 1/22.5 },
+            { facility: 'Woodworking Bench (Electric)', item_name: 'laminated_beams', facility_count: 1, status: 'producing', mode: 'electric', cycle_time: 22.5, units_per_second: 1/22.5 },
+            { facility: 'Woodworking Bench (Manual)', item_name: 'rough_lumber', facility_count: 1, status: 'producing', mode: 'manual', cycle_time: 9.4, units_per_second: 1/9.4 },
+            { facility: 'Woodworking Bench (Manual)', item_name: 'laminated_beams', facility_count: 1, status: 'producing', mode: 'manual', cycle_time: 11.4, units_per_second: 1/11.4 },
+        ],
+    };
+    let displayedPlan = null;
+    let overrides = [];
+    const controller = createWorksheetModeController({
+        facilities: FACILITIES,
+        residentFacilities: new Set(),
+        getPlan: () => plan,
+        setPlan: value => { Object.assign(plan, value); },
+        setEmodeCounts: () => {},
+        setOverrides: value => { overrides = value; },
+        getHomeLevel: () => 18,
+        getGeneratorCapacity: () => 1000,
+        getPowerGridRate: () => 1.2,
+        getTargetEmodeWatts,
+        getSpecialistQuotas: () => ({}),
+        getFacilityLevel: () => 4,
+        calculatePowerWatts: () => 30,
+        updatePowerGauge: () => {},
+        showSelectedPlan: () => { displayedPlan = structuredClone(plan); },
+        showInvariantWarning: () => {},
+        setButtonMode: () => {},
+        setResetButtonVisible: () => {},
+        isVietnamese: () => true,
+        alert: () => {},
+        getRecipeMap: () => mockRecipeMap,
+    });
+
+    // Chuyển hàng thứ 3 (rough_lumber, index 2) sang prismana
+    await controller.onWorksheetModeClick('Woodworking Bench', 'prismana', 1, 'manual', null, 2, 'rough_lumber');
+    assert.equal(displayedPlan.coin_items[2].mode, 'prismana');
+    assert.equal(displayedPlan.coin_items[2].cycle_time, 7.1);
+    assert.equal(Math.round(displayedPlan.coin_items[2].units_per_second * 3600), 507);
+
+    // Chuyển hàng thứ 4 (laminated_beams, index 3) sang prismana
+    await controller.onWorksheetModeClick('Woodworking Bench', 'prismana', 1, 'manual', null, 3, 'laminated_beams');
+    assert.equal(displayedPlan.coin_items[3].mode, 'prismana');
+    assert.equal(displayedPlan.coin_items[3].cycle_time, 8.5);
+    assert.equal(Math.round(displayedPlan.coin_items[3].units_per_second * 3600), 424);
+});
+
+test('regression: end-to-end flow from row renderer to controller with multi-product Woodworking Bench, lookup failure safety, and error rollback', async () => {
+    const mockRecipeMap = new Map([
+        ['rough_lumber', { name: 'rough_lumber', facility: 'Woodworking Bench', workload: 34, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+        ['laminated_beams', { name: 'laminated_beams', facility: 'Woodworking Bench', workload: 41, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+    ]);
+
+    const initialPlan = {
+        success: true,
+        coin_items: [
+            {
+                facility: 'Woodworking Bench (Manual)',
+                item_name: 'rough_lumber',
+                facility_count: 1,
+                status: 'producing',
+                mode: 'manual',
+                cycle_time: 9.4,
+                units_per_second: 1 / 9.4,
+                rate_per_second: 10,
+                aniimo: { ability: 'Artisanship', level: 3 }
+            },
+            {
+                facility: 'Woodworking Bench (Manual)',
+                item_name: 'laminated_beams',
+                facility_count: 1,
+                status: 'producing',
+                mode: 'manual',
+                cycle_time: 11.4,
+                units_per_second: 1 / 11.4,
+                rate_per_second: 15,
+                aniimo: { ability: 'Artisanship', level: 3 }
+            }
+        ],
+        income_streams: [
+            { item_name: 'rough_lumber', rate_per_second: 10, units_per_second: 1 / 9.4 },
+            { item_name: 'laminated_beams', rate_per_second: 15, units_per_second: 1 / 11.4 }
+        ]
+    };
+
+    let activePlan = structuredClone(initialPlan);
+    let facilityOverrides = [];
+    const buttonModeCalls = [];
+    const loggedErrors = [];
+
+    // Helper re-normalizing plan as showSelectedPlan does
+    const normalizeAndDisplay = () => {
+        normalizePlanFacilityCounts(activePlan, {
+            selectedHomeLevel: () => 20,
+            facilities: FACILITIES,
+            categoryByName: new Map([['Woodworking Bench', 'Wood & Ore Processing']]),
+            facilityOverrides,
+            createWorksheetModeQuotaTracker,
+            lastEmodeCounts: {},
+            getOwnedFacilityCounts: () => ({ 'Woodworking Bench': 2 }),
+            getFacilityLevel: () => 4,
+            getRecipeMap: () => mockRecipeMap,
+            getPowerGridRate: () => 1.2,
+        });
+    };
+
+    const controller = createWorksheetModeController({
+        facilities: FACILITIES,
+        residentFacilities: new Set(),
+        getPlan: () => activePlan,
+        setPlan: value => { activePlan = value; },
+        setEmodeCounts: () => {},
+        setOverrides: value => { facilityOverrides = value; },
+        getHomeLevel: () => 20,
+        getGeneratorCapacity: () => 1000,
+        getPowerGridRate: () => 1.2,
+        getTargetEmodeWatts,
+        getSpecialistQuotas: () => ({}),
+        getFacilityLevel: () => 4,
+        calculatePowerWatts: () => 0,
+        updatePowerGauge: () => {},
+        showSelectedPlan: () => { normalizeAndDisplay(); },
+        showInvariantWarning: () => {},
+        setButtonMode: (btn, mode) => { buttonModeCalls.push({ btn, mode }); },
+        setResetButtonVisible: () => {},
+        isVietnamese: () => true,
+        alert: () => {},
+        logError: (...args) => { loggedErrors.push(args); },
+        getRecipeMap: () => mockRecipeMap,
+    });
+
+    // 1. Build actual HTML rows via buildFacilityPlanRows
+    const rendered = buildFacilityPlanRows({
+        rows: activePlan.coin_items,
+        isFarm: false,
+        isVietnamese: true,
+        homeLevel: 20,
+        emodeAvailable: true,
+        facilities: FACILITIES,
+        facilityOverrides: [],
+        lastEmodeCounts: {},
+        powerWatts: { 'Woodworking Bench': 30 },
+        ownedFacilityCounts: { 'Woodworking Bench': 2 },
+        stepIndex: step => activePlan.coin_items.indexOf(step),
+        renderFacilityIcon: name => `<i>${name}</i>`,
+        renderItemIcon: name => `<i>${name}</i>`,
+        getFacilityDisplayName: name => name,
+        prettyItem: name => name,
+        prettyReason: String,
+        formatNumber: String,
+        aniimoLabel: step => `${step.mode === 'prismana' ? 'Fulmintis' : 'Artisanship'} Lv.${step.mode === 'prismana' ? 4 : 3}`,
+    });
+
+    // Extract onclick calls from generated buttons
+    const onclickRegex = /onclick="window\.onWorksheetModeClick\(([^)]+)\)"/g;
+    const onclickCalls = [];
+    let match;
+    while ((match = onclickRegex.exec(rendered.html)) !== null) {
+        const rawArgs = match[1].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
+        onclickCalls.push({
+            facility: rawArgs[0],
+            requestedMode: rawArgs[1],
+            stepCount: Number(rawArgs[2]),
+            currentModeParam: rawArgs[3],
+            stepIndex: Number(rawArgs[5]),
+            targetItemName: rawArgs[6] || '',
+        });
+    }
+
+    // Must find pills with stepIndex and targetItemName for both products
+    const roughPrismanaCall = onclickCalls.find(c => c.targetItemName === 'rough_lumber' && c.requestedMode === 'prismana');
+    const laminatedPrismanaCall = onclickCalls.find(c => c.targetItemName === 'laminated_beams' && c.requestedMode === 'prismana');
+    assert.ok(roughPrismanaCall, 'Row renderer must produce Prismana onclick for rough_lumber with item name');
+    assert.ok(laminatedPrismanaCall, 'Row renderer must produce Prismana onclick for laminated_beams with item name');
+    assert.equal(roughPrismanaCall.stepIndex, 0);
+    assert.equal(laminatedPrismanaCall.stepIndex, 1);
+
+    // 2. Click Prismana on laminated_beams (Row 1)
+    const fakeBtnLaminated = { id: 'btn-laminated-prismana' };
+    buttonModeCalls.length = 0;
+    await controller.onWorksheetModeClick(
+        laminatedPrismanaCall.facility,
+        laminatedPrismanaCall.requestedMode,
+        laminatedPrismanaCall.stepCount,
+        laminatedPrismanaCall.currentModeParam,
+        fakeBtnLaminated,
+        laminatedPrismanaCall.stepIndex,
+        laminatedPrismanaCall.targetItemName
+    );
+
+    // Verify row 1 switched to Prismana (8.5s) while row 0 remains Manual (9.4s)
+    const stepLaminated = activePlan.coin_items.find(s => s.item_name === 'laminated_beams');
+    const stepRough = activePlan.coin_items.find(s => s.item_name === 'rough_lumber');
+    assert.equal(stepLaminated.mode, 'prismana');
+    assert.equal(stepLaminated.facility, 'Woodworking Bench (Prismana)');
+    assert.equal(stepLaminated.cycle_time, 8.5);
+    assert.equal(Math.round(stepLaminated.units_per_second * 3600), 424);
+
+    assert.equal(stepRough.mode, 'manual');
+    assert.equal(stepRough.facility, 'Woodworking Bench (Manual)');
+    assert.equal(stepRough.cycle_time, 9.4);
+    assert.equal(Math.round(stepRough.units_per_second * 3600), 383);
+
+    // Button mode is activated ONLY after successful update
+    assert.deepEqual(buttonModeCalls, [{ btn: fakeBtnLaminated, mode: 'prismana' }]);
+
+    // 3. Click Prismana on rough_lumber (Row 0)
+    const fakeBtnRough = { id: 'btn-rough-prismana' };
+    buttonModeCalls.length = 0;
+    await controller.onWorksheetModeClick(
+        roughPrismanaCall.facility,
+        roughPrismanaCall.requestedMode,
+        roughPrismanaCall.stepCount,
+        roughPrismanaCall.currentModeParam,
+        fakeBtnRough,
+        roughPrismanaCall.stepIndex,
+        roughPrismanaCall.targetItemName
+    );
+
+    // Both rows are now Prismana (7.1s and 8.5s)
+    assert.equal(stepRough.mode, 'prismana');
+    assert.equal(stepRough.facility, 'Woodworking Bench (Prismana)');
+    assert.equal(stepRough.cycle_time, 7.1);
+    assert.equal(Math.round(stepRough.units_per_second * 3600), 507);
+
+    assert.equal(stepLaminated.mode, 'prismana');
+    assert.equal(stepLaminated.facility, 'Woodworking Bench (Prismana)');
+    assert.equal(stepLaminated.cycle_time, 8.5);
+
+    // Re-run normalization to ensure Prismana is not reverted to manual
+    normalizeAndDisplay();
+    assert.equal(activePlan.coin_items[0].mode, 'prismana');
+    assert.equal(activePlan.coin_items[0].cycle_time, 7.1);
+    assert.equal(activePlan.coin_items[1].mode, 'prismana');
+    assert.equal(activePlan.coin_items[1].cycle_time, 8.5);
+
+    // 4. Test lookup failure: non-existent targetItemName must not fallback to first facility row
+    buttonModeCalls.length = 0;
+    loggedErrors.length = 0;
+    const fakeBtnInvalid = { id: 'btn-invalid' };
+    const savedState = JSON.stringify(activePlan);
+
+    await controller.onWorksheetModeClick(
+        'Woodworking Bench',
+        'manual',
+        1,
+        'prismana',
+        fakeBtnInvalid,
+        999,
+        'non_existent_item'
+    );
+
+    // Must NOT mutate any row and NOT touch button active state
+    assert.equal(JSON.stringify(activePlan), savedState, 'Plan must remain untouched on lookup failure');
+    assert.equal(buttonModeCalls.length, 0, 'setButtonMode must not be called when target step lookup fails');
+    assert.ok(loggedErrors.length > 0, 'deps.logError must be called with lookup failure details');
+    assert.match(loggedErrors[0][0], /Cannot find target worksheet step/);
+
+    // 5. Test error rollback: if update throws, restore originalPlan and reset button mode
+    const snapshotBeforeError = JSON.stringify(activePlan);
+    const controllerWithError = createWorksheetModeController({
+        facilities: FACILITIES,
+        residentFacilities: new Set(),
+        getPlan: () => activePlan,
+        setPlan: value => { activePlan = value; },
+        setEmodeCounts: () => {},
+        setOverrides: () => {},
+        getHomeLevel: () => 20,
+        getGeneratorCapacity: () => 1000,
+        getPowerGridRate: () => 1.2,
+        getTargetEmodeWatts,
+        getSpecialistQuotas: () => ({}),
+        getFacilityLevel: () => 4,
+        calculatePowerWatts: () => 0,
+        updatePowerGauge: () => {},
+        showSelectedPlan: () => {},
+        showInvariantWarning: () => {},
+        setButtonMode: (btn, mode) => { buttonModeCalls.push({ btn, mode }); },
+        setResetButtonVisible: () => {},
+        isVietnamese: () => true,
+        alert: () => {},
+        logError: (...args) => { loggedErrors.push(args); },
+        getRecipeMap: () => { throw new Error('Simulated recipe error'); },
+    });
+
+    buttonModeCalls.length = 0;
+    loggedErrors.length = 0;
+    const fakeBtnCrash = { id: 'btn-crash' };
+
+    await controllerWithError.onWorksheetModeClick(
+        'Woodworking Bench',
+        'manual',
+        1,
+        'prismana',
+        fakeBtnCrash,
+        0,
+        'rough_lumber'
+    );
+
+    // Plan must be restored to snapshot and button mode restored to prevMode ('prismana')
+    assert.equal(JSON.stringify(activePlan), snapshotBeforeError);
+    assert.deepEqual(buttonModeCalls, [{ btn: fakeBtnCrash, mode: 'prismana' }]);
+    assert.ok(loggedErrors.some(e => String(e[0]).includes('In-place worksheet update failed')));
+});
+
+test('regression: multi-step cycling across Manual <-> Prismana <-> Electric with ANIIMO_RESIDENT_FACILITIES and Homeland pieces builder', async () => {
+    const { ANIIMO_RESIDENT_FACILITIES } = await import('../aniimo-resident-crew.js');
+    const { createHomelandPiecesBuilder } = await import('../homeland-layout-view.js');
+    const { FACILITY_FOOTPRINTS, FACILITY_POWER_WATTS, simpleSetup } = await import('../facility-config.js');
+
+    const mockRecipeMap = new Map([
+        ['rough_lumber', { name: 'rough_lumber', facility: 'Woodworking Bench', workload: 34, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+        ['laminated_beams', { name: 'laminated_beams', facility: 'Woodworking Bench', workload: 41, emode_base_time: 27, aniimo: ['Artisanship', 2], yield_amount: 1 }],
+    ]);
+
+    let activePlan = {
+        success: true,
+        coin_items: [
+            {
+                facility: 'Woodworking Bench',
+                item_name: 'rough_lumber',
+                facility_count: 1,
+                status: 'producing',
+                cycle_time: 7.1,
+                yield_amount: 1,
+            },
+            {
+                facility: 'Woodworking Bench',
+                item_name: 'laminated_beams',
+                facility_count: 1,
+                status: 'producing',
+                cycle_time: 8.5,
+                yield_amount: 1,
+            },
+        ],
+        income_streams: [],
+    };
+
+    let currentOverrides = [];
+    let currentEmodeCounts = {};
+
+    const normalizeAndVerify = () => {
+        normalizePlanFacilityCounts(activePlan, {
+            selectedHomeLevel: () => 16,
+            facilityOverrides: currentOverrides,
+            facilities: FACILITIES,
+            categoryByName: new Map(),
+            lastEmodeCounts: currentEmodeCounts,
+            createWorksheetModeQuotaTracker,
+            getOwnedFacilityCounts: () => ({ 'Woodworking Bench': 2 }),
+            getRecipeMap: () => mockRecipeMap,
+            getPowerGridRate: () => 1.2,
+        });
+    };
+
+    // Initial normalization sets single-unit non-electric Woodworking Bench to manual (9.4s and 11.4s)
+    normalizeAndVerify();
+    assert.equal(activePlan.coin_items[0].mode, 'manual');
+    assert.equal(activePlan.coin_items[0].cycle_time, 9.4);
+    assert.equal(activePlan.coin_items[1].mode, 'manual');
+    assert.equal(activePlan.coin_items[1].cycle_time, 11.4);
+
+    const controller = createWorksheetModeController({
+        facilities: FACILITIES,
+        residentFacilities: { has: name => ANIIMO_RESIDENT_FACILITIES.has(name) },
+        getPlan: () => activePlan,
+        setPlan: value => { activePlan = value; },
+        setEmodeCounts: value => { currentEmodeCounts = value; },
+        setOverrides: value => { currentOverrides = value; },
+        getHomeLevel: () => 16,
+        getGeneratorCapacity: () => 2000,
+        getPowerGridRate: () => 1.2,
+        getTargetEmodeWatts,
+        getSpecialistQuotas: () => ({}),
+        getFacilityLevel: () => 4,
+        calculatePowerWatts: () => 0,
+        updatePowerGauge: () => {},
+        getRecipeMap: () => mockRecipeMap,
+        showSelectedPlan: () => normalizeAndVerify(),
+        showInvariantWarning: () => {},
+        setButtonMode: () => {},
+        setResetButtonVisible: () => {},
+        isVietnamese: () => true,
+        alert: () => {},
+        logError: () => {},
+    });
+
+    // Cycle rough_lumber: Manual -> Prismana -> Electric -> Manual
+    await controller.onWorksheetModeClick('Woodworking Bench', 'prismana', 1, 'manual', null, 0, 'rough_lumber');
+    assert.equal(activePlan.coin_items[0].mode, 'prismana');
+    assert.equal(activePlan.coin_items[0].cycle_time, 7.1);
+    assert.equal(activePlan.coin_items[1].mode, 'manual');
+    assert.equal(activePlan.coin_items[1].cycle_time, 11.4);
+
+    await controller.onWorksheetModeClick('Woodworking Bench', 'electric', 1, 'prismana', null, 0, 'rough_lumber');
+    assert.equal(activePlan.coin_items[0].mode, 'electric');
+    assert.equal(activePlan.coin_items[0].cycle_time, 22.5);
+    assert.equal(activePlan.coin_items[1].mode, 'manual');
+    assert.equal(activePlan.coin_items[1].cycle_time, 11.4);
+
+    await controller.onWorksheetModeClick('Woodworking Bench', 'manual', 1, 'electric', null, 0, 'rough_lumber');
+    assert.equal(activePlan.coin_items[0].mode, 'manual');
+    assert.equal(activePlan.coin_items[0].cycle_time, 9.4);
+
+    // Ensure Homeland pieces builder resolves suffixed facility footprints without unplaced errors
+    const builder = createHomelandPiecesBuilder({
+        environmentModeOrder: ['Warm', 'Scorching', 'Cool', 'Freeze', 'Adequate'],
+        environmentBuildingSize: () => 2,
+        getRecipes: () => [
+            { name: 'rough_lumber', turns: true },
+            { name: 'laminated_beams', turns: true },
+        ],
+        facilityFootprints: FACILITY_FOOTPRINTS,
+        facilityPowerWatts: FACILITY_POWER_WATTS,
+        simpleSetup,
+        getHomeLevel: () => 16,
+        isSimpleMode: () => true,
+        getPowerPoleCount: () => 2,
+        isEmodeActive: () => true,
+    });
+    const built = builder.build(activePlan, { home_level: 16 });
+    assert.deepEqual(built.unplaced, []);
 });

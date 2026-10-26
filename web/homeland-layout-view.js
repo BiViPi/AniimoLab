@@ -314,13 +314,16 @@ export function createHomelandPiecesBuilder(deps) {
         };
         const takesTurns = step => step.status === 'producing' && !!recipeFor(step.item_name)?.turns;
         const turnGroups = new Map();
-        steps.filter(takesTurns).forEach(step => turnGroups.set(step.facility, [...(turnGroups.get(step.facility) || []), step]));
+        steps.filter(takesTurns).forEach(step => {
+            const baseFacility = (step.facility || '').replace(/\s*\((Electric|Manual|Prismana|Điện|Thủ công)\)$/i, '').trim();
+            turnGroups.set(baseFacility, [...(turnGroups.get(baseFacility) || []), step]);
+        });
         turnGroups.forEach((rows, facility) => {
-            const footprint = deps.facilityFootprints[facility];
+            const baseFacility = facility.replace(/\s*\((Electric|Manual|Prismana|Điện|Thủ công)\)$/i, '').trim();
+            const footprint = deps.facilityFootprints[baseFacility] || deps.facilityFootprints[facility];
             if (!footprint) { unplaced.add(facility); return; }
             const busy = rows.reduce((sum, row) => sum + (row.busy_units ?? row.facility_count ?? 1), 0);
             const explicitCount = rows.reduce((sum, row) => sum + (row.facility_count || 1), 0);
-            const baseFacility = facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
             const ownedList = deps.simpleSetup(deps.getHomeLevel()).facilities[baseFacility];
             const ownedMax = Array.isArray(ownedList) ? ownedList.reduce((sum, tier) => sum + (tier.count || 0), 0) : 0;
             const rawCount = Math.max(explicitCount, Math.ceil(busy - 1e-6));
@@ -330,9 +333,9 @@ export function createHomelandPiecesBuilder(deps) {
             const electric = rows.some(row => isElectric(row));
             const powerWatts = electric ? (deps.facilityPowerWatts[baseFacility] || 0) : 0;
             for (let index = 0; index < countUnits; index++) {
-                pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight, jobs, cycle: jobs[0]?.cycle, facility, crop: jobs[0]?.item ?? null, sensitive: false, isElectric: electric, powerWatts }] });
+                pieces.push({ members: [{ x: 0, y: 0, w: footprint[0], h: footprint[1], weight, jobs, cycle: jobs[0]?.cycle, facility: baseFacility, crop: jobs[0]?.item ?? null, sensitive: false, isElectric: electric, powerWatts }] });
             }
-            count(facility, countUnits);
+            count(baseFacility, countUnits);
         });
 
         const outdoorFarmlands = [];
@@ -345,29 +348,29 @@ export function createHomelandPiecesBuilder(deps) {
                 placedInBlocks[key] = (placedInBlocks[key] || 0) - taken;
                 countForStep -= taken;
             }
-            const footprint = deps.facilityFootprints[step.facility];
+            const baseFacility = step.facility.replace(/\s*\((Electric|Manual|Prismana|Điện|Thủ công)\)$/i, '').trim();
+            const footprint = deps.facilityFootprints[baseFacility] || deps.facilityFootprints[step.facility];
             if (!footprint) { if (countForStep > 0) unplaced.add(step.facility); return; }
-            const baseFacility = step.facility.replace(/\s*\((Electric|Manual|Điện|Thủ công)\)$/i, '').trim();
             const electric = isElectric(step);
             const powerWatts = electric ? (deps.facilityPowerWatts[baseFacility] || 0) : 0;
             const growing = step.status === 'producing';
             if (baseFacility === 'Farmland' || baseFacility === 'Woodland') {
                 const field = baseFacility === 'Farmland' ? outdoorFarmlands : outdoorWoodlands;
                 for (let index = 0; index < countForStep; index++) field.push({
-                    weight: tripsPerUnit(step), cycle: step.cycle_time, facility: step.facility,
+                    weight: tripsPerUnit(step), cycle: step.cycle_time, facility: baseFacility,
                     crop: growing ? step.item_name : null, sensitive: false, isElectric: false, powerWatts: 0,
                 });
-                count(step.facility, countForStep);
+                count(baseFacility, countForStep);
                 return;
             }
             for (let index = 0; index < countForStep; index++) {
                 pieces.push({ members: [{
                     x: 0, y: 0, w: footprint[0], h: footprint[1], weight: tripsPerUnit(step), cycle: step.cycle_time,
-                    facility: step.facility, crop: growing ? step.item_name : null,
+                    facility: baseFacility, crop: growing ? step.item_name : null,
                     sensitive: growing && !!recipeFor(step.item_name)?.environment, isElectric: electric, powerWatts,
                 }] });
             }
-            count(step.facility, countForStep);
+            count(baseFacility, countForStep);
         });
 
         function packFieldChunk(items, slotWidth, slotHeight, maxChunkSize = 32) {

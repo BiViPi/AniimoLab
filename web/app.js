@@ -24,8 +24,8 @@ import {
     getWorksheetStepMode as worksheetStepMode,
     adjustFacilityPartitionCounts,
     getFacilityPartitionCounts,
-} from './emode-policy.js?v=aniimolab_v63';
-import { createEmodeSettingsController, createPowerGaugeController, createWorksheetModeController, worksheetFixedPlanLines, worksheetOverridesFromLines as buildWorksheetOverridesFromLines } from './emode-controller.js?v=aniimolab_v66';
+} from './emode-policy.js?v=aniimolab_v64';
+import { createEmodeSettingsController, createPowerGaugeController, createWorksheetModeController, worksheetFixedPlanLines, worksheetOverridesFromLines as buildWorksheetOverridesFromLines } from './emode-controller.js?v=aniimolab_v68';
 import { createSolverClient } from './solver-client.js?v=aniimolab_v59';
 import { executePlanSolve } from './plan-solve-runner.js?v=aniimolab_v1';
 import { createFastResolveController } from './fast-resolve-controller.js?v=aniimolab_v1';
@@ -37,6 +37,7 @@ import { tipAttrs, createTooltipController } from './tooltip-controller.js?v=ani
 import { createFacilitiesModalController } from './facilities-modal-controller.js?v=aniimolab_v1';
 import { createFacilityPartitionDialogController } from './facility-partition-dialog.js?v=aniimolab_v1';
 import { createAniimoSummaryController } from './aniimo-summary-controller.js?v=aniimolab_v1';
+import { ANIIMO_RESIDENT_FACILITIES as RESIDENT_FACILITIES } from './aniimo-resident-crew.js?v=aniimolab_v1';
 import { createAniimoSetupUIController } from './aniimo-setup-ui.js?v=aniimolab_v1';
 import { createStrategyUIController } from './strategy-ui-controller.js?v=aniimolab_v1';
 import { createSeasonPlotsAdvisoryController } from './season-plots-advisory.js?v=aniimolab_v1';
@@ -49,7 +50,7 @@ import { buildGoalAlsoViewModel } from './goal-also-renderer.js?v=aniimolab_v1';
 import { createAniimoSetupController } from './plan-controller.js?v=aniimolab_v53';
 import { runPlanPruning } from './plan-pruning.js?v=aniimolab_v2';
 import { solvePlanWithEmode } from './emode-solve-pipeline.js?v=aniimolab_v1';
-import { normalizePlanFacilityCounts as normalizePlanFacilityCountsModule } from './plan-normalization.js?v=aniimolab_v2';
+import { normalizePlanFacilityCounts as normalizePlanFacilityCountsModule } from './plan-normalization.js?v=aniimolab_v5';
 import { buildStrategyPlanInput as buildStrategyPlanInputModule } from './plan-strategy.js?v=aniimolab_v1';
 import { createPlanInputBuilder } from './plan-input.js?v=aniimolab_v1';
 import {
@@ -60,8 +61,8 @@ import {
 import { integrateSeasonPlan as integrateSeasonPlanModule } from './season-plan-integration.js?v=aniimolab_v1';
 import { createSeasonController } from './season-controller.js?v=aniimolab_v1';
 import { createRecipeTableRenderer } from './recipe-table-renderer.js?v=aniimolab_v1';
-import { splitEnvironmentRowsByUnit as splitEnvironmentRowsByUnitPolicy } from './homeland-layout-view.js?v=aniimolab_v2';
-import { createHomelandUIController } from './homeland-ui-controller.js?v=aniimolab_v1';
+import { splitEnvironmentRowsByUnit as splitEnvironmentRowsByUnitPolicy } from './homeland-layout-view.js?v=aniimolab_v3';
+import { createHomelandUIController } from './homeland-ui-controller.js?v=aniimolab_v2';
 import { renderGoalTargetOptions } from './goal-details-renderer.js?v=aniimolab_v1';
 import { createProductionSummaryViewController } from './production-summary-view.js?v=aniimolab_v1';
 import { createEnvironmentRenderer } from './environment-renderer.js?v=aniimolab_v1';
@@ -86,7 +87,7 @@ import { createHomeLevelController } from './home-level-controller.js?v=aniimola
 import { buildPriorityListMarkup } from './priority-renderer.js?v=aniimolab_v1';
 import { buildLevelUpStrategyViewModel, getLevelUpStockAmount, getLevelUpStockNames } from './level-up-strategy-renderer.js?v=aniimolab_v1';
 import { createInfeasibleViewController } from './infeasible-view.js?v=aniimolab_v1';
-import { createFacilityPlanViewController } from './facility-plan-view.js?v=aniimolab_v1';
+import { createFacilityPlanViewController } from './facility-plan-view.js?v=aniimolab_v3';
 import {
     ITEM_NAMES,
     numberOrDefault,
@@ -493,7 +494,7 @@ const worksheetModeController = createWorksheetModeController({
     setPlan: value => {
         lastPlan = value;
         const setup = selectedAniimoSetup();
-        if (plansBySetup[setup]) plansBySetup[setup] = value;
+        plansBySetup[setup] = value;
     },
     getEmodeCounts: () => lastEmodeCounts,
     setEmodeCounts: value => { lastEmodeCounts = value; },
