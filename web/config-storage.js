@@ -28,6 +28,19 @@ export function migrateSavedConfig(data) {
     if (data['resource-detector-level'] === undefined && data['mineral-detector-level'] !== undefined) {
         data['resource-detector-level'] = data['mineral-detector-level'];
     }
+    // Season migration: detect season transition when season config exists
+    const currentSeasonId = 'magical_wonder_night';
+    if (data.seasonId !== undefined || data['season-on'] !== undefined || data.seasonRadishPlots !== undefined) {
+        if (data.seasonId !== currentSeasonId) {
+            data.seasonId = currentSeasonId;
+            data['season-on'] = false;
+            data.seasonRadishPlots = 2;
+            data.seasonPepperPlots = 2;
+            data['season-radish-plots'] = '2';
+            data['season-pepper-plots'] = '2';
+            delete data.selectedSeasonDishes;
+        }
+    }
     return data;
 }
 

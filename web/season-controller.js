@@ -8,9 +8,14 @@ export function createSeasonController(deps) {
         const totalFarmland = deps.simpleSetup(deps.getHomeLevel()).facilities.Farmland?.[0]?.count || 32;
         const used = plots.radish + plots.pepper;
         const remaining = Math.max(0, totalFarmland - used);
+        const c1Vi = deps.crop1ShortVi || 'Bí ngô';
+        const c2Vi = deps.crop2ShortVi || 'Đèn lồng';
+        const c1En = deps.crop1ShortEn || 'Pumpkin';
+        const c2En = deps.crop2ShortEn || 'Lanternfruit';
+        const sVi = deps.seasonNameVi || 'Sự kiện Đêm Kỳ Diệu';
         summaryEl.innerHTML = deps.getLanguage() === 'vi'
-            ? `Dành <strong>${used} ô đất</strong> (${plots.radish} Củ cải + ${plots.pepper} Ớt) cho sự kiện Trung Thu. Còn lại <strong>${remaining} ô đất nông nghiệp</strong> cho nhân sâm, lúa nước và các cây trồng khác.`
-            : `Dedicated <strong>${used} plots</strong> (${plots.radish} Radish + ${plots.pepper} Pepper) for the event. Remaining <strong>${remaining} farmland plots</strong> for standard agriculture.`;
+            ? `Dành <strong>${used} ô đất</strong> (${plots.radish} ${c1Vi} + ${plots.pepper} ${c2Vi}) cho ${sVi}. Còn lại <strong>${remaining} ô đất nông nghiệp</strong> cho nông sản thường.`
+            : `Dedicated <strong>${used} plots</strong> (${plots.radish} ${c1En} + ${plots.pepper} ${c2En}) for the event. Remaining <strong>${remaining} farmland plots</strong> for standard agriculture.`;
     }
 
     function render() {

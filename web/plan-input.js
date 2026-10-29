@@ -15,7 +15,7 @@ export function createPlanInputBuilder(deps) {
             5: ['natural_rubber', 'coconut', 'quick_maple_syrup'],
             6: ['cocoa', 'orange_flower', 'quick_coconut'],
         };
-        const keepAppleForSeason = deps.isSeasonActive() && deps.selectedSeasonDishes.has('umbral_pickle');
+        const keepAppleForSeason = deps.isSeasonActive() && (deps.selectedSeasonDishes.has('umbral_pickle') || deps.selectedSeasonDishes.has('wonder_pickled_platter'));
 
         if (homeLevel < 20) {
             for (const [level, crops] of Object.entries(woodlandCropsByLevel)) {
@@ -38,7 +38,7 @@ export function createPlanInputBuilder(deps) {
 
         if (deps.isSeasonActive()) {
             const optimalDishes = deps.selectOptimalSeasonDishes();
-            const needsRockCandy = optimalDishes.some(dish => dish.name === 'moondew_radish_slices' || dish.name === 'harvest_platter');
+            const needsRockCandy = optimalDishes.some(dish => dish.name === 'moondew_radish_slices' || dish.name === 'harvest_platter' || dish.name === 'candied_magic_pumpkin' || dish.name === 'wonder_night_platter' || dish.requiresRockCandy);
             const sugarcanePlots = needsRockCandy ? 1 : 0;
             const totalFarmland = facilities.Farmland?.[0]?.count || 0;
             const dedicated = Math.min(totalFarmland, deps.getSeasonRadishPlots() + deps.getSeasonPepperPlots() + sugarcanePlots);

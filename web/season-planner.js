@@ -7,6 +7,8 @@ export function selectOptimalSeasonDishes({
     dishData,
     getCurrentSetup,
     planRateEstimate = 40,
+    crop1SellValue = 74,
+    crop2SellValue = 74,
 }) {
     if (!seasonActive || (radishPlots <= 0 && pepperPlots <= 0)) return [];
     const userChecked = selectedRecipes || [];
@@ -35,13 +37,13 @@ export function selectOptimalSeasonDishes({
         let rawRate = 0;
         if (info.radish > 0 && info.pepper > 0) {
             availableUnits = Math.min(radishPerSec / info.radish, pepperPerSec / info.pepper);
-            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.radish * 74 + info.pepper * 74);
+            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.radish * crop1SellValue + info.pepper * crop2SellValue);
         } else if (info.radish > 0) {
             availableUnits = radishPerSec / info.radish;
-            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.radish * 74);
+            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.radish * crop1SellValue);
         } else if (info.pepper > 0) {
             availableUnits = pepperPerSec / info.pepper;
-            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.pepper * 74);
+            rawRate = Math.min(availableUnits, maxFacilityCapacity) * (info.pepper * crop2SellValue);
         }
 
         const maxUnits = Math.min(availableUnits, maxFacilityCapacity);

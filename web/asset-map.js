@@ -212,8 +212,20 @@ export function renderFacilityIcon(facilityName) {
  * @param {string} itemName
  * @returns {string}
  */
+const PLACEHOLDER_SVGS = {
+    'magic_pumpkin': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Magic Pumpkin (Placeholder)"><circle cx="16" cy="17" r="11" fill="#ea580c" stroke="#f97316" stroke-width="2"/><path d="M16 4 v5" stroke="#15803d" stroke-width="3" stroke-linecap="round"/><text x="16" y="21" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🎃</text></svg>`,
+    'candied_magic_pumpkin': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Candied Magic Pumpkin (Placeholder)"><circle cx="16" cy="17" r="11" fill="#c2410c" stroke="#fb923c" stroke-width="2"/><text x="16" y="21" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🍬</text></svg>`,
+    'memory_lanternfruit': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Memory Lanternfruit (Placeholder)"><circle cx="16" cy="16" r="11" fill="#854d0e" stroke="#eab308" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🏮</text></svg>`,
+    'roasted_lanternfruit': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Roasted Lanternfruit (Placeholder)"><circle cx="16" cy="16" r="11" fill="#713f12" stroke="#fde047" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🔥</text></svg>`,
+    'wonder_pumpkin_pot': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Pumpkin Pot (Placeholder)"><circle cx="16" cy="16" r="11" fill="#431407" stroke="#fb923c" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🍲</text></svg>`,
+    'wonder_sweet_and_spicy_sauce': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Sweet & Spicy Sauce (Placeholder)"><circle cx="16" cy="16" r="11" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🥫</text></svg>`,
+    'wonder_pickled_platter': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Pickled Platter (Placeholder)"><circle cx="16" cy="16" r="11" fill="#365314" stroke="#84cc16" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🥗</text></svg>`,
+    'wonder_night_platter': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Night Platter (Placeholder)"><circle cx="16" cy="16" r="11" fill="#581c87" stroke="#c084fc" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🍱</text></svg>`
+};
+
 export function renderItemIcon(itemName) {
     if (!itemName) return '';
+    if (PLACEHOLDER_SVGS[itemName]) return PLACEHOLDER_SVGS[itemName];
     const url = getItemIconUrl(itemName);
     return `<img class="item-icon-img" src="${url}" alt="${itemName}" loading="lazy" onerror="this.style.display='none'">`;
 }

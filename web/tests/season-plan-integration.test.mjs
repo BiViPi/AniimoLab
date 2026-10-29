@@ -87,3 +87,24 @@ test('season integration creates selected dish chain, preserves Scorching assign
     assert.equal(originalAssignment.covered[0].count, 2);
     assert.equal(result.income_streams.find(stream => stream.item_name === 'harvest_platter').points, 4);
 });
+
+test('season integration correctly creates Sunlamp Adequate assignment for Adequate crops', () => {
+    const result = integrateSeasonPlan({
+        success: true,
+        coin_items: [],
+        income_streams: [],
+        rate_per_second: 20,
+        environment_assignments: [],
+    }, makeDependencies({
+        crop1Slug: 'magic_pumpkin',
+        crop2Slug: 'memory_lanternfruit',
+        crop1Environment: 'Adequate',
+        crop2Environment: 'Adequate',
+        getRadishPlots: () => 2,
+        getPepperPlots: () => 2,
+    }));
+
+    const sunlamp = result.environment_assignments.find(a => a.building === 'Sunlamp' && a.mode === 'Adequate');
+    assert.ok(sunlamp, 'Sunlamp Adequate assignment should be created');
+    assert.equal(sunlamp.covered[0].count, 4);
+});

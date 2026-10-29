@@ -57,8 +57,8 @@ export function buildRejectedInsight(options) {
 
     if (seasonIsActive && selectedSeasonDishCount > 0) {
         rejectedBullets.push(isVi
-            ? `<strong>Ưu tiên công thức Lễ hội Trung thu:</strong> Khóa các ô nông trại chuyên dụng cho Củ cải và Ớt sự kiện để gom nguyên liệu đổi thưởng mùa vụ, chủ động chấp nhận điều chỉnh nhẹ doanh thu coin thuần túy để hoàn thành nhiệm vụ sự kiện.`
-            : `<strong>Prioritizing Harvest Moon dishes:</strong> Dedicated plots reserved for festival crops to farm event rewards, intentionally trading off pure coin optimization for season progression.`);
+            ? `<strong>Ưu tiên công thức Sự kiện Mùa vụ:</strong> Khóa các ô nông trại chuyên dụng cho nông sản sự kiện để gom nguyên liệu đổi thưởng mùa vụ, chủ động chấp nhận điều chỉnh nhẹ doanh thu coin thuần túy để hoàn thành nhiệm vụ sự kiện.`
+            : `<strong>Prioritizing Seasonal dishes:</strong> Dedicated plots reserved for festival crops to farm event rewards, intentionally trading off pure coin optimization for season progression.`);
     }
 
     const idleCount = (plan.coin_items || []).filter(item => item.status === 'not_needed' || item.status === 'idle').length;

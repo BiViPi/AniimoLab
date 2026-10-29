@@ -34,6 +34,8 @@ export const CROP_HARVEST_ABILITY = {
     'ginseng': 'Dark',
     'moondew_radish': 'Dark',
     'waxing_moon_pepper': 'Dark',
+    'magic_pumpkin': 'Dark',
+    'memory_lanternfruit': 'Dark',
 
     // Farmland - Collecting (Grass)
     'soybean': 'Grass',
@@ -372,22 +374,61 @@ export const SPECIAL_RECIPES = [
 // unlimited; plans show how much their seeds use. The recipes and seed costs are in
 // data/harvest_moon_festival.csv.
 export const SEASON = {
-    name: 'Harvest Moon Festival',
-    currency: 'Moonray Wheat',
-    points: 'Harvest Moon Points',
+    id: 'magical_wonder_night',
+    dataVerified: true, // Data verified from in-game screenshots
+    name: 'Magical Wonder Night',
+    nameVi: 'Sự kiện Đêm Kỳ Diệu',
+    currency: 'Spooky Gummy',
+    currencyVi: 'Kẹo dẻo kỳ quái',
+    points: 'Wonder Points',
+    pointsVi: 'Điểm Kỳ Ảo',
+    endTime: '2026-12-09T19:59:00Z',
     minHomeLevel: 10,
-    // Recipes unlocked with Recipe Notes; plans only use the ones the player ticks. The season's
-    // other recipes come unlocked.
-    recipeNotes: [
-        { name: 'harvest_platter' },
-        { name: 'umbral_pickle' },
-        { name: 'umbral_hot_pot' },
-        { name: 'umbral_sweet_and_spicy_sauce' },
-    ],
+    crops: {
+        radish: {
+            slug: 'magic_pumpkin',
+            nameEn: 'Magic Pumpkin',
+            nameVi: 'Bí Ngô Kỳ Diệu',
+            shortEn: 'Pumpkin',
+            shortVi: 'Bí ngô',
+            seedCost: 4,
+            sellValue: 61,
+            points: 1,
+            cycleTime: 1200,
+            yieldPerHarvest: 8,
+            environment: 'Adequate',
+        },
+        pepper: {
+            slug: 'memory_lanternfruit',
+            nameEn: 'Memory Lanternfruit',
+            nameVi: 'Quả Đèn Lồng Ký Ức',
+            shortEn: 'Lanternfruit',
+            shortVi: 'Đèn lồng',
+            seedCost: 4,
+            sellValue: 61,
+            points: 1,
+            cycleTime: 1200,
+            yieldPerHarvest: 8,
+            environment: 'Adequate',
+        }
+    },
+    recipeNotes: [],
 };
 
-// Full list of Harvest Moon festival dishes with facilities, points, and unlock info
+// Full list of Magical Wonder Night festival dishes with facilities, points, and unlock info
 export const SEASON_RECIPES = [
+    { name: 'sea_salt_roasted_pumpkin', facility: 'Claw Game Cooker', points: 8, unlockRV: 10, note: false },
+    { name: 'magic_pumpkin_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: false },
+    { name: 'magic_pumpkin_cake', facility: 'Blazing Stove', points: 10, unlockRV: 10, note: false },
+    { name: 'golden_lantern_pumpkin_soup', facility: 'Simmering Pot', points: 20, unlockRV: 10, note: false },
+    { name: 'honey_glazed_pumpkin_cup', facility: 'Blazing Stove', points: 4, unlockRV: 10, note: false },
+    { name: 'candied_lanternfruit', facility: 'Pickling Jar', points: 8, unlockRV: 10, note: false },
+    { name: 'memory_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: false },
+    { name: 'sparkling_fruit_juice', facility: 'Bouncy Brew Keg', points: 10, unlockRV: 10, note: false },
+    { name: 'glowing_lantern_set', facility: 'Crafting Table', points: 4, unlockRV: 10, note: false },
+];
+
+export const HARVEST_MOON_RECIPES = [
     { name: 'harvest_platter', facility: 'Crafting Table', points: 8, unlockRV: 10, note: true },
     { name: 'umbral_hot_pot', facility: 'Blazing Stove', points: 8, unlockRV: 10, note: true },
     { name: 'umbral_pickle', facility: 'Pickling Jar', points: 8, unlockRV: 10, note: true },

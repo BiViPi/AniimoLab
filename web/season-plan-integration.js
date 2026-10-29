@@ -13,42 +13,71 @@ export function integrateSeasonPlan(plan, deps) {
 
     const newSteps = [...(plan.coin_items || [])];
     const newStreams = [...(plan.income_streams || [])];
+    const newAssignments = JSON.parse(JSON.stringify(plan.environment_assignments || []));
     let extraCoinsRate = 0;
     let seasonPointsRate = 0;
     const isVi = deps.isVietnamese();
 
     // Thêm các bước canh tác Farmland mùa vụ
+    const crop1Slug = deps.crop1Slug || deps.crops?.radish?.slug || 'moondew_radish';
+    const crop2Slug = deps.crop2Slug || deps.crops?.pepper?.slug || 'waxing_moon_pepper';
+    const crop1Env = deps.crop1Environment !== undefined ? deps.crop1Environment : (deps.crops?.radish?.environment || null);
+    const crop2Env = deps.crop2Environment !== undefined ? deps.crop2Environment : (deps.crops?.pepper?.environment || null);
+    const seasonReason = isVi ? (deps.seasonNameVi ? `Canh tác ${deps.seasonNameVi}` : 'Canh tác Sự kiện Mùa vụ') : (deps.seasonName ? `${deps.seasonName} farming` : 'Seasonal event farming');
+
     if (radishPlots > 0) {
         newSteps.push({
             facility: 'Farmland',
-            item_name: 'moondew_radish',
+            item_name: crop1Slug,
             facility_count: radishPlots,
             status: 'producing',
             cycle_time: cycleTime,
             is_grower: true,
-            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
-            environment: null
+            reason: seasonReason,
+            environment: crop1Env
         });
     }
     if (pepperPlots > 0) {
         newSteps.push({
             facility: 'Farmland',
-            item_name: 'waxing_moon_pepper',
+            item_name: crop2Slug,
             facility_count: pepperPlots,
             status: 'producing',
             cycle_time: cycleTime,
             is_grower: true,
-            reason: isVi ? 'Canh tác Lễ hội Trung Thu' : 'Harvest Moon Festival farming',
-            environment: null
+            reason: seasonReason,
+            environment: crop2Env
         });
+    }
+
+    const adequatePlots = (crop1Env === 'Adequate' ? radishPlots : 0) + (crop2Env === 'Adequate' ? pepperPlots : 0);
+    if (adequatePlots > 0) {
+        const sunlampAssignment = newAssignments.find(a => a.building === 'Sunlamp' && a.mode === 'Adequate');
+        if (sunlampAssignment) {
+            if (sunlampAssignment.covered) {
+                const fc = sunlampAssignment.covered.find(c => c.facility === 'Farmland');
+                if (fc) fc.count += adequatePlots;
+                else sunlampAssignment.covered.push({ facility: 'Farmland', count: adequatePlots });
+            }
+        } else {
+            newAssignments.push({
+                building: 'Sunlamp',
+                mode: 'Adequate',
+                units: 1,
+                covered: [{ facility: 'Farmland', count: adequatePlots }],
+                layouts: [[{ facility: 'Farmland', x: 0, y: 1, size: 1 }]],
+                partner: null,
+                zone: null,
+                pair_modes: null
+            });
+        }
     }
 
     // Chọn danh sách món ăn sự kiện tối ưu (0, 1 hoặc tối đa 2 món) theo các quy tắc
     const optimalDishes = deps.selectOptimalSeasonDishes(plan.rate_per_second);
-    const newAssignments = JSON.parse(JSON.stringify(plan.environment_assignments || []));
 
     // Nếu có món cần Kẹo đá, thêm 1 ô Farmland trồng Mía (Mía bắt buộc trồng trong Lò Sưởi chế độ Bỏng Cháy - Scorching)
-    const needsRockCandy = optimalDishes.some(d => d.name === 'moondew_radish_slices' || d.name === 'harvest_platter');
+    const needsRockCandy = optimalDishes.some(d => d.requiresRockCandy || d.name === 'moondew_radish_slices' || d.name === 'harvest_platter' || d.name === 'candied_lanternfruit' || d.name === 'honey_glazed_pumpkin_cup');
     if (needsRockCandy) {
         newSteps.push({
             facility: 'Farmland',
@@ -99,8 +128,8 @@ export function integrateSeasonPlan(plan, deps) {
         return (alreadyUsed + count) <= cap;
     }
 
-    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám), thêm 1 Giếng nước sản xuất Nước ngọt (ưu tiên công thức siêu tốc nếu đã mở khóa)
-    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.name === 'umbral_hot_pot');
+    // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám / Súp bí ngô / Nước ép), thêm 1 Giếng nước sản xuất Nước ngọt (ưu tiên công thức siêu tốc nếu đã mở khóa)
+    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.requiresFreshWater || d.name === 'umbral_hot_pot' || d.name === 'golden_lantern_pumpkin_soup' || d.name === 'sparkling_fruit_juice');
     if (needsFreshWater) {
         const fwReason = isVi
             ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')
@@ -200,13 +229,19 @@ export function integrateSeasonPlan(plan, deps) {
 
     // Bổ sung cơ sở sản xuất Muối biển chuyên dụng cho sự kiện:
     // Ưu tiên Muối biển nhanh (quick_sea_salt) nếu đã mở khóa, nếu chưa thì dùng Muối biển thường (sea_salt)
-    const saltDishes = optimalDishes.filter(d => d.name === 'roasted_waxing_moon_pepper' || d.name === 'harvest_platter' || d.name === 'umbral_sweet_and_spicy_sauce');
+    const saltDishes = optimalDishes.filter(d => d.requiresSeaSalt || d.name === 'roasted_waxing_moon_pepper' || d.name === 'harvest_platter' || d.name === 'umbral_sweet_and_spicy_sauce' || d.name === 'sea_salt_roasted_pumpkin' || d.name === 'honey_glazed_pumpkin_cup');
     if (saltDishes.length > 0) {
-        let forTextVi = 'Ớt nướng trăng';
-        if (saltDishes.some(d => d.name === 'harvest_platter')) {
+        let forTextVi = 'Bí ngô nướng muối biển';
+        if (saltDishes.some(d => d.name === 'sea_salt_roasted_pumpkin')) {
+            forTextVi = 'Bí ngô nướng muối biển';
+        } else if (saltDishes.some(d => d.name === 'honey_glazed_pumpkin_cup')) {
+            forTextVi = 'Cốc bí ngô phủ mật ong';
+        } else if (saltDishes.some(d => d.name === 'harvest_platter')) {
             forTextVi = 'Ớt nướng trăng (Mâm cỗ trung thu)';
         } else if (saltDishes.some(d => d.name === 'umbral_sweet_and_spicy_sauce')) {
             forTextVi = 'Sốt cay ngọt hắc ám';
+        } else if (saltDishes.some(d => d.name === 'roasted_waxing_moon_pepper')) {
+            forTextVi = 'Ớt nướng trăng';
         }
         const purposeText = isVi
             ? `Dùng cho ${forTextVi}; phần còn lại bán trực tiếp`
@@ -229,40 +264,45 @@ export function integrateSeasonPlan(plan, deps) {
         });
     }
 
-    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm (giá 74 coin)
+    const crop1SellValue = deps.crop1SellValue !== undefined ? deps.crop1SellValue : (deps.crops?.radish?.sellValue ?? 74);
+    const crop2SellValue = deps.crop2SellValue !== undefined ? deps.crop2SellValue : (deps.crops?.pepper?.sellValue ?? 74);
+    const crop1Points = deps.crop1Points !== undefined ? deps.crop1Points : (deps.crops?.radish?.points ?? 1);
+    const crop2Points = deps.crop2Points !== undefined ? deps.crop2Points : (deps.crops?.pepper?.points ?? 1);
+
+    // Nông sản thô còn dư bán trực tiếp lấy coin và điểm
     if (radishPerSec > 1e-7) {
-        const coinsPerSec = radishPerSec * 74;
-        const ptsPerSec = radishPerSec * 1;
+        const coinsPerSec = radishPerSec * crop1SellValue;
+        const ptsPerSec = radishPerSec * crop1Points;
         extraCoinsRate += coinsPerSec;
         seasonPointsRate += ptsPerSec;
         newStreams.push({
-            item_name: 'moondew_radish',
+            item_name: crop1Slug,
             facility: 'Farmland',
-            sell_value: 74,
+            sell_value: crop1SellValue,
             rate_per_second: coinsPerSec,
             units_per_second: radishPerSec,
             lead_time_seconds: 0,
             total_units: 0,
             total_value: 0,
-            points: 1
+            points: crop1Points
         });
     }
 
     if (pepperPerSec > 1e-7) {
-        const coinsPerSec = pepperPerSec * 74;
-        const ptsPerSec = pepperPerSec * 1;
+        const coinsPerSec = pepperPerSec * crop2SellValue;
+        const ptsPerSec = pepperPerSec * crop2Points;
         extraCoinsRate += coinsPerSec;
         seasonPointsRate += ptsPerSec;
         newStreams.push({
-            item_name: 'waxing_moon_pepper',
+            item_name: crop2Slug,
             facility: 'Farmland',
-            sell_value: 74,
+            sell_value: crop2SellValue,
             rate_per_second: coinsPerSec,
             units_per_second: pepperPerSec,
             lead_time_seconds: 0,
             total_units: 0,
             total_value: 0,
-            points: 1
+            points: crop2Points
         });
     }
 

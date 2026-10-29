@@ -55,7 +55,7 @@ test('includes seasonal and idle facility reasons, and uses localized fallback',
         plan: { coin_items: [{ status: 'idle' }] },
     });
     const result = buildRejectedInsight(options);
-    assert.match(result.description, /Lễ hội Trung thu/);
+    assert.match(result.description, /Sự kiện Mùa vụ/);
     assert.match(result.description, /cơ sở chế biến để trống/);
     assert.doesNotMatch(result.description, /Toàn bộ cơ sở/);
     const fallback = buildRejectedInsight(makeOptions({ isVi: true }));

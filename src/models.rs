@@ -402,7 +402,12 @@ pub fn crew_variants(
                 }
                 if !waters {
                     let own = watered.get(base_item_name(&item.name)).copied().unwrap_or(item.production_time);
-                    item.production_time += 2.0 * WATERING_SAVES * own / (1.0 - 2.0 * WATERING_SAVES);
+                    let base = base_item_name(&item.name);
+                    if base == "magic_pumpkin" || base == "memory_lanternfruit" {
+                        item.production_time += 600.0;
+                    } else {
+                        item.production_time += 2.0 * WATERING_SAVES * own / (1.0 - 2.0 * WATERING_SAVES);
+                    }
                 }
                 out.push(item);
             }
@@ -455,6 +460,17 @@ pub fn watered_time(seconds: f64, at_full_speed: f64) -> f64 {
     (seconds - 2.0 * WATERING_SAVES * at_full_speed).max(0.0)
 }
 
+/// Takes watering off a crop's grow time, accounting for custom festival crop watering reductions.
+pub fn crop_watered_time(name: &str, seconds: f64, at_full_speed: f64) -> f64 {
+    let base = base_item_name(name);
+    if base == "magic_pumpkin" || base == "memory_lanternfruit" {
+        // Magical Wonder Night crops: 30m unwatered (1800s) -> 20m watered (1200s)
+        (seconds - 600.0).max(0.0)
+    } else {
+        watered_time(seconds, at_full_speed)
+    }
+}
+
 /// Adds a slower, uncovered copy of every crop that wants a growing environment, so plans can grow
 /// one without the building at the cost of speed (see [`uncovered_efficiency`]). A plot never sits
 /// under the wrong environment, since plans choose where plots go.
@@ -492,7 +508,7 @@ pub fn apply_watering(items: &mut [ProductionItem]) {
             continue;
         }
         let at_full_speed = full_speed.get(base_item_name(&item.name)).copied().unwrap_or(item.production_time);
-        item.production_time = watered_time(item.production_time, at_full_speed);
+        item.production_time = crop_watered_time(&item.name, item.production_time, at_full_speed);
     }
 }
 

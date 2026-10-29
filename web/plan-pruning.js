@@ -12,6 +12,12 @@ const SEASON_PROTECTED_ITEMS = new Map([
     ['umbral_sweet_and_spicy_sauce', ['sea_salt', 'quick_sea_salt']],
     ['moondew_radish_slices', ['rock_candy', 'quick_rock_candy', 'sugarcane', 'fresh_water', 'quick_fresh_water']],
     ['umbral_hot_pot', ['fresh_water', 'quick_fresh_water']],
+    ['roasted_lanternfruit', ['sea_salt', 'quick_sea_salt']],
+    ['wonder_night_platter', ['sea_salt', 'quick_sea_salt', 'rock_candy', 'quick_rock_candy', 'sugarcane', 'fresh_water', 'quick_fresh_water']],
+    ['wonder_sweet_and_spicy_sauce', ['sea_salt', 'quick_sea_salt']],
+    ['candied_magic_pumpkin', ['rock_candy', 'quick_rock_candy', 'sugarcane', 'fresh_water', 'quick_fresh_water']],
+    ['wonder_pumpkin_pot', ['fresh_water', 'quick_fresh_water']],
+    ['wonder_pickled_platter', ['cider_vinegar', 'apple', 'quick_apple']],
 ]);
 
 export function createPlanPruningPolicy({

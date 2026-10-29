@@ -8,7 +8,7 @@ export function buildInfeasibleExplanationMarkup(options) {
 
     if (wantsSauce && hasSpecialGinseng) {
         causes.push({
-            icons: [renderFacilityIcon('Simmering Pot'), renderItemIcon('ginseng_congee'), renderItemIcon('umbral_sweet_and_spicy_sauce')],
+            icons: [renderFacilityIcon('Simmering Pot'), renderItemIcon('ginseng_congee'), renderItemIcon(options.wantsSauceItem || 'wonder_sweet_and_spicy_sauce')],
             title: isVi ? 'Tranh chấp Nồi hầm (Simmering Pot)' : 'Simmering Pot Contention',
             desc: isVi
                 ? `Bạn sở hữu <strong>${ownedCounts['Simmering Pot'] || 2} Nồi hầm</strong>, nhưng đang bị yêu cầu đồng thời bởi <strong>Cháo nhân sâm</strong> và <strong>Sốt cay ngọt hắc ám</strong>. Solver không thể đáp ứng cả hai món cùng lúc với tài nguyên hiện tại.`
@@ -18,7 +18,7 @@ export function buildInfeasibleExplanationMarkup(options) {
 
     if (wantsHotpot) {
         causes.push({
-            icons: [renderFacilityIcon('Blazing Stove'), renderItemIcon('umbral_hot_pot')],
+            icons: [renderFacilityIcon('Blazing Stove'), renderItemIcon(options.wantsHotpotItem || 'wonder_pumpkin_pot')],
             title: isVi ? 'Chiếm dụng Bếp lửa lớn (Blazing Stove)' : 'Blazing Stove Fully Occupied',
             desc: isVi
                 ? `Bạn chỉ sở hữu <strong>1 Bếp lửa lớn</strong>. Món sự kiện <strong>Lẩu hắc ám</strong> đã chiếm trọn cơ sở này, khiến các công thức sản xuất hoặc chuỗi cung ứng chính không thể hoạt động.`
@@ -28,7 +28,7 @@ export function buildInfeasibleExplanationMarkup(options) {
 
     if (isSeason && eventPlots >= 4) {
         causes.push({
-            icons: [renderFacilityIcon('Farmland'), renderItemIcon('moondew_radish'), renderItemIcon('waxing_moon_pepper')],
+            icons: [renderFacilityIcon('Farmland'), renderItemIcon(options.crop1Slug || 'magic_pumpkin'), renderItemIcon(options.crop2Slug || 'memory_lanternfruit')],
             title: isVi ? 'Diện tích đất canh tác Farmland bị thu hẹp' : 'Farmland Crop Saturation',
             desc: isVi
                 ? `Đã dành <strong>${eventPlots}/${totalFarmland} ô đất</strong> (${seasonRadishPlots} ô Củ cải & ${seasonPepperPlots} ô Ớt) cho nông sản sự kiện. Số ô đất còn lại (${totalFarmland - eventPlots} ô) không đủ để trồng nguyên liệu cho các sản phẩm chính và mục tiêu nâng cấp.${eventPlots > 10 ? ' Mức tối ưu khuyến nghị cho các cơ sở chế biến là 5 Củ cải & 5 Ớt (tổng 10 ô); việc chọn từ 6 Củ cải & 6 Ớt trở lên (12 ô) sẽ làm tắc nghẽn chuỗi cung ứng và bóp nghẹt diện tích nâng cấp.' : ''}`

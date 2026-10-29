@@ -93,7 +93,7 @@ pub fn load_unverified(data_dir: &Path) -> Result<Vec<(String, String)>, Box<dyn
     parse_unverified(&std::fs::read_to_string(data_dir.join("unverified.csv"))?)
 }
 
-/// One row of a season's CSV (e.g. `harvest_moon_festival.csv`).
+/// One row of a season's CSV (e.g. `magical_wonder_night.csv`).
 #[derive(Debug, serde::Deserialize)]
 struct SeasonRow {
     name: String,
@@ -766,8 +766,8 @@ pub fn embedded_items() -> Vec<ProductionItem> {
 
 /// Returns the embedded Harvest Moon Festival recipes with watering applied.
 pub fn embedded_season_items() -> Vec<ProductionItem> {
-    let mut season = parse_season(include_str!("../data/harvest_moon_festival.csv"))
-        .expect("embedded harvest_moon_festival.csv is valid");
+    let mut season = parse_season(include_str!("../data/magical_wonder_night.csv"))
+        .expect("embedded magical_wonder_night.csv is valid");
     crate::models::apply_watering(&mut season);
     season
 }

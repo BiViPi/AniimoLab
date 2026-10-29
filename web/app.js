@@ -1268,8 +1268,7 @@ function attachRosterHandlers() { rosterUIController.attachRosterHandlers(); }
 export function renderRosterSummary(plan, options = {}) { return rosterUIController.renderRosterSummary(plan, options); }
 
 // --- Season (Lễ hội Trung Thu / Harvest Moon Festival) -------------------------------------
-// Mốc kết thúc sự kiện Trăng Mùa Gặt: 03:00 28/10/2026 GMT+7 (20:00 UTC 27/10/2026)
-export const HARVEST_MOON_END = new Date('2026-10-27T20:00:00Z').getTime();
+export const HARVEST_MOON_END = new Date(SEASON.endTime || '2026-12-09T19:59:00Z').getTime();
 
 export function isSeasonExpired() {
     return Date.now() >= HARVEST_MOON_END;
@@ -1287,6 +1286,14 @@ export function getSeasonRemaining() {
 export function updateSeasonTitleCountdown() {
     const titleEl = document.getElementById('season-title-text') || document.querySelector('.season-title');
     if (!titleEl) return;
+    const isVi = window.i18n && window.i18n.getLang() === 'vi';
+    const baseTitle = isVi ? (SEASON.nameVi || 'Sự kiện Đêm Kỳ Diệu') : (SEASON.name || 'Magical Wonder Night');
+
+    if (!SEASON.dataVerified) {
+        titleEl.textContent = `${baseTitle} (${isVi ? 'Đang chờ cập nhật dữ liệu chính thức sau bảo trì 29/10' : 'Pending official game data after Oct 29 maintenance'})`;
+        return;
+    }
+
     if (isSeasonExpired()) {
         renderSeason();
         return;
@@ -1294,8 +1301,7 @@ export function updateSeasonTitleCountdown() {
 
     const rem = getSeasonRemaining();
     if (!rem) return;
-    const isVi = window.i18n && window.i18n.getLang() === 'vi';
-    const deadline = isVi ? '03:00 28/10/2026' : '03:00 Oct 28, 2026';
+    const deadline = isVi ? '03:59 10/12/2026' : '03:59 Dec 10, 2026';
     let timeStr = '';
     if (rem.days > 0) {
         timeStr = isVi ? `còn ${rem.days} ngày ${rem.hours} giờ` : `${rem.days}d ${rem.hours}h left`;
@@ -1304,7 +1310,6 @@ export function updateSeasonTitleCountdown() {
     } else {
         timeStr = isVi ? `còn ${rem.minutes} phút` : `${rem.minutes}m left`;
     }
-    const baseTitle = isVi ? 'Sự kiện Trăng Mùa Gặt' : 'Harvest Moon Festival';
     titleEl.textContent = `${baseTitle} (Kết thúc: ${deadline} · ${timeStr})`;
 }
 
@@ -1314,6 +1319,7 @@ let selectedSeasonDishes = new Set(SEASON_RECIPES.map(r => r.name));
 
 function seasonAvailable() {
     if (isSeasonExpired()) return false;
+    if (!SEASON.dataVerified) return false;
     return !isSimpleMode() || selectedHomeLevel() >= SEASON.minHomeLevel;
 }
 
@@ -1636,6 +1642,204 @@ function renderProfitBreakdown(plan) {
 }
 // Metadata for Harvest Moon festival dishes
 export const SEASON_DISH_DATA = {
+    // === Magical Wonder Night Dishes ===
+    sea_salt_roasted_pumpkin: {
+        name: 'sea_salt_roasted_pumpkin',
+        facility: 'Claw Game Cooker',
+        radish: 8,
+        pepper: 0,
+        sellValue: 1180,
+        points: 8,
+        cycleTime: 108,
+        facilityUsage: {
+            'Claw Game Cooker': 1,
+            'Tidewhisper Sandcastle': 1
+        },
+        requiresSeaSalt: true,
+        protectedItems: ['sea_salt', 'quick_sea_salt']
+    },
+    magic_pumpkin_lantern: {
+        name: 'magic_pumpkin_lantern',
+        facility: 'Crafting Table',
+        radish: 8,
+        pepper: 0,
+        sellValue: 650,
+        points: 8,
+        cycleTime: 54,
+        facilityUsage: {
+            'Crafting Table': 1
+        },
+        protectedItems: []
+    },
+    magic_pumpkin_cake: {
+        name: 'magic_pumpkin_cake',
+        facility: 'Blazing Stove',
+        radish: 8,
+        pepper: 0,
+        sellValue: 1120,
+        points: 10,
+        cycleTime: 108,
+        facilityUsage: {
+            'Blazing Stove': 1,
+            'Carousel Mill': 1
+        },
+        requiresPolishedRice: true,
+        protectedItems: ['milled_rice'],
+        prepChain: [
+            {
+                facility: 'Carousel Mill',
+                item_name: 'milled_rice',
+                cycleTime: 54,
+                reasonVi: 'Sơ chế Gạo xay cho Bánh bí ngô kỳ diệu',
+                reasonEn: 'Prep Milled Rice for Magic Pumpkin Cake'
+            }
+        ]
+    },
+    golden_lantern_pumpkin_soup: {
+        name: 'golden_lantern_pumpkin_soup',
+        facility: 'Simmering Pot',
+        radish: 8,
+        pepper: 8,
+        sellValue: 1830,
+        points: 20,
+        cycleTime: 162,
+        facilityUsage: {
+            'Simmering Pot': 1,
+            'Well': 1
+        },
+        requiresFreshWater: true,
+        protectedItems: ['fresh_water', 'quick_fresh_water']
+    },
+    honey_glazed_pumpkin_cup: {
+        name: 'honey_glazed_pumpkin_cup',
+        facility: 'Blazing Stove',
+        radish: 8,
+        pepper: 8,
+        sellValue: 4430,
+        points: 4,
+        cycleTime: 270,
+        facilityUsage: {
+            'Blazing Stove': 1,
+            'Claw Game Cooker': 1,
+            'Pickling Jar': 1,
+            'Simmering Pot': 1,
+            'Tidewhisper Sandcastle': 1
+        },
+        requiresSeaSalt: true,
+        requiresRockCandy: true,
+        protectedItems: ['sea_salt', 'quick_sea_salt', 'rock_candy', 'quick_rock_candy', 'sugarcane', 'fresh_water', 'quick_fresh_water'],
+        prepChain: [
+            {
+                facility: 'Claw Game Cooker',
+                item_name: 'sea_salt_roasted_pumpkin',
+                cycleTime: 108,
+                reasonVi: 'Sơ chế Bí ngô nướng muối biển cho Cốc bí ngô phủ mật ong',
+                reasonEn: 'Prep Sea Salt Roasted Pumpkin for Honey Glazed Pumpkin Cup'
+            },
+            {
+                facility: 'Pickling Jar',
+                item_name: 'candied_lanternfruit',
+                cycleTime: 162,
+                reasonVi: 'Sơ chế Quả đèn lồng bọc đường cho Cốc bí ngô phủ mật ong',
+                reasonEn: 'Prep Candied Lanternfruit for Honey Glazed Pumpkin Cup'
+            }
+        ]
+    },
+    candied_lanternfruit: {
+        name: 'candied_lanternfruit',
+        facility: 'Pickling Jar',
+        radish: 0,
+        pepper: 8,
+        sellValue: 2260,
+        points: 8,
+        cycleTime: 162,
+        facilityUsage: {
+            'Pickling Jar': 1,
+            'Simmering Pot': 1,
+            'Well': 1
+        },
+        requiresRockCandy: true,
+        requiresFreshWater: true,
+        protectedItems: ['rock_candy', 'quick_rock_candy', 'sugarcane', 'fresh_water', 'quick_fresh_water'],
+        prepChain: [
+            {
+                facility: 'Simmering Pot',
+                item_name: 'rock_candy',
+                cycleTime: 108,
+                is_emode: true,
+                reasonVi: 'Sơ chế Đường phèn cho Quả đèn lồng bọc đường',
+                reasonEn: 'Prep Rock Candy for Candied Lanternfruit'
+            }
+        ]
+    },
+    memory_lantern: {
+        name: 'memory_lantern',
+        facility: 'Crafting Table',
+        radish: 0,
+        pepper: 8,
+        sellValue: 1220,
+        points: 8,
+        cycleTime: 108,
+        facilityUsage: {
+            'Crafting Table': 1,
+            'Joy Wheel Loom': 1
+        },
+        requiresCottonThread: true,
+        protectedItems: ['cotton_thread', 'cotton'],
+        prepChain: [
+            {
+                facility: 'Joy Wheel Loom',
+                item_name: 'cotton_thread',
+                cycleTime: 54,
+                reasonVi: 'Sơ chế Sợi bông cho Đèn lồng ký ức',
+                reasonEn: 'Prep Cotton Thread for Memory Lantern'
+            }
+        ]
+    },
+    sparkling_fruit_juice: {
+        name: 'sparkling_fruit_juice',
+        facility: 'Bouncy Brew Keg',
+        radish: 0,
+        pepper: 8,
+        sellValue: 1180,
+        points: 10,
+        cycleTime: 108,
+        facilityUsage: {
+            'Bouncy Brew Keg': 1,
+            'Well': 1
+        },
+        requiresFreshWater: true,
+        protectedItems: ['fresh_water', 'quick_fresh_water']
+    },
+    glowing_lantern_set: {
+        name: 'glowing_lantern_set',
+        facility: 'Crafting Table',
+        radish: 8,
+        pepper: 8,
+        sellValue: 2710,
+        points: 4,
+        cycleTime: 162,
+        facilityUsage: {
+            'Crafting Table': 1,
+            'Joy Wheel Loom': 1
+        },
+        prepChain: [
+            {
+                facility: 'Crafting Table',
+                item_name: 'magic_pumpkin_lantern',
+                cycleTime: 54,
+                reasonVi: 'Sơ chế Đèn lồng bí ngô kỳ diệu cho Bộ đèn lồng quả phát sáng',
+                reasonEn: 'Prep Magic Pumpkin Lantern for Glowing Lantern Set'
+            },
+            {
+                facility: 'Crafting Table',
+                item_name: 'memory_lantern',
+                cycleTime: 108,
+                reasonVi: 'Sơ chế Đèn lồng ký ức cho Bộ đèn lồng quả phát sáng',
+                reasonEn: 'Prep Memory Lantern for Glowing Lantern Set'
+            }
+        ]
+    },
     harvest_platter: {
         name: 'harvest_platter',
         facility: 'Crafting Table',
@@ -1785,6 +1989,8 @@ export function selectOptimalSeasonDishes(planRateEstimate = 40) {
         dishData: SEASON_DISH_DATA,
         getCurrentSetup: () => simpleSetup(selectedHomeLevel()).facilities,
         planRateEstimate,
+        crop1SellValue: SEASON.crops?.radish?.sellValue ?? 61,
+        crop2SellValue: SEASON.crops?.pepper?.sellValue ?? 61,
     });
 }
 
@@ -1877,6 +2083,18 @@ function integrateSeasonPlan(plan) {
         simpleSetup,
         selectedHomeLevel,
         isQuickRecipeUnlocked,
+        crops: SEASON.crops,
+        crop1Slug: SEASON.crops?.radish?.slug || 'magic_pumpkin',
+        crop2Slug: SEASON.crops?.pepper?.slug || 'memory_lanternfruit',
+        crop1SellValue: SEASON.crops?.radish?.sellValue ?? 61,
+        crop2SellValue: SEASON.crops?.pepper?.sellValue ?? 61,
+        crop1Points: SEASON.crops?.radish?.points ?? 2,
+        crop2Points: SEASON.crops?.pepper?.points ?? 2,
+        crop1Environment: SEASON.crops?.radish?.environment || 'Adequate',
+        crop2Environment: SEASON.crops?.pepper?.environment || 'Adequate',
+        seasonName: SEASON.name,
+        seasonNameVi: SEASON.nameVi,
+        isSeasonUnverified: !SEASON.dataVerified,
     });
 }
 

@@ -276,7 +276,7 @@ fn exact_level_up_processes_spare_byproducts() {
 /// Every item plus the Harvest Moon Festival's.
 fn load_items_with_season() -> Option<Vec<ProductionItem>> {
     let mut items = load_items()?;
-    let text = std::fs::read_to_string("data/harvest_moon_festival.csv").expect("season data");
+    let text = std::fs::read_to_string("data/magical_wonder_night.csv").expect("season data");
     let mut season = aniimax::data::parse_season(&text).expect("season parses");
     aniimax::models::apply_watering(&mut season);
     items.extend(season);
@@ -291,8 +291,8 @@ fn exact_season_crops_fill_every_plot() {
     let Some(items) = load_items_with_season() else { return };
     let counts = FacilityCounts::only(&[("Farmland", 6, 2)]);
     let plan = solve_and_check(&items, &counts, &ModuleLevels::default());
-    let grow = items.iter().find(|i| i.name == "moondew_radish").unwrap().production_time;
-    let expected = 6.0 * 8.0 * 74.0 / grow;
+    let grow = items.iter().find(|i| i.name == "magic_pumpkin").unwrap().production_time;
+    let expected = 6.0 * 8.0 * 61.0 / grow;
     assert!((plan.rate_per_second - expected).abs() < 1e-9, "got {}, expected {expected}", plan.rate_per_second);
 }
 
@@ -307,8 +307,8 @@ fn exact_season_points_are_a_priority() {
     let points = aniimax::models::SEASON_POINTS;
     let most = solve_exact(&items, points, &counts, &modules, Goal::Earn { floors: &[] }, None, None).unwrap();
     assert!(most.proven_optimal);
-    let grow = items.iter().find(|i| i.name == "moondew_radish").unwrap().production_time;
-    assert!((most.rate_per_second - 6.0 * 8.0 / grow).abs() < 1e-9, "{} points a second", most.rate_per_second);
+    let grow = items.iter().find(|i| i.name == "magic_pumpkin").unwrap().production_time;
+    assert!((most.rate_per_second - 6.0 * 8.0 * 1.0 / grow).abs() < 1e-9, "{} points a second", most.rate_per_second);
     check_plan(&most, &items, points, &counts, &modules, None).expect("points plan passes its re-check");
     let floors = vec![(points.to_string(), most.rate_per_second)];
     let plan = solve_exact(&items, "coins", &counts, &modules, Goal::Earn { floors: &floors }, None, None).unwrap();

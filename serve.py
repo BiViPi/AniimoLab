@@ -5,6 +5,8 @@ import os
 
 class DualStackServer(http.server.ThreadingHTTPServer):
     address_family = socket.AF_INET6
+    request_queue_size = 128
+    daemon_threads = True
 
     def server_bind(self):
         try:
@@ -39,6 +41,8 @@ try:
 except Exception as e:
     print(f"DualStack bind failed ({e}), falling back to standard IPv4 0.0.0.0...", flush=True)
     httpd = http.server.ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    httpd.request_queue_size = 128
+    httpd.daemon_threads = True
 
 with httpd:
     httpd.serve_forever()

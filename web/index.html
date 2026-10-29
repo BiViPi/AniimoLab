@@ -180,24 +180,24 @@
             </section>
             <!-- Card 3: Season & Special Recipes -->
             <section class="card config-custom-card">
-                <!-- Section 2.1: Sự kiện Trăng Mùa Gặt (Harvest Moon) -->
+                <!-- Section 2.1: Sự kiện Đêm Kỳ Diệu (Harvest Moon) -->
                 <div class="season-block" id="season-section">
                     <div class="season-header-row">
                         <label class="priority-switch season-switch">
                             <input type="checkbox" role="switch" id="season-on">
                             <span class="switch-track" aria-hidden="true"></span>
                             <span class="season-title-wrapper">
-                                <span class="season-moon-icon" aria-hidden="true">🌕</span>
-                                <span class="season-title" id="season-title-text" data-i18n="season_title">Sự kiện Trăng Mùa Gặt</span>
+                                <span class="season-moon-icon" aria-hidden="true">🎃</span>
+                                <span class="season-title" id="season-title-text" data-i18n="season_title">Sự kiện Đêm Kỳ Diệu</span>
                                 <span class="season-badge" data-i18n="season_badge">Sự kiện mùa vụ</span>
                             </span>
                         </label>
                     </div>
 
                     <div id="season-config" hidden>
-                        <p class="hint" data-i18n="season_hint">Sự kiện mùa vụ đặc biệt với tiền tệ Lúa Mì Ánh Trăng để mua hạt giống. Solver sẽ ưu tiên tối đa việc sản xuất các món ăn sự kiện bạn chọn để farm điểm Trăng Mùa Gặt.</p>
+                        <p class="hint" data-i18n="season_hint">Sự kiện mùa vụ đặc biệt với tiền tệ Kẹo Dẻo Kỳ Quái để mua hạt giống. Solver sẽ ưu tiên tối đa việc sản xuất các món ăn sự kiện bạn chọn để farm điểm Đêm Kỳ Diệu.</p>
 
-                        <!-- Cấu hình ô đất nông trại dành riêng cho Củ Cải Sương Dạ Nguyệt & Ớt Trăng Khuyết -->
+                        <!-- Cấu hình ô đất nông trại dành riêng cho Bí Ngô Kỳ Diệu & Quả Đèn Lồng Ký Ức -->
                         <div class="season-plots-card">
                             <div class="season-plots-head">
                                 <span class="season-plots-title" data-i18n="season_plots_title">Ô đất nông trại cho sự kiện</span>
@@ -206,27 +206,27 @@
                             <div class="season-plots-inputs">
                                 <div class="season-plot-stepper">
                                     <label for="season-radish-plots" class="season-plot-label">
-                                        <span class="plot-crop-name" data-i18n="season_plots_radish">Ô đất Củ Cải Sương Dạ Nguyệt</span>
+                                        <span class="plot-crop-name" data-i18n="season_plots_radish">Ô đất Bí Ngô Kỳ Diệu</span>
                                     </label>
                                     <div class="stepper-ctrl">
-                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="-1" aria-label="Giảm ô củ cải sương dạ nguyệt">−</button>
+                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="-1" aria-label="Giảm ô bí ngô kỳ diệu">−</button>
                                         <input type="number" id="season-radish-plots" min="0" max="10" value="2" class="stepper-input">
-                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="1" aria-label="Tăng ô củ cải sương dạ nguyệt">+</button>
+                                        <button type="button" class="stepper-btn" data-step-plot="radish" data-step-dir="1" aria-label="Tăng ô bí ngô kỳ diệu">+</button>
                                     </div>
                                 </div>
                                 <div class="season-plot-stepper">
                                     <label for="season-pepper-plots" class="season-plot-label">
-                                        <span class="plot-crop-name" data-i18n="season_plots_pepper">Ô đất Ớt Trăng Khuyết</span>
+                                        <span class="plot-crop-name" data-i18n="season_plots_pepper">Ô đất Quả Đèn Lồng Ký Ức</span>
                                     </label>
                                     <div class="stepper-ctrl">
-                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="-1" aria-label="Giảm ô ớt trăng khuyết">−</button>
+                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="-1" aria-label="Giảm ô quả đèn lồng ký ức">−</button>
                                         <input type="number" id="season-pepper-plots" min="0" max="10" value="2" class="stepper-input">
-                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="1" aria-label="Tăng ô ớt trăng khuyết">+</button>
+                                        <button type="button" class="stepper-btn" data-step-plot="pepper" data-step-dir="1" aria-label="Tăng ô quả đèn lồng ký ức">+</button>
                                     </div>
                                 </div>
                             </div>
                             <div class="season-plots-summary" id="season-plots-summary">
-                                Dành <strong>4 ô đất</strong> (2 Củ Cải Sương Dạ Nguyệt + 2 Ớt Trăng Khuyết) cho sự kiện Trăng Mùa Gặt. Còn lại <strong>28 ô đất nông trại</strong> cho nhân sâm & gạo.
+                                Dành <strong>4 ô đất</strong> (2 Bí Ngô Kỳ Diệu + 2 Quả Đèn Lồng Ký Ức) cho sự kiện Đêm Kỳ Diệu. Còn lại các ô đất nông trại cho nông sản thường.
                             </div>
                         </div>
 
@@ -484,7 +484,7 @@
                                                 <th data-i18n="th_amount">Số lượng</th>
                                                 <th id="product-breakdown-rate-header" data-i18n="th_profit">Lợi nhuận</th>
                                                 <th data-i18n-html="th_worth">Giá trị <span class="th-unit">Xu Gia Viên</span></th>
-                                                <th id="product-breakdown-points-header" hidden>Harvest Moon Points
+                                                <th id="product-breakdown-points-header" hidden>Wonder Night Points
                                                 </th>
                                             </tr>
                                         </thead>

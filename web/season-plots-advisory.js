@@ -12,6 +12,10 @@ export function createSeasonPlotsAdvisoryController({
     saveInputsToStorage,
     runFindPlan,
     getLanguage,
+    crop1ShortVi = 'Củ cải',
+    crop2ShortVi = 'Ớt',
+    crop1ShortEn = 'Radish',
+    crop2ShortEn = 'Pepper',
 }) {
     function evaluate(plan) {
         const bannerEl = document.getElementById('plots-optimization-banner');
@@ -37,8 +41,8 @@ export function createSeasonPlotsAdvisoryController({
                             <h4>${isVi ? 'Chưa chọn món chế biến Lễ hội' : 'No Festival Recipe Selected'}</h4>
                             <p>
                                 ${isVi
-                        ? `Hiện tại anh đang đặt <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
-                        : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
+                        ? `Hiện tại anh đang đặt <strong>${curR} ô ${crop1ShortVi} & ${curP} ô ${crop2ShortVi}</strong> nhưng chưa kích hoạt công thức chế biến nào. Nông sản thô chỉ bán được giá 74 coin, làm giảm hiệu suất đất trồng. Hãy chọn ít nhất 1 món ăn hoặc chuyển số ô về 0.`
+                        : `You currently have <strong>${curR} ${crop1ShortEn} & ${curP} ${crop2ShortEn} plots</strong> allocated without any active festival cooking recipe. Raw festival produce only sells for 74 coins. Consider selecting a festival recipe or setting plots to 0.`
                     }
                             </p>
                         </div>
@@ -87,19 +91,19 @@ export function createSeasonPlotsAdvisoryController({
             gainPerHour = Math.round(overPlots * 3500);
             const estOptRate = curRatePerHour + gainPerHour;
             explanation = isVi
-                ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đã chạm trần công suất. Số ô nông sản dư thừa phải bán thô giá rẻ (74 coin), đồng thời chiếm dụng mất diện tích Farmland quý giá của Nhân sâm.<br>
-                   👉 Mức cân bằng tối ưu nhất: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
-                : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Processing facilities for <em>${dishListStr}</em> are at maximum capacity. Excess harvest is sold raw at a discount (74 coins) while occupying valuable Farmland needed for Ginseng.<br>
-                   👉 Optimal sweet spot: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
+                ? `Hiện tại anh đang chọn <strong>${curR} ô ${crop1ShortVi} & ${curP} ô ${crop2ShortVi}</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đã chạm trần công suất. Số ô nông sản dư thừa phải bán thô giá rẻ (74 coin), đồng thời chiếm dụng mất diện tích Farmland quý giá của Nhân sâm.<br>
+                   👉 Mức cân bằng tối ưu nhất: <strong>${optR} ô ${crop1ShortVi} & ${optP} ô ${crop2ShortVi}</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
+                : `You currently have <strong>${curR} ${crop1ShortEn} & ${curP} ${crop2ShortEn} plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Processing facilities for <em>${dishListStr}</em> are at maximum capacity. Excess harvest is sold raw at a discount (74 coins) while occupying valuable Farmland needed for Ginseng.<br>
+                   👉 Optimal sweet spot: <strong>${optR} ${crop1ShortEn} & ${optP} ${crop2ShortEn} plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
         } else {
             // Chọn quá ít ô đất -> Cơ sở bị đói nguyên liệu
             gainPerHour = Math.round(underPlots * 2200);
             const estOptRate = curRatePerHour + gainPerHour;
             explanation = isVi
-                ? `Hiện tại anh đang chọn <strong>${curR} ô Củ cải & ${curP} ô Ớt</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đang bị thiếu nguyên liệu, hoạt động dưới công suất tối đa.<br>
-                   👉 Đề xuất nâng lên: <strong>${optR} ô Củ cải & ${optP} ô Ớt</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
-                : `You currently have <strong>${curR} Radish & ${curP} Pepper plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Facilities for <em>${dishListStr}</em> are starved of ingredients and running below capacity.<br>
-                   👉 Recommended setup: <strong>${optR} Radish & ${optP} Pepper plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
+                ? `Hiện tại anh đang chọn <strong>${curR} ô ${crop1ShortVi} & ${curP} ô ${crop2ShortVi}</strong> (Đạt <strong>${curRatePerHour.toLocaleString()} coin/h</strong>). Cơ sở chế biến <em>${dishListStr}</em> đang bị thiếu nguyên liệu, hoạt động dưới công suất tối đa.<br>
+                   👉 Đề xuất nâng lên: <strong>${optR} ô ${crop1ShortVi} & ${optP} ô ${crop2ShortVi}</strong> — Dự kiến tăng thêm <strong>+${gainPerHour.toLocaleString()} coin/h</strong> (đạt ~<strong>${estOptRate.toLocaleString()} coin/h</strong>).`
+                : `You currently have <strong>${curR} ${crop1ShortEn} & ${curP} ${crop2ShortEn} plots</strong> (${curRatePerHour.toLocaleString()} coins/h). Facilities for <em>${dishListStr}</em> are starved of ingredients and running below capacity.<br>
+                   👉 Recommended setup: <strong>${optR} ${crop1ShortEn} & ${optP} ${crop2ShortEn} plots</strong> — Estimated gain: <strong>+${gainPerHour.toLocaleString()} coins/h</strong> (approx ~<strong>${estOptRate.toLocaleString()} coins/h</strong>).`;
         }
 
         bannerEl.innerHTML = `
@@ -111,7 +115,7 @@ export function createSeasonPlotsAdvisoryController({
                 </div>
             </div>
             <button class="btn-apply-plots-opt" onclick="window.applyOptimalPlots(${optR}, ${optP})">
-                ⚡ ${isVi ? `Áp dụng ngay: ${optR} Củ cải & ${optP} Ớt` : `Apply: ${optR} Radish & ${optP} Pepper`}
+                ⚡ ${isVi ? `Áp dụng ngay: ${optR} ${crop1ShortVi} & ${optP} ${crop2ShortVi}` : `Apply: ${optR} ${crop1ShortEn} & ${optP} ${crop2ShortEn}`}
             </button>
         `;
         bannerEl.style.display = 'flex';
