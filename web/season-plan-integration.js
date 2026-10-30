@@ -129,7 +129,7 @@ export function integrateSeasonPlan(plan, deps) {
     }
 
     // Nếu có món cần Nước ngọt (Kẹo đá hoặc Lẩu hắc ám / Súp bí ngô / Nước ép), thêm 1 Giếng nước sản xuất Nước ngọt (ưu tiên công thức siêu tốc nếu đã mở khóa)
-    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.requiresFreshWater || d.name === 'umbral_hot_pot' || d.name === 'golden_lantern_pumpkin_soup' || d.name === 'sparkling_fruit_juice');
+    const needsFreshWater = needsRockCandy || optimalDishes.some(d => d.requiresFreshWater || d.name === 'umbral_hot_pot' || d.name === 'golden_lantern_pumpkin_soup' || d.name === 'gleam_fruit_nectar' || d.name === 'sparkling_fruit_juice');
     if (needsFreshWater) {
         const fwReason = isVi
             ? (optimalDishes.some(d => d.name === 'umbral_hot_pot') ? (needsRockCandy ? 'Dùng cho Kẹo đá, Lẩu hắc ám' : 'Dùng cho Lẩu hắc ám') : 'Dùng cho Kẹo đá')

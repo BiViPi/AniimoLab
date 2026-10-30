@@ -1,6 +1,6 @@
 name, facility, raw_materials, required_amount, seed_cost, sell_value, points, production_time, workload, emode_base_time, yield, facility_level
-magic_pumpkin, Farmland, , , 4, 61, 1, 1800, , , 8, 1
-memory_lanternfruit, Farmland, , , 4, 61, 1, 1800, , , 8, 1
+magic_pumpkin, Farmland, , , 4, 61, 1, 1800, , , 8, 5
+memory_lanternfruit, Farmland, , , 4, 61, 1, 1800, , , 8, 5
 sea_salt_roasted_pumpkin, Claw Game Cooker, magic_pumpkin;sea_salt, 8;23, , 1180, 8, , 135, 108, 1, 4
 magic_pumpkin_lantern, Crafting Table, magic_pumpkin, 8, , 650, 8, , 68, 54, 1, 4
 magic_pumpkin_cake, Blazing Stove, magic_pumpkin;milled_rice, 8;1, , 1120, 10, , 135, 108, 1, 2
@@ -8,5 +8,5 @@ golden_lantern_pumpkin_soup, Simmering Pot, magic_pumpkin;memory_lanternfruit;fr
 honey_glazed_pumpkin_cup, Blazing Stove, sea_salt_roasted_pumpkin;candied_lanternfruit, 1;1, , 4430, 4, , 338, 270, 1, 2
 candied_lanternfruit, Pickling Jar, memory_lanternfruit;rock_candy, 8;1, , 2260, 8, , 203, 162, 1, 2
 memory_lantern, Crafting Table, memory_lanternfruit;cotton_thread, 8;1, , 1220, 8, , 135, 108, 1, 4
-sparkling_fruit_juice, Bouncy Brew Keg, memory_lanternfruit;fresh_water, 8;8, , 1180, 10, , 135, 108, 1, 2
-glowing_lantern_set, Crafting Table, memory_lantern;magic_pumpkin_lantern, 1;1, , 2710, 4, , 243, 162, 1, 5
+gleam_fruit_nectar, Bouncy Brew Keg, memory_lanternfruit;fresh_water, 8;8, , 1180, 10, , 135, 108, 1, 2
+glowfruit_lantern_set, Crafting Table, memory_lantern;magic_pumpkin_lantern, 1;1, , 2710, 4, , 243, 162, 1, 5

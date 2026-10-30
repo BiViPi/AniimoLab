@@ -450,6 +450,8 @@ const EN_LOCALE = {
         "honey_glazed_pumpkin_cup": "Honey Glazed Pumpkin Cup",
         "candied_lanternfruit": "Candied Lanternfruit",
         "memory_lantern": "Memory Lantern",
+        "gleam_fruit_nectar": "Gleam Fruit Nectar",
+        "glowfruit_lantern_set": "Glowfruit Lantern Set",
         "sparkling_fruit_juice": "Sparkling Fruit Juice",
         "glowing_lantern_set": "Glowing Lantern Set",
         "moondew_radish_slices": "Moondew Radish Slices",

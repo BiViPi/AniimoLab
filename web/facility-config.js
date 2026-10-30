@@ -34,10 +34,10 @@ export const CROP_HARVEST_ABILITY = {
     'ginseng': 'Dark',
     'moondew_radish': 'Dark',
     'waxing_moon_pepper': 'Dark',
-    'magic_pumpkin': 'Dark',
-    'memory_lanternfruit': 'Dark',
 
     // Farmland - Collecting (Grass)
+    'magic_pumpkin': 'Grass',
+    'memory_lanternfruit': 'Grass',
     'soybean': 'Grass',
     'rose': 'Grass',
     'cotton': 'Grass',
@@ -378,9 +378,9 @@ export const SEASON = {
     dataVerified: true, // Data verified from in-game screenshots
     name: 'Magical Wonder Night',
     nameVi: 'Sự kiện Đêm Kỳ Diệu',
-    currency: 'Spooky Gummy',
+    currency: 'Weird Jelly Beans',
     currencyVi: 'Kẹo dẻo kỳ quái',
-    points: 'Wonder Points',
+    points: 'Whimsy Points',
     pointsVi: 'Điểm Kỳ Ảo',
     endTime: '2026-12-09T19:59:00Z',
     minHomeLevel: 10,
@@ -397,6 +397,7 @@ export const SEASON = {
             cycleTime: 1200,
             yieldPerHarvest: 8,
             environment: 'Adequate',
+            facilityLevel: 5,
         },
         pepper: {
             slug: 'memory_lanternfruit',
@@ -410,22 +411,32 @@ export const SEASON = {
             cycleTime: 1200,
             yieldPerHarvest: 8,
             environment: 'Adequate',
+            facilityLevel: 5,
         }
     },
-    recipeNotes: [],
+    notesStartUnlocked: true,
+    recipeNotes: [
+        { name: 'magic_pumpkin_cake' },
+        { name: 'magic_pumpkin_lantern' },
+        { name: 'gleam_fruit_nectar' },
+        { name: 'memory_lantern' },
+        { name: 'golden_lantern_pumpkin_soup' },
+        { name: 'honey_glazed_pumpkin_cup' },
+        { name: 'glowfruit_lantern_set' },
+    ],
 };
 
 // Full list of Magical Wonder Night festival dishes with facilities, points, and unlock info
 export const SEASON_RECIPES = [
     { name: 'sea_salt_roasted_pumpkin', facility: 'Claw Game Cooker', points: 8, unlockRV: 10, note: false },
-    { name: 'magic_pumpkin_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: false },
-    { name: 'magic_pumpkin_cake', facility: 'Blazing Stove', points: 10, unlockRV: 10, note: false },
-    { name: 'golden_lantern_pumpkin_soup', facility: 'Simmering Pot', points: 20, unlockRV: 10, note: false },
-    { name: 'honey_glazed_pumpkin_cup', facility: 'Blazing Stove', points: 4, unlockRV: 10, note: false },
+    { name: 'magic_pumpkin_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: true },
+    { name: 'magic_pumpkin_cake', facility: 'Blazing Stove', points: 10, unlockRV: 10, note: true },
+    { name: 'golden_lantern_pumpkin_soup', facility: 'Simmering Pot', points: 20, unlockRV: 10, note: true },
+    { name: 'honey_glazed_pumpkin_cup', facility: 'Blazing Stove', points: 4, unlockRV: 10, note: true },
     { name: 'candied_lanternfruit', facility: 'Pickling Jar', points: 8, unlockRV: 10, note: false },
-    { name: 'memory_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: false },
-    { name: 'sparkling_fruit_juice', facility: 'Bouncy Brew Keg', points: 10, unlockRV: 10, note: false },
-    { name: 'glowing_lantern_set', facility: 'Crafting Table', points: 4, unlockRV: 10, note: false },
+    { name: 'memory_lantern', facility: 'Crafting Table', points: 8, unlockRV: 10, note: true },
+    { name: 'gleam_fruit_nectar', facility: 'Bouncy Brew Keg', points: 10, unlockRV: 10, note: true },
+    { name: 'glowfruit_lantern_set', facility: 'Crafting Table', points: 4, unlockRV: 10, note: true },
 ];
 
 export const HARVEST_MOON_RECIPES = [

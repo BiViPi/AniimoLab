@@ -1796,8 +1796,8 @@ export const SEASON_DISH_DATA = {
             }
         ]
     },
-    sparkling_fruit_juice: {
-        name: 'sparkling_fruit_juice',
+    gleam_fruit_nectar: {
+        name: 'gleam_fruit_nectar',
         facility: 'Bouncy Brew Keg',
         radish: 0,
         pepper: 8,
@@ -1811,8 +1811,8 @@ export const SEASON_DISH_DATA = {
         requiresFreshWater: true,
         protectedItems: ['fresh_water', 'quick_fresh_water']
     },
-    glowing_lantern_set: {
-        name: 'glowing_lantern_set',
+    glowfruit_lantern_set: {
+        name: 'glowfruit_lantern_set',
         facility: 'Crafting Table',
         radish: 8,
         pepper: 8,
@@ -1829,14 +1829,58 @@ export const SEASON_DISH_DATA = {
                 item_name: 'magic_pumpkin_lantern',
                 cycleTime: 54,
                 reasonVi: 'Sơ chế Đèn lồng bí ngô kỳ diệu cho Bộ đèn lồng quả phát sáng',
-                reasonEn: 'Prep Magic Pumpkin Lantern for Glowing Lantern Set'
+                reasonEn: 'Prep Magic Pumpkin Lantern for Glowfruit Lantern Set'
             },
             {
                 facility: 'Crafting Table',
                 item_name: 'memory_lantern',
                 cycleTime: 108,
                 reasonVi: 'Sơ chế Đèn lồng ký ức cho Bộ đèn lồng quả phát sáng',
-                reasonEn: 'Prep Memory Lantern for Glowing Lantern Set'
+                reasonEn: 'Prep Memory Lantern for Glowfruit Lantern Set'
+            }
+        ]
+    },
+    sparkling_fruit_juice: {
+        name: 'gleam_fruit_nectar',
+        facility: 'Bouncy Brew Keg',
+        radish: 0,
+        pepper: 8,
+        sellValue: 1180,
+        points: 10,
+        cycleTime: 108,
+        facilityUsage: {
+            'Bouncy Brew Keg': 1,
+            'Well': 1
+        },
+        requiresFreshWater: true,
+        protectedItems: ['fresh_water', 'quick_fresh_water']
+    },
+    glowing_lantern_set: {
+        name: 'glowfruit_lantern_set',
+        facility: 'Crafting Table',
+        radish: 8,
+        pepper: 8,
+        sellValue: 2710,
+        points: 4,
+        cycleTime: 162,
+        facilityUsage: {
+            'Crafting Table': 1,
+            'Joy Wheel Loom': 1
+        },
+        prepChain: [
+            {
+                facility: 'Crafting Table',
+                item_name: 'magic_pumpkin_lantern',
+                cycleTime: 54,
+                reasonVi: 'Sơ chế Đèn lồng bí ngô kỳ diệu cho Bộ đèn lồng quả phát sáng',
+                reasonEn: 'Prep Magic Pumpkin Lantern for Glowfruit Lantern Set'
+            },
+            {
+                facility: 'Crafting Table',
+                item_name: 'memory_lantern',
+                cycleTime: 108,
+                reasonVi: 'Sơ chế Đèn lồng ký ức cho Bộ đèn lồng quả phát sáng',
+                reasonEn: 'Prep Memory Lantern for Glowfruit Lantern Set'
             }
         ]
     },

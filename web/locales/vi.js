@@ -450,6 +450,8 @@ const VI_LOCALE = {
         "honey_glazed_pumpkin_cup": "Cốc Bí Ngô Phủ Mật Ong",
         "candied_lanternfruit": "Quả Đèn Lồng Bọc Đường",
         "memory_lantern": "Đèn Lồng Ký Ức",
+        "gleam_fruit_nectar": "Nước Ép Quả Lấp Lánh",
+        "glowfruit_lantern_set": "Bộ Đèn Lồng Quả Phát Sáng",
         "sparkling_fruit_juice": "Nước Ép Quả Lấp Lánh",
         "glowing_lantern_set": "Bộ Đèn Lồng Quả Phát Sáng",
         "moondew_radish_slices": "Củ Cải Sương Dạ Nguyệt Thái Lát",

@@ -37,7 +37,24 @@ export const FACILITY_ICONS = {
   "Storage Unit": "aniimo-storage-unit-homeland.webp"
 };
 
-const KNOWN_SLUGS = new Set(["advanced-gemstone-dust", "advanced-lemon-incense", "advanced-wind-chime", "agave", "agave-drink", "agave-syrup", "aniipod", "aniipod-maker", "aniipod-mega", "aniipod-pro", "apple", "apple-candy", "apple-juice", "apple-tart", "aromathyst", "artisanship-job", "bamboo", "bamboo-joss-stick", "bamboo-ware", "berry-chocolate-coconut-pudding", "blazing-stove", "bouncy-brew-keg-lv1-2", "bouncy-brew-keg-lv3-plus", "bouquet", "bread", "candied-orange-flower", "candied-strawberries", "caramel-nut-chips", "carousel-mill-lv1-3", "carousel-mill-lv4-plus", "cherry-blossom", "cherry-blossom-rice-ball", "cherry-incense", "chestnut", "chestnut-puree", "chimney-kiln", "cider-vinegar", "claw-game-cooker-lv1-4", "claw-game-cooker-lv5-plus", "clay", "coarse-sifted-ore", "cocoa", "cocoa-powder", "cocoa-spread", "coconut", "coconut-cocoa", "coconut-cookie", "coconut-cooler", "coconut-milk", "coconut-oil", "cooling-unit", "copper-ore", "cotton", "cotton-fabric", "cotton-thread", "crafting-table-lv1-4", "crafting-table-lv5-plus", "cranberry", "cranberry-chocolate", "cranberry-jam", "cranberry-juice", "creamy-potato-soup", "dance-pad-polisher", "dark-job", "deep-rock-spring-water", "densified-timber-component", "dewy-house", "doll", "dream-catcher", "dried-apple-slices", "dried-bean-curd", "dried-cherry-blossom", "dried-cranberries", "dried-flowers", "dried-ginseng", "dried-grapes", "dried-lemon-slices", "dried-strawberries", "dye", "dyed-cotton-fabric", "earth-job", "egg-incubator", "energetic-personality", "faithful-personality", "farmland-lv1-3", "farmland-lv4-plus", "fire-job", "floral-windmill", "flower-bread", "flowers-in-a-bottle", "fresh-water", "gem", "gemstone-dust", "ginseng", "ginseng-chestnut-cake", "ginseng-porridge", "ginseng-powder", "ginseng-water", "grape", "grape-candy", "grape-jam", "grape-juice", "grape-lemon-drink", "grass-job", "growth-bud", "growth-flower", "growth-fruit", "harvest-moon-market-stall-blueprint", "harvest-moon-moon-rabbit-blueprint", "harvest-moon-stew-pot-blueprint", "harvest-platter", "hauling-job", "heat-furnace", "herbal-ginseng-aroma", "home-coin", "hot-cocoa", "ice-job", "instinctive-personality", "jello", "joy-wheel-loom-lv1", "joy-wheel-loom-lv2-plus", "judicious-personality", "jukebox-dryer-lv1-3", "jukebox-dryer-lv4-plus", "laminated-beams", "lavender", "lavender-cookies", "lavender-incense", "lavender-powder", "lavender-sachet", "leisure-job", "lemon", "lemon-incense", "light-job", "lightning-job", "lotion", "malt-sugar", "maple-candy-apple-jam", "maple-candy-roasted-potatoes", "maple-candy-star", "maple-sugar-chunk", "maple-syrup", "microcrystalline-ore-plate", "milled-rice", "mine-lv1-3", "mine-lv4-plus", "mineral-sand", "mixed-perfume", "moondew-radish", "moondew-radish-slices", "moonray-wheat", "natural-mineral-spring-water", "natural-rubber", "nimble-personality", "nimbus-bed", "nuts", "orange-flower", "orange-flower-dew", "orange-flower-incense", "palm-bark", "palm-rope", "pearl", "pearl-necklace", "perfumery-job", "petals", "phonolfactory-table-lv1-2", "phonolfactory-table-lv3-plus", "pickling-jar", "plain-rice-porridge", "playful-personality", "porcelain", "potato", "potato-chips", "potato-kvass", "pottery", "practical-personality", "premium-berry-chocolate-coconut-pudding", "premium-bread", "premium-jello", "premium-mixed-perfume", "premium-potato-soup", "premium-river-washed-stones", "premium-rose-freshener", "premium-salted-lemon", "premium-soap", "premium-sweet-rice-wine", "premium-wheat", "quartz-ore", "refined-flour", "refined-ore", "rice", "rice-drink", "rice-vinegar", "rich-grape-compote", "river-washed-stones", "roasted-soybeans", "roasted-waxing-moon-pepper", "rock", "rock-candy", "rose", "rose-concentrate", "rose-freshener", "rose-incense", "rose-shortbread", "rough-lumber", "rubber-duck", "salted-cherry-blossom", "salted-lemon", "scales", "sea-salt", "shell", "shell-ornament", "shredded-coconut", "simmering-pot", "sintered-ore-brick", "soap", "soy-sauce", "soy-sauce-fried-rice", "soy-sauce-tofu", "soybean", "standard-planks", "star", "star-wish-lantern", "starfall-hammock", "steamed-vermicelli-roll", "storage-unit", "strawberry", "strawberry-candy", "strawberry-cream-puff", "strawberry-jam", "strawberry-juice", "sugar-roasted-chestnuts", "sugarcane", "sugarcane-juice", "sunlamp", "sweet-rice-drink", "tanghulu", "tenacious-personality", "tidewhisper-sandcastle", "toasted-rice-green-tea", "tofu", "umbral-hot-pot", "umbral-pickle", "umbral-sweet-spicy-sauce", "walnut", "walnut-cake", "walnut-milk", "water-job", "waxing-moon-pepper", "well", "well-water", "wheat", "wheat-tea", "wheatmeal", "willow-wood", "wind-chime", "wind-job", "wood-block", "wood-sculpture", "woodland-lv1-2", "woodland-lv3-plus", "woodworking-bench", "wool", "wool-fabric", "woolen-yarn", "woven-toy"]);
+const KNOWN_SLUGS = new Set(["advanced-gemstone-dust", "advanced-lemon-incense", "advanced-wind-chime", "agave", "agave-drink", "agave-syrup", "aniipod", "aniipod-maker", "aniipod-mega", "aniipod-pro", "apple", "apple-candy", "apple-juice", "apple-tart", "aromathyst", "artisanship-job", "bamboo", "bamboo-joss-stick", "bamboo-ware", "berry-chocolate-coconut-pudding", "blazing-stove", "bouncy-brew-keg-lv1-2", "bouncy-brew-keg-lv3-plus", "bouquet", "bread", "candied-orange-flower", "candied-strawberries", "caramel-nut-chips", "carousel-mill-lv1-3", "carousel-mill-lv4-plus", "cherry-blossom", "cherry-blossom-rice-ball", "cherry-incense", "chestnut", "chestnut-puree", "chimney-kiln", "cider-vinegar", "claw-game-cooker-lv1-4", "claw-game-cooker-lv5-plus", "clay", "coarse-sifted-ore", "cocoa", "cocoa-powder", "cocoa-spread", "coconut", "coconut-cocoa", "coconut-cookie", "coconut-cooler", "coconut-milk", "coconut-oil", "cooling-unit", "copper-ore", "cotton", "cotton-fabric", "cotton-thread", "crafting-table-lv1-4", "crafting-table-lv5-plus", "cranberry", "cranberry-chocolate", "cranberry-jam", "cranberry-juice", "creamy-potato-soup", "dance-pad-polisher", "dark-job", "deep-rock-spring-water", "densified-timber-component", "dewy-house", "doll", "dream-catcher", "dried-apple-slices", "dried-bean-curd", "dried-cherry-blossom", "dried-cranberries", "dried-flowers", "dried-ginseng", "dried-grapes", "dried-lemon-slices", "dried-strawberries", "dye", "dyed-cotton-fabric", "earth-job", "egg-incubator", "energetic-personality", "faithful-personality", "farmland-lv1-3", "farmland-lv4-plus", "fire-job", "floral-windmill", "flower-bread", "flowers-in-a-bottle", "fresh-water", "gem", "gemstone-dust", "ginseng", "ginseng-chestnut-cake", "ginseng-porridge", "ginseng-powder", "ginseng-water", "grape", "grape-candy", "grape-jam", "grape-juice", "grape-lemon-drink", "grass-job", "growth-bud", "growth-flower", "growth-fruit", "harvest-moon-market-stall-blueprint", "harvest-moon-moon-rabbit-blueprint", "harvest-moon-stew-pot-blueprint", "harvest-platter", "hauling-job", "heat-furnace", "herbal-ginseng-aroma", "home-coin", "hot-cocoa", "ice-job", "instinctive-personality", "jello", "joy-wheel-loom-lv1", "joy-wheel-loom-lv2-plus", "judicious-personality", "jukebox-dryer-lv1-3", "jukebox-dryer-lv4-plus", "laminated-beams", "lavender", "lavender-cookies", "lavender-incense", "lavender-powder", "lavender-sachet", "leisure-job", "lemon", "lemon-incense", "light-job", "lightning-job", "lotion", "malt-sugar", "maple-candy-apple-jam", "maple-candy-roasted-potatoes", "maple-candy-star", "maple-sugar-chunk", "maple-syrup", "microcrystalline-ore-plate", "milled-rice", "mine-lv1-3", "mine-lv4-plus", "mineral-sand", "mixed-perfume", "moondew-radish", "moondew-radish-slices", "moonray-wheat", "natural-mineral-spring-water", "natural-rubber", "nimble-personality", "nimbus-bed", "nuts", "orange-flower", "orange-flower-dew", "orange-flower-incense", "palm-bark", "palm-rope", "pearl", "pearl-necklace", "perfumery-job", "petals", "phonolfactory-table-lv1-2", "phonolfactory-table-lv3-plus", "pickling-jar", "plain-rice-porridge", "playful-personality", "porcelain", "potato", "potato-chips", "potato-kvass", "pottery", "practical-personality", "premium-berry-chocolate-coconut-pudding", "premium-bread", "premium-jello", "premium-mixed-perfume", "premium-potato-soup", "premium-river-washed-stones", "premium-rose-freshener", "premium-salted-lemon", "premium-soap", "premium-sweet-rice-wine", "premium-wheat", "quartz-ore", "refined-flour", "refined-ore", "rice", "rice-drink", "rice-vinegar", "rich-grape-compote", "river-washed-stones", "roasted-soybeans", "roasted-waxing-moon-pepper", "rock", "rock-candy", "rose", "rose-concentrate", "rose-freshener", "rose-incense", "rose-shortbread", "rough-lumber", "rubber-duck", "salted-cherry-blossom", "salted-lemon", "scales", "sea-salt", "shell", "shell-ornament", "shredded-coconut", "simmering-pot", "sintered-ore-brick", "soap", "soy-sauce", "soy-sauce-fried-rice", "soy-sauce-tofu", "soybean", "standard-planks", "star", "star-wish-lantern", "starfall-hammock", "steamed-vermicelli-roll", "storage-unit", "strawberry", "strawberry-candy", "strawberry-cream-puff", "strawberry-jam", "strawberry-juice", "sugar-roasted-chestnuts", "sugarcane", "sugarcane-juice", "sunlamp", "sweet-rice-drink", "tanghulu", "tenacious-personality", "tidewhisper-sandcastle", "toasted-rice-green-tea", "tofu", "umbral-hot-pot", "umbral-pickle", "umbral-sweet-spicy-sauce", "walnut", "walnut-cake", "walnut-milk", "water-job", "waxing-moon-pepper", "well", "well-water", "wheat", "wheat-tea", "wheatmeal", "willow-wood", "wind-chime", "wind-job", "wood-block", "wood-sculpture", "woodland-lv1-2", "woodland-lv3-plus", "woodworking-bench", "wool", "wool-fabric", "woolen-yarn", "woven-toy",
+    "magic-pumpkin", "memory-lanternfruit", "sea-salt-roasted-pumpkin", "magic-pumpkin-lantern", "magic-pumpkin-cake", "golden-lantern-pumpkin-soup", "honey-glazed-pumpkin-cup", "candied-lanternfruit", "memory-lantern", "sparkling-fruit-juice", "glowing-lantern-set", "magic-pumpkin-seed",
+    "candied-magic-pumpkin", "gleam-fruit-nectar", "glowfruit-lantern-set", "salt-roasted-pumpkin"]);
+
+export const LOCAL_HOMELAND_ITEMS = new Set([
+    'magic-pumpkin',
+    'memory-lanternfruit',
+    'magic-pumpkin-seed',
+    'sea-salt-roasted-pumpkin',
+    'magic-pumpkin-lantern',
+    'magic-pumpkin-cake',
+    'golden-lantern-pumpkin-soup',
+    'honey-glazed-pumpkin-cup',
+    'candied-lanternfruit',
+    'memory-lantern',
+    'gleam-fruit-nectar',
+    'glowfruit-lantern-set'
+]);
 
 /**
  * Convert snake_case or English item name to asset slug.
@@ -77,7 +94,12 @@ export function itemToSlug(itemName) {
         'quick-lambswool': 'wool',
         'quick-scales': 'scales',
         'quick-aromathyst': 'aromathyst',
-        'umbral-sweet-and-spicy-sauce': 'umbral-sweet-spicy-sauce'
+        'umbral-sweet-and-spicy-sauce': 'umbral-sweet-spicy-sauce',
+        'salt-roasted-pumpkin': 'sea-salt-roasted-pumpkin',
+        'sparkling-fruit-juice': 'gleam-fruit-nectar',
+        'glowing-lantern-set': 'glowfruit-lantern-set',
+        'candied-magic-pumpkin': 'candied-lanternfruit',
+        'lantern-pumpkin-soup': 'golden-lantern-pumpkin-soup'
     };
 
     if (ALIASES[slug]) return ALIASES[slug];
@@ -189,11 +211,15 @@ export function getFacilityIconUrl(facilityName, level = 1) {
 
 /**
  * Get item icon URL.
+ * Ưu tiên các item đã có asset local trong images/homeland/
  * @param {string} itemName
  * @returns {string}
  */
 export function getItemIconUrl(itemName) {
     const slug = itemToSlug(itemName);
+    if (LOCAL_HOMELAND_ITEMS.has(slug)) {
+        return `images/homeland/aniimo-${slug}-homeland.webp`;
+    }
     return `${CDN_BASE}aniimo-${slug}-homeland.webp`;
 }
 
@@ -213,9 +239,7 @@ export function renderFacilityIcon(facilityName) {
  * @returns {string}
  */
 const PLACEHOLDER_SVGS = {
-    'magic_pumpkin': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Magic Pumpkin (Placeholder)"><circle cx="16" cy="17" r="11" fill="#ea580c" stroke="#f97316" stroke-width="2"/><path d="M16 4 v5" stroke="#15803d" stroke-width="3" stroke-linecap="round"/><text x="16" y="21" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🎃</text></svg>`,
     'candied_magic_pumpkin': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Candied Magic Pumpkin (Placeholder)"><circle cx="16" cy="17" r="11" fill="#c2410c" stroke="#fb923c" stroke-width="2"/><text x="16" y="21" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🍬</text></svg>`,
-    'memory_lanternfruit': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Memory Lanternfruit (Placeholder)"><circle cx="16" cy="16" r="11" fill="#854d0e" stroke="#eab308" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🏮</text></svg>`,
     'roasted_lanternfruit': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Roasted Lanternfruit (Placeholder)"><circle cx="16" cy="16" r="11" fill="#713f12" stroke="#fde047" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🔥</text></svg>`,
     'wonder_pumpkin_pot': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Pumpkin Pot (Placeholder)"><circle cx="16" cy="16" r="11" fill="#431407" stroke="#fb923c" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🍲</text></svg>`,
     'wonder_sweet_and_spicy_sauce': `<svg class="item-icon-img placeholder-item-svg" viewBox="0 0 32 32" title="Wonder Sweet & Spicy Sauce (Placeholder)"><circle cx="16" cy="16" r="11" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/><text x="16" y="20" font-size="11" text-anchor="middle" fill="#fff" font-weight="bold">🥫</text></svg>`,
@@ -225,6 +249,10 @@ const PLACEHOLDER_SVGS = {
 
 export function renderItemIcon(itemName) {
     if (!itemName) return '';
+    const slug = itemToSlug(itemName);
+    if (LOCAL_HOMELAND_ITEMS.has(slug)) {
+        return `<img class="item-icon-img" src="images/homeland/aniimo-${slug}-homeland.webp" alt="${itemName}" loading="lazy" onerror="this.style.display='none'">`;
+    }
     if (PLACEHOLDER_SVGS[itemName]) return PLACEHOLDER_SVGS[itemName];
     const url = getItemIconUrl(itemName);
     return `<img class="item-icon-img" src="${url}" alt="${itemName}" loading="lazy" onerror="this.style.display='none'">`;
